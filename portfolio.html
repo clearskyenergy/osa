@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSky-OMEGA · Portfolio</title>
+<link rel="icon" href="/omega-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   OMEGA PORTFOLIO CONSOLE
+
+   Same tokens and same dark topbar as the verification console — they are one
+   deployment and a partner moves between them.
+
+   The signature here is the FUNNEL CASCADE. Every partner conversation is
+   really about conversion, and a bar chart of what is currently in each stage
+   answers a different and less useful question than "of everything you brought
+   us, how far did it get". So the cascade counts deals that EVER reached each
+   gate, holds the denominator fixed at everything referred, and keeps dead
+   deals in it permanently. It is the one loud element; everything else is a
+   table.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1D2D3E; --ink-2:#556B82; --ink-3:#8A9BAB;
+  --page:#EDEFF1; --card:#FFFFFF; --line:#E4E8EC;
+  --navy:#0B2233; --accent:#4338CA; --accent-hi:#5B50E0; --accent-soft:#EEEDFB;
+  --money:#0F766E; --money-soft:#E6F4F1;
+  --ok:#16A34A; --warn:#D97706; --bad:#DC2626; --hold:#6B7280;
+  --shadow:0 1px 2px rgba(20,40,60,.05); --shadow-lg:0 10px 34px rgba(15,39,51,.16);
+  --r:10px;
+}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--accent)}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent-hi);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+#boot{position:fixed;inset:0;background:var(--page);z-index:9000;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;transition:opacity .3s}
+#boot.hide{opacity:0;pointer-events:none}
+.spin{width:26px;height:26px;border:2.5px solid #D8DEE4;border-top-color:var(--accent);
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.boot-txt{font-size:12px;color:var(--ink-2);letter-spacing:.4px}
+
+/* Auth + gate */
+#auth-screen,#gate-screen{min-height:100vh;display:none;align-items:center;justify-content:center;
+  padding:24px;background:linear-gradient(160deg,#0B2233 0%,#152C46 55%,#0A1622 100%)}
+.auth-card{background:#fff;border-radius:16px;padding:34px 32px;width:100%;max-width:420px;
+  box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.auth-logo{display:flex;align-items:center;gap:11px;margin-bottom:20px}
+.auth-logo img{height:42px;border-radius:9px}
+.auth-logo b{font-size:16px;font-weight:700;color:var(--navy);display:block}
+.auth-logo small{font-size:10.5px;color:var(--accent);letter-spacing:.7px;text-transform:uppercase;font-weight:700}
+.auth-h{font-size:19px;font-weight:700;color:var(--navy)}
+.auth-sub{font-size:13px;color:var(--ink-2);margin-top:6px;line-height:1.55}
+.fld{margin-top:14px}
+.fld label{display:block;font-size:11px;font-weight:600;color:var(--ink-2);text-transform:uppercase;
+  letter-spacing:.6px;margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;border:1.5px solid #DDE3E9;border-radius:8px;
+  padding:10px 12px;font:400 14px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent)}
+.fld textarea{resize:vertical;min-height:70px;line-height:1.55}
+.fld .hint{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.btn{border:none;border-radius:8px;padding:11px 16px;font:600 13.5px 'DM Sans',sans-serif;cursor:pointer}
+.btn-p{background:var(--accent);color:#fff;width:100%;margin-top:16px}
+.btn-p:hover:not(:disabled){background:var(--accent-hi)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-g{background:#fff;color:var(--ink);border:1.5px solid #DDE3E9;width:100%;margin-top:10px;
+  display:flex;align-items:center;justify-content:center;gap:9px}
+.auth-or{display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:#98A6B3;font-size:11px}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:#E6EAEE}
+.auth-msg{display:none;margin-top:14px;padding:10px 12px;border-radius:8px;font-size:12.5px;line-height:1.5}
+#auth-err{background:#FDECEC;color:#8A1F1F}
+#auth-ok{background:#EAF6EC;color:#1B5E20}
+.auth-foot{margin-top:18px;font-size:11.5px;color:#94A3AF;text-align:center;line-height:1.6}
+
+#app{display:none}
+#topbar{height:52px;background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;
+  padding:0 16px;position:sticky;top:0;z-index:60}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;color:#fff}
+.tb-logo img{height:26px;border-radius:6px}
+.tb-logo-txt{font-size:14px;font-weight:700}
+.tb-sep{width:1px;height:22px;background:rgba(255,255,255,.18)}
+.tb-portal{font-size:13px;color:rgba(255,255,255,.9)}
+.tb-badge{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  background:var(--accent);color:#fff;padding:3px 8px;border-radius:5px}
+.tb-spacer{flex:1}
+.tb-user{display:flex;align-items:center;gap:9px}
+.tb-name{font-size:12.5px;color:rgba(255,255,255,.82);max-width:180px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.btn-sm{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
+  border-radius:7px;padding:6px 11px;font-size:12.5px;cursor:pointer}
+.btn-sm:hover:not(:disabled){background:rgba(255,255,255,.2)}
+.btn-sm.pri{background:var(--accent);border-color:var(--accent)}
+.menu-btn{display:none;background:none;border:none;color:#fff;cursor:pointer;padding:4px}
+
+#shell{display:flex;min-height:calc(100vh - 52px)}
+#side{width:212px;background:#fff;border-right:1px solid var(--line);padding:14px 10px;flex-shrink:0}
+.sn-group{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink-3);padding:12px 10px 6px}
+.sn-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--ink);
+  text-align:left;text-decoration:none}
+.sn-item:hover{background:#F3F5F7}
+.sn-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.sn-item svg{width:16px;height:16px;flex-shrink:0}
+.sn-item span:first-of-type{flex:1}
+.sn-count{background:#E9EDF1;color:var(--ink-2);font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px}
+.sn-count.alert{background:var(--warn);color:#fff}
+.sn-item.active .sn-count{background:var(--accent);color:#fff}
+
+#main{flex:1;padding:22px 26px 60px;max-width:1600px;min-width:0}
+.view{display:none}.view.on{display:block}
+.ph{margin-bottom:18px}
+.ph h1{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--navy)}
+.ph p{font-size:13px;color:var(--ink-2);margin-top:5px;line-height:1.6;max-width:76ch}
+
+@media(max-width:900px){
+  .menu-btn{display:block}
+  #side{position:fixed;top:52px;bottom:0;left:-222px;z-index:55;transition:left .2s}
+  #side.on{left:0;box-shadow:var(--shadow-lg)}
+  #main{padding:16px 14px 60px}
+  .tb-name{display:none}
+}
+
+.banner{border-radius:var(--r);padding:11px 14px;font-size:12.5px;line-height:1.55;margin-bottom:14px}
+.banner.info{background:#EAF1FE;color:#173A6D}
+.banner.warn{background:#FEF4E6;color:#7A4A08}
+.banner.demo{background:#F2EFFC;color:#3A2E8C}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;
+  box-shadow:var(--shadow)}
+.stat .k{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3)}
+.stat .v{font-size:23px;font-weight:500;margin-top:5px;color:var(--navy);letter-spacing:-.5px}
+.stat .s{font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.45}
+.stat.money .v{color:var(--money)}
+.stat.alert .v{color:var(--bad)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);margin-bottom:16px}
+.card-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+  gap:10px;flex-wrap:wrap}
+.card-h h2{font-size:14px;font-weight:600;color:var(--navy)}
+.card-h .sub{font-size:12px;color:var(--ink-2)}
+.card-b{padding:16px}
+
+/* ── The funnel cascade: the one loud element ─────────────────────────── */
+.funnel{display:flex;flex-direction:column;gap:2px}
+.fn{display:grid;grid-template-columns:132px 1fr 108px;gap:12px;align-items:center;
+  padding:5px 0}
+.fn .l{font-size:12.5px;color:var(--ink-2);text-align:right}
+.fn .track{background:#F1F4F6;border-radius:4px;height:26px;position:relative;overflow:hidden}
+.fn .track i{display:block;height:100%;border-radius:4px;transition:width .3s}
+.fn .track b{position:absolute;left:9px;top:0;line-height:26px;font-size:12.5px;font-weight:600;
+  color:#fff;font-family:'DM Mono',monospace;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.fn .r{font-size:12.5px;color:var(--ink-2);font-family:'DM Mono',monospace}
+.fn .r em{font-style:normal;color:var(--ink-3);font-size:11px}
+.fn.drop .l{color:var(--bad)}
+.fnote{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:12px;max-width:70ch}
+
+table{width:100%;border-collapse:collapse}
+th{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3);
+  text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.num,td.num{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid #F0F3F5;font-size:13px;vertical-align:top}
+tr.row{cursor:pointer}
+tr.row:hover td{background:#F7F9FB}
+.t-name{font-weight:600;color:var(--navy)}
+.t-sub{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.empty{padding:34px 16px;text-align:center;color:var(--ink-2);font-size:13px;line-height:1.6}
+.empty b{display:block;color:var(--navy);font-size:14px;margin-bottom:5px}
+.tbl-wrap{overflow-x:auto}
+tfoot td{font-weight:600;color:var(--navy);border-top:1.5px solid var(--line);border-bottom:none}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.cat{display:inline-block;font-size:10.5px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
+  border-radius:5px;padding:2px 7px;margin:0 4px 4px 0}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;background:var(--accent-soft);
+  color:var(--accent);border-radius:5px;padding:2px 7px;margin:0 4px 4px 0}
+.stale{color:var(--warn);font-size:11px;font-weight:600}
+.lock{font-size:10.5px;color:var(--ink-3)}
+
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;
+  font-size:12.5px;cursor:pointer;color:var(--ink-2)}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+/* Money bar: closed / drawn / undrawn in one strip */
+.mbar{height:10px;border-radius:5px;background:#E9EDF1;overflow:hidden;display:flex;margin-top:6px}
+.mbar i{display:block;height:100%}
+.mbar .drawn{background:var(--money)}
+.mbar .approved{background:#5EBFB4}
+.mkey{display:flex;gap:14px;font-size:11px;color:var(--ink-2);margin-top:6px;flex-wrap:wrap}
+.mkey span{display:flex;align-items:center;gap:5px}
+.mkey i{width:9px;height:9px;border-radius:2px;display:block}
+
+#scrim{position:fixed;inset:0;background:rgba(11,34,51,.42);z-index:70;display:none}
+#scrim.on{display:block}
+#drawer{position:fixed;top:0;right:-880px;width:880px;max-width:100vw;height:100vh;
+  background:var(--page);z-index:80;display:flex;flex-direction:column;transition:right .22s ease;
+  box-shadow:var(--shadow-lg)}
+#drawer.on{right:0}
+.dr-h{background:#fff;border-bottom:1px solid var(--line);padding:15px 20px;flex-shrink:0}
+.dr-h .top{display:flex;align-items:flex-start;gap:12px}
+.dr-h h2{font-size:17px;font-weight:700;color:var(--navy);flex:1}
+.dr-h .meta{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.5}
+.dr-x{background:none;border:none;font-size:22px;color:var(--ink-3);cursor:pointer;line-height:1;padding:0 4px}
+.dr-tabs{display:flex;gap:2px;margin-top:12px;flex-wrap:wrap}
+.dr-tab{background:none;border:none;padding:7px 12px;border-radius:7px;font-size:12.5px;
+  color:var(--ink-2);cursor:pointer}
+.dr-tab:hover{background:#F3F5F7}
+.dr-tab.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.dr-b{flex:1;overflow-y:auto;padding:18px 20px 30px}
+.dr-f{background:#fff;border-top:1px solid var(--line);padding:12px 20px;flex-shrink:0;
+  display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.dr-f .spacer{flex:1}
+@media(max-width:900px){#drawer{width:100vw;right:-100vw}}
+
+.sec{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.sec-h{padding:11px 15px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:9px}
+.sec-h .r{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;font-size:11.5px;color:var(--ink-3)}
+.sec-b{padding:15px}
+.sec-note{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:9px}
+
+.kv{display:grid;grid-template-columns:150px 1fr;gap:7px 14px;font-size:13px}
+.kv dt{color:var(--ink-3);font-size:11.5px;padding-top:1px}
+.kv dd{color:var(--ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+
+.btn-o{background:#fff;border:1.5px solid var(--line);color:var(--ink);border-radius:8px;
+  padding:9px 14px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.btn-o:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn-a{background:var(--accent);border:1.5px solid var(--accent);color:#fff;border-radius:8px;
+  padding:9px 16px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.btn-a:hover:not(:disabled){background:var(--accent-hi)}
+.btn-d{background:#fff;border:1.5px solid #F0C9C9;color:var(--bad);border-radius:8px;
+  padding:9px 14px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.btn-o:disabled,.btn-a:disabled,.btn-d:disabled{opacity:.5;cursor:not-allowed}
+.btn-x{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:3px 6px;font-weight:500}
+.btn-x.danger{color:var(--bad)}
+
+.problems{background:#FDECEC;border:1px solid #F5C6C6;border-radius:8px;padding:11px 13px;margin-bottom:13px}
+.problems b{display:block;font-size:12.5px;color:#8A1F1F;margin-bottom:6px}
+.problems li{font-size:12.5px;color:#8A1F1F;line-height:1.55;margin-left:17px}
+
+.note{border-left:2.5px solid var(--line);padding:2px 0 10px 12px;margin-bottom:10px}
+.note .m{font-size:11px;color:var(--ink-3)}
+.note .t{font-size:12.5px;line-height:1.6;margin-top:3px;white-space:pre-wrap}
+.act{font-size:12px;color:var(--ink-2);padding:6px 0;border-bottom:1px solid #F4F6F8;line-height:1.5}
+.act:last-child{border-bottom:none}
+.act b{color:var(--ink)}
+.act span{color:var(--ink-3);font-size:11px}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--navy);color:#fff;padding:11px 18px;border-radius:9px;font-size:13px;z-index:200;
+  opacity:0;transition:.22s;pointer-events:none;max-width:88vw;text-align:center}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.bad{background:var(--bad)}
+pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflow-x:auto;
+  font-family:'DM Mono',monospace;line-height:1.5;color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<div id="boot"><div class="spin"></div><div class="boot-txt">Loading portfolio…</div></div>
+
+<!-- ══════════════ AUTH ══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo"><img src="/omega-logo.png" alt="" onerror="this.style.display='none'">
+      <div><b>ClearSky-OMEGA</b><small>Partner portfolio</small></div></div>
+    <div class="auth-h">Sign in</div>
+    <div class="auth-sub">For ClearSky staff and partner organisations. New here? Sign in and
+      your request goes to an administrator.</div>
+    <div class="fld"><label for="auth-email">Work email</label>
+      <input id="auth-email" type="email" autocomplete="username" placeholder="you@yourfirm.com"></div>
+    <div class="fld"><label for="auth-pass">Password</label>
+      <input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn btn-p" id="email-auth-btn" onclick="emailAuth()">Sign in</button>
+    <div class="auth-or">or</div>
+    <button class="btn btn-g" id="google-signin-btn" onclick="signInWithGoogle()">
+      <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"/><path fill="#EA4335" d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google</button>
+    <button class="btn-x" style="margin-top:12px;width:100%" onclick="resetPassword()">Forgot password</button>
+    <div class="auth-msg" id="auth-err"></div>
+    <div class="auth-msg" id="auth-ok"></div>
+    <div class="auth-foot">Access is granted per person by an administrator.</div>
+  </div>
+</div>
+
+<!-- ══════════════ PENDING / BLOCKED GATE ══════════════
+     A pending account reaches this screen and nothing else. It names no deal,
+     no partner and no other user, because a pending account is an unverified
+     stranger and this is the one page they can load. -->
+<div id="gate-screen">
+  <div class="auth-card">
+    <div class="auth-logo"><img src="/omega-logo.png" alt="" onerror="this.style.display='none'">
+      <div><b>ClearSky-OMEGA</b><small>Partner portfolio</small></div></div>
+    <div class="auth-h" id="gate-h">Waiting for approval</div>
+    <div class="auth-sub" id="gate-msg"></div>
+    <div class="fld"><label for="gate-name">Your name</label><input id="gate-name"></div>
+    <div class="fld"><label for="gate-org">Organisation</label><input id="gate-org"
+      placeholder="Company name"></div>
+    <div class="fld"><label for="gate-title">Role</label><input id="gate-title"
+      placeholder="e.g. Head of Development"></div>
+    <button class="btn btn-p" onclick="saveGateProfile()">Save details</button>
+    <div class="auth-sub" style="margin-top:14px;font-size:12px" id="gate-contact"></div>
+    <button class="btn-x" style="margin-top:10px;width:100%" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app">
+<div id="topbar">
+  <button class="menu-btn" onclick="document.getElementById('side').classList.toggle('on')" aria-label="Menu">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  <a href="/portfolio.html" class="tb-logo">
+    <img src="/omega-logo.png" alt="" onerror="this.style.display='none'">
+    <span class="tb-logo-txt">ClearSky OMEGA</span></a>
+  <div class="tb-sep"></div>
+  <span class="tb-portal">Portfolio</span>
+  <span class="tb-badge" id="tb-badge">—</span>
+  <div class="tb-spacer"></div>
+  <div class="tb-user">
+    <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
+    <button class="btn-sm" onclick="refresh(true)" id="btn-refresh">Refresh</button>
+    <span class="tb-name" id="tb-name"></span>
+    <button class="btn-sm" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<div id="shell">
+  <nav id="side">
+    <div class="sn-group">Portfolio</div>
+    <button class="sn-item active" data-view="dash" onclick="go('dash')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Overview</span></button>
+    <button class="sn-item" data-view="pipeline" onclick="go('pipeline')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></svg>
+      <span>Pipeline</span><span class="sn-count" id="c-pipe">0</span></button>
+    <button class="sn-item" data-view="partners" onclick="go('partners')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+      <span>Partners</span><span class="sn-count" id="c-partners">0</span></button>
+    <button class="sn-item" data-view="funding" onclick="go('funding')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Funding</span><span class="sn-count" id="c-draws">0</span></button>
+    <button class="sn-item" data-view="supply" onclick="go('supply')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      <span>Supply / BOM</span></button>
+
+    <div class="sn-group">Administration</div>
+    <button class="sn-item" data-view="users" onclick="go('users')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+      <span>Users</span><span class="sn-count" id="c-users">0</span></button>
+    <button class="sn-item" data-view="orgs" onclick="go('orgs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <span>Organisations</span></button>
+
+    <div class="sn-group">Elsewhere</div>
+    <a class="sn-item" href="/index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+      <span>Verification</span></a>
+  </nav>
+
+  <main id="main">
+    <div id="banners"></div>
+
+    <section class="view on" id="v-dash">
+      <div class="ph"><h1 id="dash-h">Portfolio</h1>
+        <p>Everything referred, wherever it got to. Dead and parked deals stay in every
+           denominator on this page \u2014 a partner who brought forty sites and funded one is
+           a different partner from one who brought one and funded one.</p></div>
+      <div class="stats" id="dash-stats"></div>
+      <div class="card">
+        <div class="card-h"><h2>Conversion</h2>
+          <span class="sub" id="dash-fnsub"></span></div>
+        <div class="card-b"><div class="funnel" id="dash-funnel"></div>
+          <div class="fnote">Counts deals that <b>ever reached</b> each gate, not what is sitting
+            there now. A site that funded and then failed in construction still reached funded \u2014
+            counting only current stage would make this curve improve every time something
+            blew up.</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h2>Where the money is</h2></div>
+          <div class="card-b" id="dash-money"></div></div>
+        <div class="card"><div class="card-h"><h2>Why deals died</h2></div>
+          <div class="card-b" id="dash-dead"></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-pipeline">
+      <div class="ph"><h1>Pipeline</h1>
+        <p>Every deal, with who brought it and how far it got. Attribution locks when a deal
+           leaves Referred.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>Deals</h2>
+          <div class="chips" id="pipe-chips" style="margin-left:auto"></div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Brought by</th><th>Stage</th><th class="num">Size</th>
+            <th class="num">Capex</th><th class="num">Closed</th><th class="num">Drawn</th>
+            <th>Age</th></tr></thead>
+          <tbody id="pipe-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-partners">
+      <div class="ph"><h1>Partners</h1>
+        <p>Two relationships per organisation, counted separately: what they <b>brought</b> and
+           what they <b>supplied</b>. A manufacturer who refers a site and then sells you its
+           cells is doing both, and one combined number hides the second.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>By organisation</h2>
+          <span class="sub">Sorted by capital closed on deals they originated</span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Organisation</th><th class="num">Referred</th><th class="num">Live</th>
+            <th class="num">Funded</th><th class="num">Conversion</th><th class="num">Closed $</th>
+            <th class="num">Supplied $</th><th class="num">Median days to close</th></tr></thead>
+          <tbody id="partner-rows"></tbody></table></div>
+      </div>
+      <div id="partner-detail"></div>
+    </section>
+
+    <section class="view" id="v-funding">
+      <div class="ph"><h1>Funding</h1>
+        <p>Five numbers, never merged: requested, committed, closed, drawn, deployed.
+           Committed is a promise, closed is a legal obligation, drawn is cash that moved,
+           and deployed is what is actually in the ground.</p></div>
+      <div class="stats" id="fund-stats"></div>
+      <div class="card">
+        <div class="card-h"><h2>Draws needing action</h2>
+          <span class="sub">Requested or approved, not yet funded</span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Draw</th><th>Purpose</th><th class="num">Amount</th>
+            <th>Status</th><th>Requested</th><th></th></tr></thead>
+          <tbody id="draw-rows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Funded deals</h2></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Investor</th><th class="num">Closed</th><th class="num">Drawn</th>
+            <th class="num">Undrawn</th><th class="num">Deployed</th><th>Utilisation</th></tr></thead>
+          <tbody id="fund-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-supply">
+      <div class="ph"><h1>Supply and BOM</h1>
+        <p>Every bill-of-materials line across the portfolio, by supplier. This is the loop back
+           to the partner who referred the site: the referral and the purchase order it produced
+           sit in the same view.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>By supplier</h2>
+          <div class="chips" id="supply-chips" style="margin-left:auto"></div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Supplier</th><th class="num">Lines</th><th class="num">Deals</th>
+            <th class="num">Specified $</th><th class="num">Committed $</th><th>Also referred</th></tr></thead>
+          <tbody id="supply-rows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>All lines</h2></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Category</th><th>Item</th><th>Supplier</th>
+            <th class="num">Qty</th><th class="num">Total</th><th>Status</th></tr></thead>
+          <tbody id="bom-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-users">
+      <div class="ph"><h1>Users</h1>
+        <p id="users-sub">Approve access, set roles, and scope limited administrators to the
+           organisations they manage. Nobody can grant a role above their own, approve
+           themselves, or touch the owner account.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>Access requests and members</h2>
+          <div class="chips" id="user-chips" style="margin-left:auto"></div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Person</th><th>Organisation</th><th>Role</th><th>Status</th>
+            <th>Last seen</th><th>Actions</th></tr></thead>
+          <tbody id="user-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-orgs">
+      <div class="ph"><h1>Organisations</h1>
+        <p>What kind of partner each organisation is, and the referral arrangement. This lives on
+           the company, not on whoever from it happens to be logged in.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>Registry</h2>
+          <button class="btn-x" style="margin-left:auto" onclick="openOrgEdit('')">+ Add organisation</button></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Organisation</th><th>Kind</th><th>Referral basis</th><th>Agreement</th>
+            <th class="num">Deals brought</th><th></th></tr></thead>
+          <tbody id="org-rows"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+</div>
+
+<div id="scrim" onclick="closeDrawer()"></div>
+<aside id="drawer" role="dialog" aria-modal="true">
+  <div class="dr-h">
+    <div class="top"><div style="flex:1;min-width:0">
+      <h2 id="dr-title">—</h2><div class="meta" id="dr-meta"></div></div>
+      <button class="dr-x" onclick="closeDrawer()" aria-label="Close">×</button></div>
+    <div class="dr-tabs" id="dr-tabs"></div>
+  </div>
+  <div class="dr-b" id="dr-body"></div>
+  <div class="dr-f" id="dr-foot"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="/config.js?v=2"></script>
+<script src="/access-data.js?v=1"></script>
+<script src="/portfolio-data.js?v=1"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   OMEGA PORTFOLIO CONSOLE (v1)
+
+   Reads `deals` and `omega_users`. Scoped by role in the query AND in the
+   rules: an unscoped query against a scoped rule is refused outright, which
+   surfaces as "the page is broken" rather than as "you can't see that", so
+   the client filters to what it is allowed rather than asking for everything.
+   ══════════════════════════════════════════════════════════════════════════ */
+var F = Portfolio, A = OmegaAccess;
+var auth, db, ME = null;
+var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
+          pipeFilter:'live', userFilter:'pending', supplyFilter:'all',
+          openId:null, tab:'overview', partnerOpen:'' };
+
+function ready(){ var e=document.getElementById('boot');
+  if(!e||e.classList.contains('hide'))return; e.classList.add('hide');
+  setTimeout(function(){ e.parentNode&&e.parentNode.removeChild(e); },320); }
+
+(function boot(){
+  if (typeof firebase==='undefined' || !window.CLEARSKY_CONFIG){ setTimeout(boot,120); return; }
+  try { firebase.initializeApp(window.CLEARSKY_CONFIG.firebase); }
+  catch(e){ if(!/already exists/.test(e.message)) console.error('Firebase init:',e); }
+  auth=firebase.auth(); db=firebase.firestore();
+
+  auth.onAuthStateChanged(function(user){
+    if(!user){ ready(); showLogin(); return; }
+    A.resolve(db, user).then(function(rec){
+      ready();
+      ME = rec;
+      if (rec.status !== 'active'){ showGate(rec); return; }
+      F.init(db, rec);
+      showApp();
+    })['catch'](function(err){
+      ready();
+      console.error('[portfolio] identity:', err);
+      showAuthErr('Could not read your account. If this is a new deployment, the '
+        + 'omega_users rules are probably not merged yet. ' + (err&&err.message||''));
+      auth.signOut();
+    });
+  });
+})();
+
+function showLogin(){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('gate-screen').style.display='none';
+  document.getElementById('app').style.display='none';
+}
+function showGate(rec){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='none';
+  var g=document.getElementById('gate-screen'); g.style.display='flex';
+  document.getElementById('gate-h').textContent =
+    rec.status==='suspended' ? 'Account suspended'
+    : rec.status==='rejected' ? 'Request not approved' : 'Waiting for approval';
+  document.getElementById('gate-msg').textContent = A.blockedMessage(rec);
+  document.getElementById('gate-name').value  = rec.name || '';
+  document.getElementById('gate-org').value   = rec.orgName || '';
+  document.getElementById('gate-title').value = rec.title || '';
+  var c=(window.CLEARSKY_CONFIG.access||{}).approvalContact;
+  document.getElementById('gate-contact').textContent = c ? 'Chasing it? ' + c : '';
+  /* Profile fields stay editable while pending: the approver needs a name and a
+     company to decide, and an email domain alone is not enough to act on. */
+  ME = rec;
+}
+function saveGateProfile(){
+  A.init && A.init(db, ME);
+  A.updateSelf({
+    name: document.getElementById('gate-name').value.trim(),
+    orgName: document.getElementById('gate-org').value.trim(),
+    title: document.getElementById('gate-title').value.trim()
+  }).then(function(){ toast('Saved \u2014 an administrator will see this'); })
+   ['catch'](function(e){ toast((e&&e.message)||'Could not save',true); });
+}
+function showAuthErr(m){ var el=document.getElementById('auth-err');
+  el.textContent=m; el.style.display='block';
+  var b=document.getElementById('email-auth-btn'); if(b){b.disabled=false;b.textContent='Sign in';}
+  var g=document.getElementById('google-signin-btn'); if(g)g.disabled=false; }
+function showAuthOk(m){ var el=document.getElementById('auth-ok'); el.textContent=m; el.style.display='block'; }
+function clearAuthMsg(){ ['auth-err','auth-ok'].forEach(function(i){
+  var e=document.getElementById(i); if(e)e.style.display='none'; }); }
+
+function showApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('gate-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('tb-name').textContent = ME.name;
+  document.getElementById('tb-badge').textContent = A.roleOf(ME.role).label;
+  document.getElementById('dash-h').textContent =
+    A.can('see_all') ? 'Portfolio' : (ME.orgName || ME.orgId) + ' \u00b7 portfolio';
+  /* Hide what this role cannot do rather than showing a button that errors. The
+     rules refuse it either way; a dead button just wastes somebody's click. */
+  if (!A.can('write_deal')) document.getElementById('btn-new').style.display='none';
+  if (!A.can('approve_any') && !A.can('approve_scoped') && !A.can('approve_own_org'))
+    hideNav('users');
+  if (!A.can('approve_any')) hideNav('orgs');
+  go(location.hash.replace('#/','')||'dash', true);
+  refresh();
+}
+function hideNav(v){
+  var b=document.querySelector('.sn-item[data-view="'+v+'"]');
+  if(b) b.style.display='none';
+}
+
+/* ── Auth actions ─────────────────────────────────────────────────────── */
+function signInWithGoogle(){ clearAuthMsg();
+  var b=document.getElementById('google-signin-btn'); b.disabled=true;
+  var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'});
+  auth.signInWithPopup(p)['catch'](function(e){ showAuthErr(e.message); }); }
+function emailAuth(){ clearAuthMsg();
+  var e=document.getElementById('auth-email').value.trim(), p=document.getElementById('auth-pass').value;
+  if(!e||!p){ showAuthErr('Enter your email and password.'); return; }
+  var b=document.getElementById('email-auth-btn'); b.disabled=true; b.textContent='Signing in…';
+  auth.signInWithEmailAndPassword(e,p)['catch'](function(err){
+    var c=(err&&err.code)||'';
+    if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found')
+      showAuthErr('That email and password don\u2019t match an account.');
+    else if(c==='auth/too-many-requests') showAuthErr('Too many attempts. Wait a few minutes.');
+    else showAuthErr((err&&err.message)||'Sign-in failed.'); }); }
+function resetPassword(){ clearAuthMsg();
+  var e=document.getElementById('auth-email').value.trim();
+  if(!e){ showAuthErr('Enter your email address first.'); return; }
+  /* Same message whether or not the address exists \u2014 a different one would
+     confirm which addresses are registered to anyone who can load this page. */
+  auth.sendPasswordResetEmail(e)['finally'](function(){
+    showAuthOk('If that address has an account, a reset link is on its way.'); }); }
+function signOut(){ auth.signOut(); }
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.getElementById('auth-screen').style.display==='flex') emailAuth();
+  if(e.key==='Escape') closeDrawer(); });
+
+/* ── Data ─────────────────────────────────────────────────────────────── */
+function refresh(manual){
+  var b=document.getElementById('btn-refresh');
+  if(b){ b.disabled=true; b.textContent='Loading…'; }
+  Promise.all([
+    F.loadDeals()['catch'](function(e){ dealErr=e; return []; }),
+    A.loadOrgs(),
+    (A.can('approve_any')||A.can('approve_scoped')||A.can('approve_own_org'))
+      ? A.loadUsers()['catch'](function(){ return []; }) : Promise.resolve([])
+  ]).then(function(r){
+    S.deals=r[0]; S.users=r[2]; S.loaded=true; S.demo=false; render();
+  })['finally'](function(){
+    if(b){ b.disabled=false; b.textContent='Refresh'; }
+    if(manual) toast('Refreshed'); });
+}
+var dealErr=null;
+function loadSample(){ S.deals=F.sample(); S.demo=true; S.loaded=true; render();
+  toast('Sample portfolio loaded \u2014 nothing is saved'); }
+
+function go(v,silent){
+  S.view=v;
+  var items=document.querySelectorAll('.sn-item[data-view]');
+  for(var i=0;i<items.length;i++) items[i].classList.toggle('active',items[i].getAttribute('data-view')===v);
+  var vs=document.querySelectorAll('.view');
+  for(var j=0;j<vs.length;j++) vs[j].classList.remove('on');
+  var el=document.getElementById('v-'+v); if(el) el.classList.add('on');
+  if(!silent) location.hash='#/'+v;
+  document.getElementById('side').classList.remove('on');
+  render();
+}
+
+/* ── Render ───────────────────────────────────────────────────────────── */
+function render(){
+  if(!S.loaded) return;
+  renderBanners(); renderDash(); renderPipeline(); renderPartners();
+  renderFunding(); renderSupply(); renderUsers(); renderOrgs(); renderCounts();
+  if(S.openId) renderDrawer();
+}
+function esc(s){ return F.esc(s); }
+
+function renderBanners(){
+  var el=document.getElementById('banners'); el.innerHTML='';
+  if(S.demo){ el.innerHTML='<div class="banner demo"><b>Sample portfolio.</b> '
+    + 'Five fabricated deals held in memory only \u2014 nothing is written. Refresh to clear.</div>'; return; }
+  if(dealErr){
+    el.innerHTML='<div class="banner warn"><b>The deal list could not be read.</b> '
+      + 'Firestore refused the query. On a new deployment this is almost always the rules '
+      + 'fragment not being merged yet. Error: '+esc(dealErr.message||dealErr)+'</div>';
+  }
+  if(!S.deals.length && !dealErr){
+    var x=(window.CLEARSKY_CONFIG.portfolio||{}).allowSample
+      ? ' <button class="btn-x" onclick="loadSample()">Load a sample portfolio</button>':'';
+    el.innerHTML+='<div class="banner info"><b>No deals yet.</b> '
+      + 'Log the first referral with the button in the top right \u2014 who brought it is the '
+      + 'one field that cannot be filled in later without an owner\u2019s approval.'+x+'</div>';
+  }
+  var p=A.pendingCount&&A.pendingCount();
+  if(p) el.innerHTML+='<div class="banner warn"><b>'+p+' access request'+(p>1?'s':'')
+    +' waiting.</b> <button class="btn-x" onclick="go(\'users\')">Review them</button></div>';
+}
+
+function renderCounts(){
+  document.getElementById('c-pipe').textContent = S.deals.filter(function(d){
+    return !F.isExit(d.stage); }).length;
+  document.getElementById('c-partners').textContent = F.allPartners(S.deals).length;
+  var dr=openDraws().length;
+  var el=document.getElementById('c-draws'); el.textContent=dr;
+  el.classList.toggle('alert', dr>0);
+  var pu=A.pendingCount?A.pendingCount():0;
+  var ue=document.getElementById('c-users'); ue.textContent=pu; ue.classList.toggle('alert',pu>0);
+}
+
+/* ── Overview ─────────────────────────────────────────────────────────── */
+function stat(k,v,s,cls){ return '<div class="stat '+(cls||'')+'"><div class="k">'+k+'</div>'
+  +'<div class="v mono">'+v+'</div><div class="s">'+s+'</div></div>'; }
+
+function renderDash(){
+  var p=F.portfolio(S.deals);
+  document.getElementById('dash-stats').innerHTML =
+      stat('Deals referred', p.total, p.live+' live \u00b7 '+p.dead+' dead \u00b7 '+p.parked+' parked')
+    + stat('Capacity', F.mw(p.mw), F.mw(p.mwFunded)+' reached funded')
+    + stat('Capital closed', F.money(p.closedUsd,true),
+           F.money(p.committedUsd,true)+' committed', 'money')
+    + stat('Drawn', F.money(p.drawnUsd,true), F.money(p.undrawnUsd,true)+' still undrawn','money')
+    + stat('Deployed', F.money(p.deployedUsd,true),'committed BOM + pre-development spend','money')
+    + stat('Pre-dev exposure', F.money(p.preDevSpent,true),
+           'against '+F.money(p.preDevBudget,true)+' budgeted');
+
+  document.getElementById('dash-fnsub').textContent = p.total + ' referred, all time';
+  document.getElementById('dash-funnel').innerHTML = funnelHtml(p.funnel, p.total);
+
+  /* Money strip */
+  var closed=p.closedUsd||0, drawn=p.drawnUsd||0;
+  document.getElementById('dash-money').innerHTML =
+      '<dl class="kv">'
+    + kv('Requested', F.money(sum(S.deals,function(d){return d.funding.requestedUsd;}),true))
+    + kv('Committed', F.money(p.committedUsd,true))
+    + kv('Closed',    F.money(p.closedUsd,true))
+    + kv('Drawn',     F.money(p.drawnUsd,true))
+    + kv('Deployed',  F.money(p.deployedUsd,true))
+    + '</dl>'
+    + '<div class="mbar"><i class="drawn" style="width:'+(closed?Math.min(100,drawn/closed*100):0)+'%"></i></div>'
+    + '<div class="mkey"><span><i class="drawn" style="background:var(--money)"></i>Drawn '
+    + F.money(drawn,true)+'</span><span><i style="background:#E9EDF1"></i>Undrawn '
+    + F.money(p.undrawnUsd,true)+'</span></div>'
+    + '<div class="sec-note">Undrawn capital is closed money sitting still. It is the number a '
+    + 'partner waiting on a purchase order actually feels, and it is invisible if you only '
+    + 'track "funded".</div>';
+
+  var dr=Object.keys(p.deadReasons).sort(function(a,b){ return p.deadReasons[b]-p.deadReasons[a]; });
+  document.getElementById('dash-dead').innerHTML = dr.length
+    ? '<dl class="kv">'+dr.map(function(k){ return kv(k, p.deadReasons[k]); }).join('')+'</dl>'
+      + '<div class="sec-note">The most useful table on this page once it has a hundred rows in '
+      + 'it. Twelve sites lost to interconnection cost is a finding you can act on; twelve '
+      + 'blanks is not, which is why a reason is required to mark a deal dead.</div>'
+    : '<div style="font-size:12.5px;color:var(--ink-3)">Nothing has died yet.</div>';
+}
+function kv(k,v){ return '<dt>'+esc(k)+'</dt><dd class="mono">'+v+'</dd>'; }
+function sum(list,fn){ var t=0; list.forEach(function(x){ t+=fn(x)||0; }); return t; }
+
+function funnelHtml(funnel, total){
+  var h='', prev=null;
+  for(var i=0;i<funnel.length;i++){
+    var f=funnel[i];
+    var w = total ? Math.max(2, f.count/total*100) : 2;
+    var drop = prev!=null ? prev - f.count : 0;
+    h += '<div class="fn'+(drop>0?' drop':'')+'">'
+       + '<div class="l">'+esc(f.label)+'</div>'
+       + '<div class="track"><i style="width:'+w+'%;background:'+f.color+'"></i>'
+       +   '<b>'+f.count+'</b></div>'
+       + '<div class="r">'+(total?Math.round(f.pct*100):0)+'%'
+       +   (drop>0?' <em>\u2212'+drop+'</em>':'')+'</div></div>';
+    prev = f.count;
+  }
+  return h;
+}
+
+/* ── Pipeline ─────────────────────────────────────────────────────────── */
+function pipeRows(k){
+  return S.deals.filter(function(d){
+    if(k==='all') return true;
+    if(k==='live') return !F.isExit(d.stage);
+    if(k==='dead') return d.stage==='dead';
+    if(k==='parked') return d.stage==='parked';
+    if(k==='stale') return isStale(d);
+    if(k==='unattributed') return !d.origination.partnerOrg;
+    return d.stage===k;
+  });
+}
+function isStale(d){
+  if(F.isExit(d.stage)) return false;
+  var t=((window.CLEARSKY_CONFIG.portfolio||{}).stallDays||{})[d.stage];
+  if(!t) return false;
+  var since=F.enteredAt(d,d.stage);
+  var n=F.days(since, Date.now());
+  return n!=null && n>t;
+}
+function renderPipeline(){
+  var defs=[{k:'live',l:'Live'},{k:'stale',l:'Stalled'},{k:'unattributed',l:'Unattributed'},
+            {k:'dead',l:'Dead'},{k:'parked',l:'Parked'},{k:'all',l:'All'}];
+  document.getElementById('pipe-chips').innerHTML = defs.map(function(d){
+    return '<button class="chip'+(S.pipeFilter===d.k?' on':'')+'" onclick="setPipe(\''+d.k+'\')">'
+      + d.l+' <span class="mono">'+pipeRows(d.k).length+'</span></button>'; }).join('');
+
+  var rows=pipeRows(S.pipeFilter).slice().sort(function(a,b){
+    return F.stageOf(b.stage).rank-F.stageOf(a.stage).rank; });
+  var host=document.getElementById('pipe-rows');
+  if(!rows.length){ host.innerHTML='<tr><td colspan="8"><div class="empty"><b>Nothing here</b>'
+    +'No deals match this filter.</div></td></tr>'; return; }
+  host.innerHTML = rows.map(function(d){
+    var st=F.stageOf(d.stage);
+    return '<tr class="row" onclick="openDeal(\''+d.id+'\')">'
+      + '<td><div class="t-name">'+esc(d.name)+'</div><div class="t-sub">'+esc(d.address||'\u2014')
+      +   (d.categories.length?' \u00b7 '+d.categories.map(function(c){return c.toUpperCase();}).join(', '):'')
+      +   '</div></td>'
+      + '<td>'+(d.origination.partnerOrg
+          ? '<div>'+esc(d.origination.partnerName||A.orgName(d.origination.partnerOrg))+'</div>'
+            +'<div class="t-sub">'+esc(d.origination.channel||'')
+            +(d.origination.locked?' <span class="lock">\u00b7 locked</span>':'')+'</div>'
+          : '<span style="color:var(--warn);font-weight:600">Unattributed</span>')+'</td>'
+      + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+      +   '<span class="dot"></span>'+esc(st.label)+'</span>'
+      +   (isStale(d)?'<div class="stale">stalled</div>':'')
+      +   (d.stage==='dead'?'<div class="t-sub">'+esc(d.deadReason)+'</div>':'')+'</td>'
+      + '<td class="num mono">'+(d.sizeMw!=null?F.mw(d.sizeMw):'\u2014')+'</td>'
+      + '<td class="num mono">'+F.money(d.capexUsd,true)+'</td>'
+      + '<td class="num mono">'+F.money(d.funding.closedUsd,true)+'</td>'
+      + '<td class="num mono">'+(F.drawnUsd(d)?F.money(F.drawnUsd(d),true):'\u2014')+'</td>'
+      + '<td class="mono" style="font-size:12px">'+(F.ageDays(d)!=null?F.ageDays(d)+'d':'\u2014')+'</td>'
+      + '</tr>'; }).join('');
+}
+function setPipe(k){ S.pipeFilter=k; render(); }
+
+/* ── Partners ─────────────────────────────────────────────────────────── */
+function renderPartners(){
+  var list=F.allPartners(S.deals);
+  var host=document.getElementById('partner-rows');
+  if(!list.length){ host.innerHTML='<tr><td colspan="8"><div class="empty"><b>No partners yet</b>'
+    +'Organisations appear here as soon as they appear on a deal.</div></td></tr>'; }
+  else host.innerHTML=list.map(function(s){
+    var org=A.orgs()[s.orgId];
+    return '<tr class="row" onclick="openPartner(\''+s.orgId+'\')">'
+      + '<td><div class="t-name">'+esc(A.orgName(s.orgId))+'</div>'
+      +   '<div class="t-sub">'+esc(s.orgId)
+      +   (org&&org.kind?' \u00b7 '+esc(A.orgKindOf(org.kind).label):'')
+      +   (org&&org.isShareholder?' <span class="tag">shareholder</span>':'')+'</div></td>'
+      + '<td class="num mono">'+s.referred+'</td>'
+      + '<td class="num mono">'+s.live+'</td>'
+      + '<td class="num mono">'+s.reached.funded+'</td>'
+      + '<td class="num mono">'+(s.referred?Math.round(s.reached.funded/s.referred*100)+'%':'\u2014')+'</td>'
+      + '<td class="num mono">'+F.money(s.closedUsd,true)+'</td>'
+      + '<td class="num mono">'+(s.supplyUsd?F.money(s.supplyUsd,true):'\u2014')+'</td>'
+      + '<td class="num mono">'+(s.medianDaysToFund!=null?s.medianDaysToFund:'\u2014')+'</td>'
+      + '</tr>'; }).join('');
+
+  var det=document.getElementById('partner-detail');
+  if(!S.partnerOpen){ det.innerHTML=''; return; }
+  var s=F.partnerStats(S.deals,S.partnerOpen);
+  var own=S.deals.filter(function(d){ return d.origination.partnerOrg===S.partnerOpen; });
+  det.innerHTML =
+      '<div class="card"><div class="card-h"><h2>'+esc(A.orgName(s.orgId))+'</h2>'
+    +   '<button class="btn-x" style="margin-left:auto" onclick="S.partnerOpen=\'\';render()">Close</button></div>'
+    + '<div class="card-b">'
+    +   '<div class="stats">'
+    +     stat('Brought', s.referred, s.live+' live \u00b7 '+s.dead+' dead')
+    +     stat('Reached funded', s.reached.funded,
+             s.referred?Math.round(s.reached.funded/s.referred*100)+'% conversion':'\u2014')
+    +     stat('Capital closed', F.money(s.closedUsd,true),'on deals they originated','money')
+    +     stat('Supplied', F.money(s.supplyUsd,true),
+             s.supplyLines+' BOM lines across '+s.supplyOnDeals+' deals','money')
+    +     stat('Referral fees', F.money(s.feeUsd,true), F.money(s.feePaidUsd,true)+' paid','money')
+    +     stat('Median days to close', s.medianDaysToFund!=null?s.medianDaysToFund:'\u2014',
+             'referral to financial close')
+    +   '</div>'
+    +   '<h3 style="font-size:13px;color:var(--navy);margin:6px 0 10px">Their conversion</h3>'
+    +   '<div class="funnel">'+funnelHtml(s.funnel, s.referred)+'</div>'
+    +   '<div class="fnote">Held against everything they ever brought us, including what died. '
+    +   'That is the only version of this chart worth showing them.</div>'
+    +   (own.length ? '<h3 style="font-size:13px;color:var(--navy);margin:18px 0 8px">Their deals</h3>'
+        + '<div class="tbl-wrap"><table><thead><tr><th>Site</th><th>Stage</th>'
+        + '<th class="num">Closed</th><th>Age</th></tr></thead><tbody>'
+        + own.map(function(d){ var st=F.stageOf(d.stage);
+            return '<tr class="row" onclick="openDeal(\''+d.id+'\')"><td>'+esc(d.name)+'</td>'
+            + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+            + '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+            + '<td class="num mono">'+F.money(d.funding.closedUsd,true)+'</td>'
+            + '<td class="mono">'+(F.ageDays(d)!=null?F.ageDays(d)+'d':'\u2014')+'</td></tr>'; }).join('')
+        + '</tbody></table></div>' : '')
+    + '</div></div>';
+}
+function openPartner(org){ S.partnerOpen=org; go('partners'); window.scrollTo(0,300); }
+
+/* ── Funding ──────────────────────────────────────────────────────────── */
+function openDraws(){
+  var out=[];
+  S.deals.forEach(function(d){
+    (d.funding.draws||[]).forEach(function(dr){
+      if(dr && (dr.status==='requested'||dr.status==='approved')) out.push({deal:d,draw:dr});
+    });
+  });
+  return out.sort(function(a,b){ return F.ms(a.draw.requestedAt)-F.ms(b.draw.requestedAt); });
+}
+function renderFunding(){
+  var p=F.portfolio(S.deals);
+  document.getElementById('fund-stats').innerHTML =
+      stat('Requested', F.money(sum(S.deals,function(d){return d.funding.requestedUsd;}),true),
+           'what we asked the market for')
+    + stat('Committed', F.money(p.committedUsd,true),'term sheets signed. not cash','money')
+    + stat('Closed', F.money(p.closedUsd,true),'legally committed capital','money')
+    + stat('Drawn', F.money(p.drawnUsd,true),'cash that actually moved','money')
+    + stat('Undrawn', F.money(p.undrawnUsd,true),'closed and sitting still',
+           p.undrawnUsd>p.drawnUsd?'alert':'money')
+    + stat('Deployed', F.money(p.deployedUsd,true),'in the ground','money');
+
+  var open=openDraws();
+  document.getElementById('draw-rows').innerHTML = open.length
+    ? open.map(function(x){
+        var st=F.drawStatusOf(x.draw.status);
+        var canAct=A.can('write_funding');
+        return '<tr><td><a class="btn-x" onclick="openDeal(\''+x.deal.id+'\')">'+esc(x.deal.name)+'</a></td>'
+          + '<td class="mono">#'+x.draw.no+'</td>'
+          + '<td>'+esc(x.draw.purpose||'\u2014')
+          +   (x.draw.overCommitted?'<div class="stale">exceeds closed facility</div>':'')+'</td>'
+          + '<td class="num mono">'+F.money(x.draw.amountUsd)+'</td>'
+          + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+          +   '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+          + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(x.draw.requestedAt))+'</td>'
+          + '<td>'+(canAct
+              ? (x.draw.status==='requested'
+                 ? '<button class="btn-x" onclick="drawTo(\''+x.deal.id+'\',\''+x.draw.id+'\',\'approved\')">Approve</button>':'')
+                + '<button class="btn-x" onclick="drawTo(\''+x.deal.id+'\',\''+x.draw.id+'\',\'funded\')">Mark funded</button>'
+              : '')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="7"><div class="empty"><b>Nothing outstanding</b>'
+      + 'Every draw has been funded or there are none.</div></td></tr>';
+
+  var funded=S.deals.filter(function(d){ return d.funding.closedUsd; });
+  document.getElementById('fund-rows').innerHTML = funded.length
+    ? funded.map(function(d){
+        var dn=F.drawnUsd(d), cl=d.funding.closedUsd, un=F.undrawnUsd(d);
+        return '<tr class="row" onclick="openDeal(\''+d.id+'\')">'
+          + '<td><div class="t-name">'+esc(d.name)+'</div>'
+          +   '<div class="t-sub">brought by '+esc(d.origination.partnerName||'\u2014')+'</div></td>'
+          + '<td>'+esc(d.funding.counterparty||'\u2014')+'</td>'
+          + '<td class="num mono">'+F.money(cl,true)+'</td>'
+          + '<td class="num mono">'+F.money(dn,true)+'</td>'
+          + '<td class="num mono">'+F.money(un,true)+'</td>'
+          + '<td class="num mono">'+F.money(F.deployedUsd(d),true)+'</td>'
+          + '<td style="min-width:120px"><div class="mbar"><i class="drawn" style="width:'
+          +   (cl?Math.min(100,dn/cl*100):0)+'%"></i></div>'
+          +   '<div class="t-sub mono">'+(cl?Math.round(dn/cl*100):0)+'% drawn</div></td></tr>'; }).join('')
+    : '<tr><td colspan="7"><div class="empty"><b>Nothing closed yet</b>'
+      + 'Deals appear here at financial close.</div></td></tr>';
+}
+function drawTo(dealId, drawId, status){
+  var d=findDeal(dealId); if(!d) return;
+  var dr=(d.funding.draws||[]).filter(function(x){ return x.id===drawId; })[0];
+  if(!dr) return;
+  act(F.setDrawStatus(d,dr,status), 'Draw '+F.drawStatusOf(status).label.toLowerCase());
+}
+
+/* ── Supply / BOM ─────────────────────────────────────────────────────── */
+function renderSupply(){
+  var parts=F.allPartners(S.deals).filter(function(s){ return s.supplyLines>0; });
+  document.getElementById('supply-rows').innerHTML = parts.length
+    ? parts.map(function(s){
+        return '<tr class="row" onclick="openPartner(\''+s.orgId+'\')">'
+          + '<td class="t-name">'+esc(A.orgName(s.orgId))+'</td>'
+          + '<td class="num mono">'+s.supplyLines+'</td>'
+          + '<td class="num mono">'+s.supplyOnDeals+'</td>'
+          + '<td class="num mono">'+F.money(s.supplyUsd,true)+'</td>'
+          + '<td class="num mono">'+F.money(s.supplyCommittedUsd,true)+'</td>'
+          + '<td>'+(s.referred?'<span class="tag">'+s.referred+' referred</span>':'\u2014')+'</td>'
+          + '</tr>'; }).join('')
+    : '<tr><td colspan="6"><div class="empty"><b>No BOM lines yet</b>'
+      + 'Lines appear as soon as a deal reaches specification.</div></td></tr>';
+
+  var lines=[];
+  S.deals.forEach(function(d){ (d.bom||[]).forEach(function(l){ lines.push({d:d,l:l}); }); });
+  document.getElementById('bom-rows').innerHTML = lines.length
+    ? lines.map(function(x){
+        var st=F.bomStatusOf(x.l.status);
+        return '<tr class="row" onclick="openDeal(\''+x.d.id+'\')">'
+          + '<td>'+esc(x.d.name)+'</td>'
+          + '<td>'+esc(F.bomCatOf(x.l.category).label)+'</td>'
+          + '<td><div class="t-name">'+esc(x.l.item)+'</div>'
+          +   (x.l.poRef?'<div class="t-sub mono">'+esc(x.l.poRef)+'</div>':'')+'</td>'
+          + '<td>'+esc(x.l.supplierName||A.orgName(x.l.supplierOrg)||'\u2014')+'</td>'
+          + '<td class="num mono">'+(x.l.qty!=null?x.l.qty+' '+esc(x.l.unit||''):'\u2014')+'</td>'
+          + '<td class="num mono">'+F.money(F.lineTotal(x.l),true)+'</td>'
+          + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+          +   '<span class="dot"></span>'+esc(st.label)+'</span></td></tr>'; }).join('')
+    : '<tr><td colspan="7"><div class="empty"><b>Nothing specified</b></div></td></tr>';
+}
+
+/* ── Users ────────────────────────────────────────────────────────────── */
+function userRows(k){
+  return S.users.filter(function(u){
+    if(k==='all') return true;
+    if(k==='pending') return u.status==='pending';
+    if(k==='active') return u.status==='active';
+    if(k==='blocked') return u.status==='suspended'||u.status==='rejected';
+    return true; });
+}
+function renderUsers(){
+  var defs=[{k:'pending',l:'Awaiting approval'},{k:'active',l:'Active'},
+            {k:'blocked',l:'Suspended / rejected'},{k:'all',l:'All'}];
+  document.getElementById('user-chips').innerHTML=defs.map(function(d){
+    return '<button class="chip'+(S.userFilter===d.k?' on':'')+'" onclick="setUserFilter(\''+d.k+'\')">'
+      + d.l+' <span class="mono">'+userRows(d.k).length+'</span></button>'; }).join('');
+
+  var rows=userRows(S.userFilter), host=document.getElementById('user-rows');
+  if(!rows.length){ host.innerHTML='<tr><td colspan="6"><div class="empty"><b>Nobody here</b>'
+    +'No accounts match this filter.</div></td></tr>'; return; }
+
+  host.innerHTML=rows.map(function(u){
+    var st=A.statusOf(u.status), r=A.roleOf(u.role);
+    var mine=A.canApprove(u);
+    var owner=A.isOwner(u);
+    var acts='';
+    if(owner){
+      acts='<span class="lock">pinned in config \u2014 cannot be changed here</span>';
+    } else if(!mine){
+      acts='<span class="lock">outside your scope</span>';
+    } else if(u.status==='pending'){
+      acts='<button class="btn-x" onclick="approveUser(\''+u.id+'\')">Approve\u2026</button>'
+         + '<button class="btn-x danger" onclick="rejectUser(\''+u.id+'\')">Reject</button>';
+    } else if(u.status==='active'){
+      acts='<button class="btn-x" onclick="changeRole(\''+u.id+'\')">Change role</button>'
+         + (u.role==='limited_admin'
+            ? '<button class="btn-x" onclick="editScope(\''+u.id+'\')">Scope</button>' : '')
+         + '<button class="btn-x danger" onclick="suspendUser(\''+u.id+'\')">Suspend</button>';
+    } else {
+      acts='<button class="btn-x" onclick="restoreUser(\''+u.id+'\')">Restore</button>';
+    }
+    return '<tr><td><div class="t-name">'+esc(u.name)+'</div>'
+      +   '<div class="t-sub">'+esc(u.email)+(u.title?' \u00b7 '+esc(u.title):'')+'</div></td>'
+      + '<td>'+esc(u.orgName||A.orgName(u.orgId))+'<div class="t-sub">'+esc(u.orgId)+'</div></td>'
+      + '<td>'+esc(r.label)
+      +   (u.role==='limited_admin'
+          ? '<div class="t-sub">'+(u.manageOrgs.length?esc(u.manageOrgs.join(', '))
+              :'<span style="color:var(--warn)">no organisations scoped \u2014 sees nothing</span>')+'</div>'
+          : '')+'</td>'
+      + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+      +   '<span class="dot"></span>'+esc(st.label)+'</span>'
+      +   (u.note?'<div class="t-sub">'+esc(u.note)+'</div>':'')+'</td>'
+      + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(u.lastSeenAt))+'</td>'
+      + '<td>'+acts+'</td></tr>'; }).join('');
+}
+function setUserFilter(k){ S.userFilter=k; render(); }
+function findUser(id){ for(var i=0;i<S.users.length;i++) if(S.users[i].id===id) return S.users[i]; return null; }
+
+function approveUser(id){
+  var u=findUser(id); if(!u) return;
+  var roles=A.grantableRoles();
+  var pick=prompt('Approve '+u.email+' as which role?\n\n'
+    + roles.map(function(r,i){ return (i+1)+') '+r.label+' \u2014 '+r.hint; }).join('\n')
+    + '\n\nEnter a number:', '1');
+  if(!pick) return;
+  var r=roles[parseInt(pick,10)-1];
+  if(!r){ toast('That isn\u2019t one of the options',true); return; }
+  var orgName=prompt('Organisation name for '+u.orgId+':', u.orgName||A.orgName(u.orgId))||u.orgName;
+  var scope=[];
+  if(r.key==='limited_admin'){
+    var s=prompt('Which partner organisations may they administer?\n'
+      + 'Comma-separated domains. Leaving this empty gives them a console that shows nothing.','');
+    scope=(s||'').split(',').map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  }
+  act(A.approve(u, r.key, orgName, scope), 'Approved '+u.email);
+}
+function rejectUser(id){ var u=findUser(id); if(!u) return;
+  var why=prompt('Why? The reason is kept on the record.');
+  if(!why) return; act(A.reject(u,why),'Rejected'); }
+function suspendUser(id){ var u=findUser(id); if(!u) return;
+  if(!confirm('Suspend '+u.email+'?\n\nThey are signed out on their next read and land on the '
+    +'waiting screen.')) return;
+  act(A.suspend(u, prompt('Reason (optional):')||''),'Suspended'); }
+function restoreUser(id){ var u=findUser(id); if(!u) return; act(A.restore(u),'Restored'); }
+function changeRole(id){
+  var u=findUser(id); if(!u) return;
+  var roles=A.grantableRoles();
+  var pick=prompt('New role for '+u.email+':\n\n'
+    + roles.map(function(r,i){ return (i+1)+') '+r.label; }).join('\n')+'\n\nEnter a number:');
+  if(!pick) return;
+  var r=roles[parseInt(pick,10)-1];
+  if(!r){ toast('That isn\u2019t one of the options',true); return; }
+  act(A.setRole(u,r.key),'Role updated');
+}
+function editScope(id){
+  var u=findUser(id); if(!u) return;
+  var s=prompt('Organisations '+u.email+' may administer, comma-separated:', u.manageOrgs.join(', '));
+  if(s===null) return;
+  act(A.setManagedOrgs(u, s.split(',').map(function(x){return x.trim().toLowerCase();}).filter(Boolean)),
+      'Scope updated');
+}
+
+/* ── Organisations ────────────────────────────────────────────────────── */
+function renderOrgs(){
+  var orgs=A.orgs(), keys=Object.keys(orgs);
+  var counts={};
+  S.deals.forEach(function(d){ var o=d.origination.partnerOrg;
+    if(o) counts[o]=(counts[o]||0)+1; });
+  /* Show orgs on deals even if nobody has registered them \u2014 an unregistered
+     org is a gap somebody should close, not a row to hide. */
+  Object.keys(counts).forEach(function(o){ if(keys.indexOf(o)<0) keys.push(o); });
+
+  var host=document.getElementById('org-rows');
+  host.innerHTML = keys.length ? keys.sort().map(function(k){
+    var o=orgs[k];
+    return '<tr><td><div class="t-name">'+esc(o?o.name:k)+'</div>'
+      +   '<div class="t-sub">'+esc(k)+(o?'':' <span style="color:var(--warn)">not registered</span>')+'</div></td>'
+      + '<td>'+(o?esc(A.orgKindOf(o.kind).label):'\u2014')
+      +   (o&&o.isShareholder?' <span class="tag">shareholder</span>':'')+'</td>'
+      + '<td style="font-size:12px">'+(o?esc(o.referralBasis||'\u2014'):'\u2014')+'</td>'
+      + '<td class="mono" style="font-size:12px">'+(o?esc(o.agreementRef||'\u2014'):'\u2014')+'</td>'
+      + '<td class="num mono">'+(counts[k]||0)+'</td>'
+      + '<td><button class="btn-x" onclick="openOrgEdit(\''+k+'\')">Edit</button></td></tr>'; }).join('')
+    : '<tr><td colspan="6"><div class="empty"><b>No organisations registered</b>'
+      + 'Add one to record what kind of partner they are and how referrals are paid.</div></td></tr>';
+}
+function openOrgEdit(orgId){
+  var o=A.orgs()[orgId]||{};
+  var id=orgId||prompt('Organisation domain (this is how people from it sign in):','');
+  if(!id) return;
+  var name=prompt('Display name:', o.name||'')||o.name||id;
+  var kinds=A.ORG_KINDS;
+  var pick=prompt('What kind of partner?\n\n'
+    + kinds.map(function(k,i){ return (i+1)+') '+k.label+' \u2014 '+k.hint; }).join('\n')
+    + '\n\nEnter a number:', '1');
+  var kind=(kinds[parseInt(pick,10)-1]||{}).key||'broker';
+  var basis=prompt('Referral basis (free text \u2014 fee arrangements differ per MSA):', o.referralBasis||'')||'';
+  var agr=prompt('Agreement reference:', o.agreementRef||'')||'';
+  var share=confirm('Is this organisation a ClearSky shareholder?\n\nOK = yes, Cancel = no');
+  act(A.saveOrg(id.toLowerCase(), { name:name, kind:kind, referralBasis:basis,
+    agreementRef:agr, isShareholder:share, active:true }), 'Saved');
+}
+
+/* ── New referral ─────────────────────────────────────────────────────── */
+function openNew(){
+  var name=prompt('Site name:'); if(!name) return;
+  var org=prompt('Which organisation brought this to us? (their domain)\n\n'
+    + 'This is the one field that cannot be filled in later without an owner\u2019s approval \u2014 '
+    + 'attribution assigned after the fact is attribution somebody argued for.\n\n'
+    + 'Leave blank only if it is genuinely our own origination.');
+  if(org===null) return;
+  var orgName = org ? (prompt('Their display name:', A.orgName(org))||A.orgName(org)) : 'ClearSky';
+  if(!org){
+    if(!confirm('No originating partner. This deal will show as Unattributed on every partner '
+      + 'report until somebody with owner rights fixes it.\n\nContinue?')) return;
+    org='clearsky-usa.com'; orgName='ClearSky (own origination)';
+  }
+  var channels=(window.CLEARSKY_CONFIG.portfolio||{}).channels||[];
+  var cp=prompt('Channel:\n\n'+channels.map(function(c,i){return (i+1)+') '+c;}).join('\n')
+    + '\n\nEnter a number:','1');
+  var channel=channels[parseInt(cp,10)-1]||'';
+  var addr=prompt('Location:')||'';
+  var size=prompt('Size in MW (optional):')||'';
+  act(F.create({ name:name, partnerOrg:org, partnerName:orgName, channel:channel,
+    address:addr, sizeMw:size }), 'Referral logged');
+}
+
+/* ── Deal drawer ──────────────────────────────────────────────────────── */
+function findDeal(id){ for(var i=0;i<S.deals.length;i++) if(S.deals[i].id===id) return S.deals[i]; return null; }
+function openDeal(id){
+  if(event) event.stopPropagation && event.stopPropagation();
+  S.openId=id; S.tab='overview';
+  document.getElementById('scrim').classList.add('on');
+  document.getElementById('drawer').classList.add('on');
+  renderDrawer();
+}
+function closeDrawer(){ S.openId=null;
+  document.getElementById('scrim').classList.remove('on');
+  document.getElementById('drawer').classList.remove('on'); }
+function setTab(t){ S.tab=t; renderDrawer(); }
+
+function renderDrawer(){
+  var d=findDeal(S.openId); if(!d) return closeDrawer();
+  var st=F.stageOf(d.stage);
+  document.getElementById('dr-title').textContent=d.name;
+  document.getElementById('dr-meta').innerHTML =
+      '<span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+    + '<span class="dot"></span>'+esc(st.label)+'</span> &nbsp; '+esc(d.address||'\u2014')
+    + ' \u00b7 brought by <b>'+esc(d.origination.partnerName||'unattributed')+'</b>'
+    + (d.origination.locked?' <span class="lock">(locked)</span>':'')
+    + ' \u00b7 '+(F.ageDays(d)!=null?F.ageDays(d)+' days old':'');
+
+  var tabs=[['overview','Overview'],['money','Funding'],['bom','BOM'],
+            ['people','Participants'],['history','History']];
+  document.getElementById('dr-tabs').innerHTML=tabs.map(function(t){
+    return '<button class="dr-tab'+(S.tab===t[0]?' on':'')+'" onclick="setTab(\''+t[0]+'\')">'
+      + t[1]+'</button>'; }).join('');
+
+  var h='';
+  if(S.tab==='overview') h=tabOverview(d);
+  if(S.tab==='money')    h=tabMoney(d);
+  if(S.tab==='bom')      h=tabBom(d);
+  if(S.tab==='people')   h=tabPeople(d);
+  if(S.tab==='history')  h=tabHistory(d);
+  document.getElementById('dr-body').innerHTML=h;
+
+  var foot='';
+  if(d._demo) foot='<span style="font-size:12px;color:var(--ink-2)">Sample deal \u2014 nothing saves.</span>';
+  else if(A.can('write_deal') && !F.isExit(d.stage)){
+    var next=nextStage(d);
+    foot = (next ? '<button class="btn-a" onclick="doAdvance(\''+next.key+'\')">Move to '
+             + esc(next.label)+'</button>' : '')
+         + '<button class="btn-o" onclick="doPark()">Park</button>'
+         + '<div class="spacer"></div>'
+         + '<button class="btn-d" onclick="doDead()">Mark dead</button>';
+  } else if(F.isExit(d.stage) && A.can('write_deal')){
+    foot='<span style="font-size:12px;color:var(--ink-2);flex:1">'+esc(F.stageOf(d.stage).hint)+'</span>'
+       + '<button class="btn-o" onclick="doRevive()">Reopen</button>';
+  }
+  document.getElementById('dr-foot').innerHTML=foot;
+}
+function nextStage(d){
+  var r=F.stageOf(d.stage).rank;
+  for(var i=0;i<F.STAGES.length;i++) if(F.STAGES[i].rank>r) return F.STAGES[i];
+  return null;
+}
+
+function tabOverview(d){
+  var next=nextStage(d), miss=next?F.missingFor(d,next.key):[];
+  var h='';
+  if(next && miss.length){
+    h+='<div class="problems"><b>Not ready for '+esc(next.label)+'</b><ul>'
+      + miss.map(function(m){ return '<li>'+esc(fieldLabel(m))+' is required.</li>'; }).join('')
+      + '</ul>'+(next.why?'<div style="font-size:11.5px;color:#8A1F1F;margin-top:6px">'
+      + esc(next.why)+'</div>':'')+'</div>';
+  }
+  h+='<div class="sec"><div class="sec-h">Attribution'
+    + (d.origination.locked?'<span class="r">Locked when this deal left Referred</span>':'')
+    + '</div><div class="sec-b"><dl class="kv">'
+    + row('Brought by', esc(d.origination.partnerName||A.orgName(d.origination.partnerOrg)||'\u2014'))
+    + row('Domain', '<span class="mono">'+esc(d.origination.partnerOrg||'\u2014')+'</span>')
+    + row('Channel', esc(d.origination.channel||'\u2014'))
+    + row('Contact', esc(d.origination.contactName||'\u2014'))
+    + row('Referred', esc(F.fmtDate(d.origination.referredAt)))
+    + row('Agreement', '<span class="mono">'+esc(d.origination.agreementRef||'\u2014')+'</span>')
+    + row('Fee basis', esc(d.origination.feeBasis||'\u2014'))
+    + row('Fee', F.money(d.origination.feeUsd)
+        + (d.origination.feePaidAt?' \u00b7 paid '+esc(F.fmtDate(d.origination.feePaidAt))
+           :' \u00b7 <span style="color:var(--warn)">unpaid</span>'))
+    + '</dl>'
+    + (A.can('lock_attribution') && !d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doReattribute()">'
+          + 'Change attribution\u2026</button></div>' : '')
+    + '<div class="sec-note">Attribution locks the moment real work starts, and changing it '
+    + 'afterwards takes an owner, a written reason, and leaves the previous partner in the '
+    + 'record. An editable field here is not a fact, it is the opening position in an argument '
+    + 'you will have eighteen months from now.</div>'
+    + (d.originationHistory.length
+        ? '<div style="margin-top:12px"><b style="font-size:11.5px;color:var(--ink-3)">Previously</b>'
+          + d.originationHistory.map(function(o){
+              return '<div class="note"><div class="m">'+esc(F.fmtDate(o.changedAt))+' by '
+                + esc(o.changedBy)+'</div><div class="t">'+esc(o.partnerName||o.partnerOrg)
+                + ' \u2014 '+esc(o.reason||'')+'</div></div>'; }).join('')+'</div>' : '')
+    + '</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Site</div><div class="sec-b"><dl class="kv">'
+    + row('Location', esc(d.address||'\u2014'))
+    + row('Categories', d.categories.length
+        ? d.categories.map(function(c){ return '<span class="cat">'+esc(c.toUpperCase())+'</span>'; }).join('')
+        : '\u2014')
+    + row('Size', d.sizeMw!=null?F.mw(d.sizeMw)+(d.sizeMwh?' \u00b7 '+d.sizeMwh+' MWh':''):'\u2014')
+    + row('Capex', F.money(d.capexUsd))
+    + row('Client', esc(A.orgName(d.clientOrgId)||'\u2014'))
+    + '</dl>'
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSite()">Edit site details</button></div>':'')
+    + '</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Pre-development</div><div class="sec-b"><dl class="kv">'
+    + row('Budget', F.money(d.preDev.budgetUsd))
+    + row('Spent', F.money(d.preDev.spentUsd)
+        + (d.preDev.budgetUsd&&d.preDev.spentUsd>d.preDev.budgetUsd
+           ? ' <span style="color:var(--bad)">over budget</span>':''))
+    + row('Owner', esc(d.preDev.owner||'\u2014'))
+    + '</dl>'
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditPreDev()">Edit</button></div>':'')
+    + '</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Verification</div><div class="sec-b">'
+    + (d.verification.verdictId
+      ? '<dl class="kv">'
+        + row('Verifier', esc(A.orgName(d.verification.verifierOrg)))
+        + row('Feasibility', esc(d.verification.feasibility||'\u2014'))
+        + row('Bankability', esc(d.verification.bankability||'\u2014'))
+        + row('Signed', esc(F.fmtDate(d.verification.signedAt)))
+        + '</dl>'
+      : '<div style="font-size:12.5px;color:var(--ink-3)">No signed opinion yet. '
+        + 'Assign one from the verification console.</div>')
+    + '</div></div>';
+
+  var un=F.unmapped(d);
+  if(un) h+='<div class="sec"><div class="sec-h">Fields the console didn\u2019t recognise'
+    + '<span class="r">Shown rather than dropped</span></div><div class="sec-b">'
+    + '<pre class="raw">'+esc(JSON.stringify(un,null,2))+'</pre></div></div>';
+  return h;
+}
+function row(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
+function fieldLabel(path){
+  var m={ 'origination.partnerOrg':'Who brought the deal',
+    'preDev.budgetUsd':'A pre-development budget',
+    'verification.verdictId':'A signed third-party opinion',
+    'sizeMw':'Size in MW', 'capexUsd':'Capex',
+    'funding.committedUsd':'Committed amount', 'funding.counterparty':'Counterparty',
+    'funding.closedUsd':'Closed amount', 'funding.closedAt':'Close date',
+    'funding.investorOrg':'Investor organisation',
+    'build.ntpAt':'Notice-to-proceed date', 'build.codAt':'Commercial operation date' };
+  return m[path]||path;
+}
+
+function tabMoney(d){
+  var cl=d.funding.closedUsd, dn=F.drawnUsd(d);
+  var h='<div class="sec"><div class="sec-h">The five numbers'
+    + '<span class="r">None of them collapse into another</span></div><div class="sec-b">'
+    + '<dl class="kv">'
+    + row('Requested', '<span class="mono">'+F.money(d.funding.requestedUsd)+'</span>')
+    + row('Committed', '<span class="mono">'+F.money(d.funding.committedUsd)+'</span>'
+        + (d.funding.committedAt?' <span class="lock">'+esc(F.fmtDate(d.funding.committedAt))+'</span>':''))
+    + row('Closed', '<span class="mono">'+F.money(cl)+'</span>'
+        + (d.funding.closedAt?' <span class="lock">'+esc(F.fmtDate(d.funding.closedAt))+'</span>':''))
+    + row('Drawn', '<span class="mono">'+F.money(dn)+'</span>')
+    + row('Deployed', '<span class="mono">'+F.money(F.deployedUsd(d))+'</span>')
+    + row('Counterparty', esc(d.funding.counterparty||'\u2014'))
+    + row('Structure', esc(d.funding.structure||'\u2014'))
+    + '</dl>'
+    + (cl?'<div class="mbar"><i class="drawn" style="width:'+Math.min(100,dn/cl*100)+'%"></i></div>'
+        + '<div class="mkey"><span><i style="background:var(--money)"></i>Drawn '+F.money(dn,true)
+        + '</span><span><i style="background:#E9EDF1"></i>Undrawn '+F.money(F.undrawnUsd(d),true)
+        + '</span></div>':'')
+    + '<div class="sec-note">Committed is a promise and revocable. Closed is a legal obligation. '
+    + 'Drawn is cash that moved. Deployed is what is in the ground. People merge the first two '
+    + 'because both feel like a yes and the middle two because both feel like money, and both '
+    + 'merges hide exactly the failure you needed to see.</div>'
+    + (A.can('write_funding')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditFunding()">Edit funding</button></div>':'')
+    + '</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Draws<span class="r">Where the money actually went</span>'
+    + '</div><div class="sec-b">';
+  if(!d.funding.draws.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">No draws yet.</div>';
+  else {
+    h+='<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Purpose</th><th class="num">Amount</th>'
+      + '<th>Status</th><th>Funded</th></tr></thead><tbody>'
+      + d.funding.draws.map(function(x){
+          var st=F.drawStatusOf(x.status);
+          return '<tr><td class="mono">'+x.no+'</td><td>'+esc(x.purpose||'\u2014')
+            + (x.overCommitted?'<div class="stale">exceeds closed facility</div>':'')+'</td>'
+            + '<td class="num mono">'+F.money(x.amountUsd)+'</td>'
+            + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+            + '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+            + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(x.fundedAt))+'</td></tr>'; }).join('')
+      + '</tbody></table></div>';
+  }
+  if(A.can('write_funding')&&!d._demo)
+    h+='<div style="margin-top:12px"><button class="btn-x" onclick="doAddDraw()">+ Request a draw</button></div>';
+  h+='<div class="sec-note">A draw needs a purpose. "Where did the money go" is the question this '
+    + 'whole section exists to answer, and it cannot be reconstructed from bank statements '
+    + 'eighteen months later.</div></div></div>';
+  return h;
+}
+
+function tabBom(d){
+  var h='<div class="sec"><div class="sec-h">Bill of materials'
+    + '<span class="r">'+F.money(F.bomTotalUsd(d),true)+' specified \u00b7 '
+    + F.money(F.bomTotalUsd(d,{committedOnly:true}),true)+' committed</span></div><div class="sec-b">';
+  if(!d.bom.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">Nothing specified yet.</div>';
+  else h+='<div class="tbl-wrap"><table><thead><tr><th>Category</th><th>Item</th><th>Supplier</th>'
+      + '<th class="num">Qty</th><th class="num">Total</th><th>Status</th><th></th></tr></thead><tbody>'
+      + d.bom.map(function(l){
+          var st=F.bomStatusOf(l.status);
+          var isOriginator = l.supplierOrg && l.supplierOrg===d.origination.partnerOrg;
+          return '<tr><td>'+esc(F.bomCatOf(l.category).label)+'</td>'
+            + '<td><div class="t-name">'+esc(l.item)+'</div>'
+            +   (l.spec?'<div class="t-sub">'+esc(l.spec)+'</div>':'')
+            +   (l.poRef?'<div class="t-sub mono">'+esc(l.poRef)+'</div>':'')+'</td>'
+            + '<td>'+esc(l.supplierName||A.orgName(l.supplierOrg)||'\u2014')
+            +   (isOriginator?'<div class="t-sub"><span class="tag">also referred this site</span></div>':'')+'</td>'
+            + '<td class="num mono">'+(l.qty!=null?l.qty+' '+esc(l.unit||''):'\u2014')+'</td>'
+            + '<td class="num mono">'+F.money(F.lineTotal(l),true)+'</td>'
+            + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+            +   '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+            + '<td>'+(A.can('write_bom')&&!d._demo
+                ? '<button class="btn-x" onclick="doBomStatus(\''+l.id+'\')">Status</button>':'')+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+  if(A.can('write_bom')&&!d._demo)
+    h+='<div style="margin-top:12px"><button class="btn-x" onclick="doAddBom()">+ Add a line</button></div>';
+  h+='<div class="sec-note">Tagging a supplier here is what closes the loop back to the partner: '
+    + 'the manufacturer who referred this site sees the purchase order it produced, in the same '
+    + 'view as the referral. A line with no supplier is fine and common.</div>';
+  return h+'</div></div>';
+}
+
+function tabPeople(d){
+  var h='<div class="sec"><div class="sec-h">Participants'
+    + '<span class="r">Separate from who brought it</span></div><div class="sec-b">';
+  if(!d.participants.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">Nobody added yet.</div>';
+  else h+=d.participants.map(function(p){
+      return '<div class="doc" style="display:flex;align-items:center;gap:11px;padding:9px 0;'
+        + 'border-bottom:1px solid #F0F3F5"><div style="flex:1">'
+        + '<b style="font-size:13px;color:var(--navy)">'+esc(p.orgName||A.orgName(p.orgId))+'</b>'
+        + '<div class="t-sub">'+esc(F.roleOf(p.role).label)+' \u00b7 '+esc(p.orgId)+'</div></div>'
+        + (A.can('write_deal')&&!d._demo
+          ? '<button class="btn-x danger" onclick="doDropParticipant(\''+esc(p.orgId)+'\',\''
+            +esc(p.role)+'\')">Remove</button>':'')+'</div>'; }).join('');
+  if(A.can('write_deal')&&!d._demo)
+    h+='<div style="margin-top:12px"><button class="btn-x" onclick="doAddParticipant()">+ Add an organisation</button></div>';
+  h+='<div class="sec-note">A battery manufacturer who refers a site and then supplies its cells '
+    + 'has two commercial relationships with you. One "partner" field makes the second invisible '
+    + 'in every report you will ever run, which is why origination and participation are '
+    + 'separate here.</div></div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Notes</div><div class="sec-b">';
+  if(A.can('write_deal')&&!d._demo)
+    h+='<div class="fld" style="margin-top:0"><textarea id="deal-note" placeholder="Anything worth keeping with the deal."></textarea></div>'
+      + '<button class="btn-o" style="margin-top:9px" onclick="doAddNote()">Save note</button><div style="height:14px"></div>';
+  if(!d.notes.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">No notes.</div>';
+  else for(var i=d.notes.length-1;i>=0;i--)
+    h+='<div class="note"><div class="m">'+esc(d.notes[i].author)+' \u00b7 '
+      + esc(F.fmtDate(d.notes[i].ts))+'</div><div class="t">'+esc(d.notes[i].text)+'</div></div>';
+  return h+'</div></div>';
+}
+
+function tabHistory(d){
+  var h='<div class="sec"><div class="sec-h">Stage history</div><div class="sec-b">';
+  var sh=d.stageHistory.slice().sort(function(a,b){ return F.ms(b.at)-F.ms(a.at); });
+  if(!sh.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">Nothing recorded.</div>';
+  else h+=sh.map(function(x){
+    var st=F.stageOf(x.to);
+    return '<div class="act"><b>'+esc(st.label)+'</b>'+(x.from?' \u2190 '+esc(F.stageOf(x.from).label):'')
+      + (x.note?' \u2014 '+esc(x.note):'')+' <span>'+esc(F.fmtDate(x.at))
+      + (x.by?' \u00b7 '+esc(x.by):'')+'</span></div>'; }).join('');
+  h+='</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Activity</div><div class="sec-b">';
+  var acts=d.activity.slice().sort(function(a,b){ return F.ms(b.ts)-F.ms(a.ts); });
+  if(!acts.length) h+='<div style="font-size:12.5px;color:var(--ink-3)">Nothing yet.</div>';
+  else h+=acts.map(function(a){
+    return '<div class="act"><b>'+esc(a.actor||'')+'</b> \u2014 '+esc(a.message||'')
+      + ' <span>'+esc(F.fmtDate(a.ts))+'</span></div>'; }).join('');
+  return h+'</div></div>';
+}
+
+/* ── Deal actions ─────────────────────────────────────────────────────── */
+function act(p,msg){
+  return p.then(function(){ toast(msg); return refresh(); })
+   ['catch'](function(e){
+      if(e && e.missing){
+        toast('Missing: '+e.missing.map(fieldLabel).join(', '),true);
+        renderDrawer(); return;
+      }
+      toast((e&&e.message)||'That didn\u2019t save',true); });
+}
+function guard(){ var d=findDeal(S.openId);
+  if(!d) return null;
+  if(d._demo){ toast('Sample deals are read-only',true); return null; }
+  return d; }
+
+function doAdvance(key){ var d=guard(); if(!d) return;
+  var note=prompt('Anything to note about moving to '+F.stageOf(key).label+'? (optional)');
+  if(note===null) return;
+  act(F.advance(d,key,note),'Moved to '+F.stageOf(key).label); }
+function doPark(){ var d=guard(); if(!d) return;
+  var why=prompt('Why park it? Include the trigger that should bring it back.');
+  if(why===null) return; act(F.park(d,why),'Parked'); }
+function doDead(){ var d=guard(); if(!d) return;
+  var r=F.DEAD_REASONS;
+  var p=prompt('Why is this dead?\n\n'+r.map(function(x,i){return (i+1)+') '+x;}).join('\n')
+    + '\n\nEnter a number:');
+  if(!p) return;
+  var reason=r[parseInt(p,10)-1];
+  if(!reason){ toast('That isn\u2019t one of the options',true); return; }
+  var note=prompt('Anything more? (optional)')||'';
+  act(F.markDead(d,reason,note),'Marked dead'); }
+function doRevive(){ var d=guard(); if(!d) return;
+  act(F.advance(d,'screening','Reopened'),'Reopened'); }
+
+function doReattribute(){ var d=guard(); if(!d) return;
+  var org=prompt('Correct originating organisation (domain):', d.origination.partnerOrg);
+  if(!org) return;
+  var name=prompt('Display name:', A.orgName(org))||org;
+  var why=prompt('Why is this changing? Kept permanently, and the previous partner stays '
+    + 'in the record.');
+  if(!why) return;
+  act(F.reattribute(d,org,name,why),'Attribution changed'); }
+
+function doEditSite(){ var d=guard(); if(!d) return;
+  var mwv=prompt('Size in MW:', d.sizeMw!=null?d.sizeMw:'');
+  if(mwv===null) return;
+  var cap=prompt('Capex (USD):', d.capexUsd!=null?d.capexUsd:'')||'';
+  var addr=prompt('Location:', d.address)||d.address;
+  act(F.patch(d,{ sizeMw:F.num(mwv), capexUsd:F.num(cap), address:addr },
+    {type:'edit',message:'Site details updated.'}),'Saved'); }
+
+function doEditPreDev(){ var d=guard(); if(!d) return;
+  var b=prompt('Pre-development budget (USD):', d.preDev.budgetUsd!=null?d.preDev.budgetUsd:'');
+  if(b===null) return;
+  var s=prompt('Spent to date (USD):', d.preDev.spentUsd!=null?d.preDev.spentUsd:'')||'0';
+  var o=prompt('Who owns it internally:', d.preDev.owner)||d.preDev.owner;
+  act(F.patch(d,{ 'preDev.budgetUsd':F.num(b), 'preDev.spentUsd':F.num(s), 'preDev.owner':o },
+    {type:'predev',message:'Pre-development updated.'}),'Saved'); }
+
+function doEditFunding(){ var d=guard(); if(!d) return;
+  var f={};
+  var r=prompt('Requested (USD):', d.funding.requestedUsd||''); if(r===null) return; f.requestedUsd=r;
+  f.committedUsd=prompt('Committed (USD) \u2014 term sheet signed, not cash:', d.funding.committedUsd||'')||'';
+  f.closedUsd   =prompt('Closed (USD) \u2014 financial close:', d.funding.closedUsd||'')||'';
+  f.counterparty=prompt('Counterparty:', d.funding.counterparty)||'';
+  f.investorOrg =prompt('Investor domain (for their portfolio view):', d.funding.investorOrg)||'';
+  f.structure   =prompt('Structure:', d.funding.structure)||'';
+  if(f.closedUsd && !d.funding.closedAt) f.closedAt=new Date().toISOString();
+  if(f.committedUsd && !d.funding.committedAt) f.committedAt=new Date().toISOString();
+  act(F.setFunding(d,f).then(function(){
+    if(f.closedUsd && d.stage!=='funded')
+      toast('Saved. Note the stage did not move \u2014 declaring close is a separate act.');
+  }),'Funding saved'); }
+
+function doAddDraw(){ var d=guard(); if(!d) return;
+  var amt=prompt('Draw amount (USD):'); if(!amt) return;
+  var why=prompt('What is it for? Required \u2014 this is the answer to "where did the money go".');
+  if(!why) return;
+  act(F.addDraw(d,{amountUsd:amt,purpose:why}),'Draw requested'); }
+
+function doAddBom(){ var d=guard(); if(!d) return;
+  var cats=F.BOM_CATEGORIES;
+  var cp=prompt('Category:\n\n'+cats.map(function(c,i){return (i+1)+') '+c.label;}).join('\n')
+    + '\n\nEnter a number:');
+  if(!cp) return;
+  var cat=(cats[parseInt(cp,10)-1]||{}).key||'other';
+  var item=prompt('Item:'); if(!item) return;
+  var qty=prompt('Quantity:')||'';
+  var unit=prompt('Unit (ea, rack, lot…):','ea')||'ea';
+  var cost=prompt('Cost per unit (USD):')||'';
+  var sup=prompt('Supplier domain (blank if not a partner):')||'';
+  var supName=sup?(prompt('Supplier display name:',A.orgName(sup))||A.orgName(sup)):'';
+  act(F.addBomLine(d,{category:cat,item:item,qty:qty,unit:unit,unitCostUsd:cost,
+    supplierOrg:sup,supplierName:supName}),'Line added'); }
+
+function doBomStatus(id){ var d=guard(); if(!d) return;
+  var l=d.bom.filter(function(x){return x.id===id;})[0]; if(!l) return;
+  var ss=F.BOM_STATUS;
+  var p=prompt('Status for '+l.item+':\n\n'+ss.map(function(x,i){return (i+1)+') '+x.label;}).join('\n')
+    + '\n\nEnter a number:');
+  if(!p) return;
+  var s=ss[parseInt(p,10)-1]; if(!s) return;
+  act(F.setBomStatus(d,l,s.key),'Updated'); }
+
+function doAddParticipant(){ var d=guard(); if(!d) return;
+  var org=prompt('Organisation domain:'); if(!org) return;
+  var name=prompt('Display name:', A.orgName(org))||A.orgName(org);
+  var rs=F.PARTICIPANT_ROLES;
+  var p=prompt('Their role:\n\n'+rs.map(function(x,i){return (i+1)+') '+x.label+' \u2014 '+x.hint;}).join('\n')
+    + '\n\nEnter a number:');
+  if(!p) return;
+  var r=rs[parseInt(p,10)-1]; if(!r) return;
+  act(F.addParticipant(d,org,name,r.key),'Added'); }
+
+function doDropParticipant(orgId, role){ var d=guard(); if(!d) return;
+  var p=d.participants.filter(function(x){ return x.orgId===orgId && x.role===role; })[0];
+  if(!p) return;
+  act(F.removeParticipant(d,p),'Removed'); }
+
+function doAddNote(){ var d=guard(); if(!d) return;
+  var el=document.getElementById('deal-note'), t=el?el.value.trim():'';
+  if(!t){ toast('Nothing to save',true); return; }
+  act(F.addNote(d,t),'Note saved'); }
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+var _tt;
+function toast(m,bad){ var e=document.getElementById('toast');
+  e.textContent=m; e.className='toast on'+(bad?' bad':'');
+  clearTimeout(_tt); _tt=setTimeout(function(){ e.className='toast'+(bad?' bad':''); },3600); }
+</script>
+</body>
+</html>

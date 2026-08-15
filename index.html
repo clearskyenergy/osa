@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSky-OMEGA · Verification Console</title>
+<link rel="icon" href="/omega-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   OMEGA PARTNER VERIFICATION CONSOLE
+
+   Same token system as the rest of the platform — a partner who also has an
+   editor login should not have to learn a second visual language.
+
+   TWO DELIBERATE DEPARTURES FROM THE OPS CONSOLE, both for the same reason:
+   this page is the only ClearSky surface an external company signs into, and
+   somebody looking over a shoulder must be able to tell at a glance which
+   console they are in.
+
+     1. The topbar is dark, not white. The internal console's is white.
+     2. The accent is indigo, not ClearSky blue.
+
+   And one signature: the VERDICT CARD is set in DM Mono at display size.
+   The ops console typesets response time that way because response time is
+   its product. Here the product is the opinion, so the opinion gets the
+   instrument treatment and everything else stays quiet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1D2D3E; --ink-2:#556B82; --ink-3:#8A9BAB;
+  --page:#EDEFF1; --card:#FFFFFF; --line:#E4E8EC;
+  --navy:#0B2233; --navy-2:#123449;
+  --accent:#4338CA; --accent-hi:#5B50E0; --accent-soft:#EEEDFB;
+  --ok:#16A34A; --warn:#D97706; --bad:#DC2626; --hold:#6B7280;
+  --shadow:0 1px 2px rgba(20,40,60,.05); --shadow-lg:0 10px 34px rgba(15,39,51,.16);
+  --r:10px;
+}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--page);color:var(--ink);
+  -webkit-font-smoothing:antialiased}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--accent)}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent-hi);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ── Boot ─────────────────────────────────────────────────────────────── */
+#boot{position:fixed;inset:0;background:var(--page);z-index:9000;display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;transition:opacity .3s}
+#boot.hide{opacity:0;pointer-events:none}
+.spin{width:26px;height:26px;border:2.5px solid #D8DEE4;border-top-color:var(--accent);
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.boot-txt{font-size:12px;color:var(--ink-2);letter-spacing:.4px}
+
+/* ── Auth ─────────────────────────────────────────────────────────────── */
+#auth-screen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;
+  background:linear-gradient(160deg,#0B2233 0%,#152C46 55%,#0A1622 100%)}
+.auth-card{background:#fff;border-radius:16px;padding:34px 32px;width:100%;max-width:410px;
+  box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.auth-logo{display:flex;align-items:center;gap:11px;margin-bottom:20px}
+.auth-logo img{height:42px;width:auto;border-radius:9px}
+.auth-logo b{font-size:16px;font-weight:700;color:var(--navy);letter-spacing:-.3px;display:block}
+.auth-logo small{font-size:10.5px;color:var(--accent);letter-spacing:.7px;text-transform:uppercase;font-weight:700}
+.auth-h{font-size:19px;font-weight:700;color:var(--navy);letter-spacing:-.3px}
+.auth-sub{font-size:13px;color:var(--ink-2);margin-top:6px;line-height:1.55}
+.fld{margin-top:14px}
+.fld label{display:block;font-size:11px;font-weight:600;color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;border:1.5px solid #DDE3E9;border-radius:8px;
+  padding:10px 12px;font:400 14px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent)}
+.fld textarea{resize:vertical;min-height:74px;line-height:1.55}
+.fld .hint{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.btn{border:none;border-radius:8px;padding:11px 16px;font:600 13.5px 'DM Sans',sans-serif;
+  cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+.btn-p{background:var(--accent);color:#fff;width:100%;margin-top:16px}
+.btn-p:hover:not(:disabled){background:var(--accent-hi)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-g{background:#fff;color:var(--ink);border:1.5px solid #DDE3E9;width:100%;margin-top:10px;
+  display:flex;align-items:center;justify-content:center;gap:9px}
+.btn-g:hover{border-color:var(--accent)}
+.auth-or{display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:#98A6B3;font-size:11px}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:#E6EAEE}
+.auth-msg{display:none;margin-top:14px;padding:10px 12px;border-radius:8px;font-size:12.5px;line-height:1.5}
+#auth-err{background:#FDECEC;color:#8A1F1F}
+#auth-ok{background:#EAF6EC;color:#1B5E20}
+.auth-foot{margin-top:18px;font-size:11.5px;color:#94A3AF;text-align:center;line-height:1.6}
+
+/* ── Shell ────────────────────────────────────────────────────────────── */
+#app{display:none}
+#topbar{height:52px;background:var(--navy);color:#fff;display:flex;align-items:center;
+  gap:12px;padding:0 16px;position:sticky;top:0;z-index:60}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;color:#fff}
+.tb-logo img{height:26px;border-radius:6px}
+.tb-logo-txt{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.tb-sep{width:1px;height:22px;background:rgba(255,255,255,.18)}
+.tb-portal{font-size:13px;font-weight:500;color:rgba(255,255,255,.9)}
+.tb-badge{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  background:var(--accent);color:#fff;padding:3px 8px;border-radius:5px}
+.tb-spacer{flex:1}
+.tb-user{display:flex;align-items:center;gap:9px}
+.tb-name{font-size:12.5px;color:rgba(255,255,255,.82);max-width:190px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.btn-sm{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
+  border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:500;cursor:pointer}
+.btn-sm:hover:not(:disabled){background:rgba(255,255,255,.2)}
+.btn-sm.pri{background:var(--accent);border-color:var(--accent)}
+.btn-sm.pri:hover{background:var(--accent-hi)}
+.btn-sm:disabled{opacity:.5;cursor:not-allowed}
+.menu-btn{display:none;background:none;border:none;color:#fff;cursor:pointer;padding:4px}
+
+#shell{display:flex;min-height:calc(100vh - 52px)}
+#side{width:210px;background:#fff;border-right:1px solid var(--line);padding:14px 10px;
+  flex-shrink:0}
+.sn-group{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink-3);padding:12px 10px 6px}
+.sn-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--ink);
+  text-align:left;text-decoration:none}
+.sn-item:hover{background:#F3F5F7}
+.sn-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.sn-item svg{width:16px;height:16px;flex-shrink:0}
+.sn-item span:first-of-type{flex:1}
+.sn-count{background:#E9EDF1;color:var(--ink-2);font-size:11px;font-weight:600;
+  padding:1px 7px;border-radius:9px}
+.sn-item.active .sn-count{background:var(--accent);color:#fff}
+
+#main{flex:1;padding:22px 26px 60px;max-width:1500px;min-width:0}
+.view{display:none}
+.view.on{display:block}
+.ph{margin-bottom:18px}
+.ph h1{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--navy)}
+.ph p{font-size:13px;color:var(--ink-2);margin-top:5px;line-height:1.6;max-width:74ch}
+
+@media(max-width:900px){
+  .menu-btn{display:block}
+  #side{position:fixed;top:52px;bottom:0;left:-220px;z-index:55;transition:left .2s}
+  #side.on{left:0;box-shadow:var(--shadow-lg)}
+  #main{padding:16px 14px 60px}
+  .tb-name{display:none}
+}
+
+/* ── Banners ──────────────────────────────────────────────────────────── */
+.banner{border-radius:var(--r);padding:11px 14px;font-size:12.5px;line-height:1.55;
+  margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+.banner b{font-weight:600}
+.banner.info{background:#EAF1FE;color:#173A6D}
+.banner.warn{background:#FEF4E6;color:#7A4A08}
+.banner.demo{background:#F2EFFC;color:#3A2E8C}
+
+/* ── Cards / stats ────────────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:13px 15px;box-shadow:var(--shadow)}
+.stat .k{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3)}
+.stat .v{font-size:24px;font-weight:500;margin-top:5px;color:var(--navy);letter-spacing:-.5px}
+.stat .s{font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.45}
+.stat.alert .v{color:var(--bad)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);margin-bottom:16px}
+.card-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:10px;flex-wrap:wrap}
+.card-h h2{font-size:14px;font-weight:600;color:var(--navy)}
+.card-h .sub{font-size:12px;color:var(--ink-2)}
+.card-b{padding:16px}
+
+/* ── Filter chips ─────────────────────────────────────────────────────── */
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;
+  font-size:12.5px;cursor:pointer;color:var(--ink-2)}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+/* ── Table ────────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse}
+th{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--ink-3);text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);
+  white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid #F0F3F5;font-size:13px;vertical-align:top}
+tr.row{cursor:pointer}
+tr.row:hover td{background:#F7F9FB}
+.t-name{font-weight:600;color:var(--navy)}
+.t-sub{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.empty{padding:34px 16px;text-align:center;color:var(--ink-2);font-size:13px;line-height:1.6}
+.empty b{display:block;color:var(--navy);font-size:14px;margin-bottom:5px}
+.tbl-wrap{overflow-x:auto}
+
+/* ── Pills ────────────────────────────────────────────────────────────── */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.cat{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.3px;
+  background:#EEF1F4;color:var(--ink-2);border-radius:5px;padding:2px 7px;margin:0 4px 4px 0}
+.cat.theirs{background:var(--accent-soft);color:var(--accent)}
+.cat.added{background:#E7F6EC;color:#166534}
+.cat.dropped{background:#FDECEC;color:#8A1F1F;text-decoration:line-through}
+
+/* ── Clock ────────────────────────────────────────────────────────────── */
+.clk{min-width:104px}
+.clk .n{font-size:13px;font-weight:500}
+.clk .bar{height:3px;background:#E9EDF1;border-radius:2px;margin-top:5px;overflow:hidden}
+.clk .bar i{display:block;height:100%;border-radius:2px}
+.clk.ok .n{color:var(--ink)} .clk.ok .bar i{background:var(--ok)}
+.clk.warn .n{color:var(--warn)} .clk.warn .bar i{background:var(--warn)}
+.clk.breach .n{color:var(--bad)} .clk.breach .bar i{background:var(--bad)}
+.clk.done .n{color:var(--ink-2)} .clk.done .bar i{background:#C3CCD5}
+.clk .p{font-size:10.5px;color:var(--warn);margin-top:3px;font-weight:600}
+
+/* ── Drawer ───────────────────────────────────────────────────────────── */
+#scrim{position:fixed;inset:0;background:rgba(11,34,51,.42);z-index:70;display:none}
+#scrim.on{display:block}
+#drawer{position:fixed;top:0;right:-820px;width:820px;max-width:100vw;height:100vh;
+  background:var(--page);z-index:80;display:flex;flex-direction:column;
+  transition:right .22s ease;box-shadow:var(--shadow-lg)}
+#drawer.on{right:0}
+.dr-h{background:#fff;border-bottom:1px solid var(--line);padding:15px 20px;flex-shrink:0}
+.dr-h .top{display:flex;align-items:flex-start;gap:12px}
+.dr-h h2{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-.3px;flex:1}
+.dr-h .meta{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.5}
+.dr-x{background:none;border:none;font-size:22px;color:var(--ink-3);cursor:pointer;
+  line-height:1;padding:0 4px}
+.dr-b{flex:1;overflow-y:auto;padding:18px 20px 30px}
+.dr-f{background:#fff;border-top:1px solid var(--line);padding:12px 20px;flex-shrink:0;
+  display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.dr-f .spacer{flex:1}
+@media(max-width:860px){#drawer{width:100vw;right:-100vw}}
+
+.sec{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.sec-h{padding:11px 15px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2);display:flex;
+  align-items:center;gap:9px}
+.sec-h .r{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;
+  font-size:11.5px;color:var(--ink-3)}
+.sec-b{padding:15px}
+.sec-note{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:9px}
+
+.kv{display:grid;grid-template-columns:132px 1fr;gap:7px 14px;font-size:13px}
+.kv dt{color:var(--ink-3);font-size:11.5px;padding-top:1px}
+.kv dd{color:var(--ink)}
+
+/* ── The verdict card: the one loud element on the page ───────────────── */
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
+  border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.verdict .ax{background:#fff;padding:15px 16px}
+.verdict .ax .lbl{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-3)}
+.verdict .ax .val{font-family:'DM Mono',ui-monospace,monospace;font-size:19px;font-weight:500;
+  margin-top:7px;letter-spacing:-.4px;line-height:1.25}
+.verdict .ax .sub{font-size:11.5px;color:var(--ink-2);margin-top:5px;line-height:1.5}
+.verdict .ax.na .val{color:var(--ink-3)}
+@media(max-width:560px){.verdict{grid-template-columns:1fr}}
+
+.sig{background:#F7F9FB;border:1px solid var(--line);border-radius:8px;padding:11px 13px;
+  font-size:12px;color:var(--ink-2);line-height:1.55;margin-top:12px}
+.sig b{color:var(--navy)}
+
+/* ── Verdict form ─────────────────────────────────────────────────────── */
+.opts{display:flex;flex-direction:column;gap:7px}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);
+  border-radius:8px;padding:9px 11px;cursor:pointer;background:#fff}
+.opt:hover{border-color:#C4CCD5}
+.opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.opt input{margin-top:3px;accent-color:var(--accent)}
+.opt .l{font-size:13px;font-weight:600;color:var(--navy)}
+.opt .h{font-size:11.5px;color:var(--ink-2);margin-top:2px;line-height:1.45}
+.opt.on .l{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+
+.catbox{display:flex;flex-wrap:wrap;gap:7px}
+.catopt{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:6px 13px;
+  font-size:12.5px;cursor:pointer;color:var(--ink-2);user-select:none}
+.catopt:hover{border-color:#C4CCD5}
+.catopt.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+.problems{background:#FDECEC;border:1px solid #F5C6C6;border-radius:8px;padding:11px 13px;
+  margin-bottom:13px}
+.problems b{display:block;font-size:12.5px;color:#8A1F1F;margin-bottom:6px}
+.problems ul{margin:0;padding-left:17px}
+.problems li{font-size:12.5px;color:#8A1F1F;line-height:1.55;margin-bottom:3px}
+
+/* ── Documents ────────────────────────────────────────────────────────── */
+.doc{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid #F0F3F5}
+.doc:last-child{border-bottom:none}
+.doc .ic{width:30px;height:30px;border-radius:7px;background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700}
+.doc .n{flex:1;min-width:0}
+.doc .n b{display:block;font-size:12.5px;font-weight:600;color:var(--navy);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc .n span{font-size:11px;color:var(--ink-3)}
+.lnk{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;
+  padding:3px 6px;font-weight:500}
+.lnk.danger{color:var(--bad)}
+.up{border:1.5px dashed #C9D3DC;border-radius:8px;padding:14px;text-align:center;
+  font-size:12.5px;color:var(--ink-2);cursor:pointer;background:#FBFCFD}
+.up:hover{border-color:var(--accent);color:var(--accent)}
+.prog{height:3px;background:#E9EDF1;border-radius:2px;margin-top:9px;overflow:hidden;display:none}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .18s}
+
+/* ── Notes / activity ─────────────────────────────────────────────────── */
+.note{border-left:2.5px solid var(--line);padding:2px 0 10px 12px;margin-bottom:10px}
+.note .m{font-size:11px;color:var(--ink-3)}
+.note .t{font-size:12.5px;color:var(--ink);line-height:1.6;margin-top:3px;white-space:pre-wrap}
+.note.shared{border-left-color:var(--accent)}
+.act{font-size:12px;color:var(--ink-2);padding:6px 0;border-bottom:1px solid #F4F6F8;line-height:1.5}
+.act:last-child{border-bottom:none}
+.act b{color:var(--ink);font-weight:600}
+.act span{color:var(--ink-3);font-size:11px}
+
+.drv{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:5px 0;line-height:1.5}
+.drv .e{font-family:'DM Mono',monospace;font-weight:500;width:14px;flex-shrink:0;text-align:center}
+.drv .e.pos{color:var(--ok)} .drv .e.neg{color:var(--bad)} .drv .e.flag{color:var(--warn)}
+
+.btn-o{background:#fff;border:1.5px solid var(--line);color:var(--ink);border-radius:8px;
+  padding:9px 14px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.btn-o:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn-a{background:var(--accent);border:1.5px solid var(--accent);color:#fff;border-radius:8px;
+  padding:9px 16px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.btn-a:hover:not(:disabled){background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn-o:disabled,.btn-a:disabled{opacity:.5;cursor:not-allowed}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--navy);color:#fff;padding:11px 18px;border-radius:9px;font-size:13px;
+  z-index:200;opacity:0;transition:.22s;pointer-events:none;max-width:88vw;text-align:center}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.bad{background:var(--bad)}
+
+pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflow-x:auto;
+  font-family:'DM Mono',monospace;line-height:1.5;color:var(--ink-2)}
+.prose p{font-size:13.5px;line-height:1.7;color:var(--ink);margin-bottom:12px;max-width:76ch}
+.prose h3{font-size:13.5px;font-weight:700;color:var(--navy);margin:20px 0 8px}
+.prose ol,.prose ul{margin:0 0 12px 20px}
+.prose li{font-size:13.5px;line-height:1.7;margin-bottom:6px;max-width:74ch}
+</style>
+</head>
+<body>
+
+<div id="boot"><div class="spin"></div><div class="boot-txt">Loading verification console…</div></div>
+
+<!-- ══════════════════ AUTH ══════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="/omega-logo.png" alt="" onerror="this.style.display='none'">
+      <div><b>ClearSky-OMEGA</b><small>Verification partner</small></div>
+    </div>
+    <div class="auth-h">Sign in</div>
+    <div class="auth-sub">
+      For engineering and finance partners reviewing ClearSky projects.
+      Access is granted per organisation — use your work address.
+    </div>
+
+    <div class="fld">
+      <label for="auth-email">Work email</label>
+      <input id="auth-email" type="email" autocomplete="username" placeholder="you@yourfirm.com">
+    </div>
+    <div class="fld">
+      <label for="auth-pass">Password</label>
+      <input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <button class="btn btn-p" id="email-auth-btn" onclick="emailAuth()">Sign in</button>
+
+    <div class="auth-or">or</div>
+    <button class="btn btn-g" id="google-signin-btn" onclick="signInWithGoogle()">
+      <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"/><path fill="#EA4335" d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+
+    <button class="lnk" style="margin-top:12px;width:100%" onclick="resetPassword()">Forgot password</button>
+
+    <div class="auth-msg" id="auth-err"></div>
+    <div class="auth-msg" id="auth-ok"></div>
+
+    <div class="auth-foot">
+      Restricted to registered verification partners.<br>
+      Clients and ClearSky staff use their own consoles.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ APP ══════════════════ -->
+<div id="app">
+
+<div id="topbar">
+  <button class="menu-btn" onclick="document.getElementById('side').classList.toggle('on')" aria-label="Menu">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <a href="/" class="tb-logo">
+    <img src="/omega-logo.png" alt="" onerror="this.style.display='none'">
+    <span class="tb-logo-txt">ClearSky OMEGA</span>
+  </a>
+  <div class="tb-sep"></div>
+  <span class="tb-portal">Verification Console</span>
+  <span class="tb-badge" id="tb-badge">Partner</span>
+  <div class="tb-spacer"></div>
+  <div class="tb-user">
+    <button class="btn-sm" onclick="refresh(true)" id="btn-refresh">Refresh</button>
+    <span class="tb-name" id="tb-name"></span>
+    <button class="btn-sm" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<div id="shell">
+  <nav id="side">
+    <div class="sn-group">Review</div>
+    <button class="sn-item active" data-view="queue" onclick="go('queue')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span>Assigned to us</span><span class="sn-count" id="c-queue">0</span></button>
+    <button class="sn-item" data-view="done" onclick="go('done')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+      <span>Completed</span><span class="sn-count" id="c-done">0</span></button>
+
+    <div class="sn-group">Elsewhere</div>
+    <a class="sn-item" href="/portfolio.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></svg>
+      <span>Portfolio</span></a>
+
+    <div class="sn-group">Reference</div>
+    <button class="sn-item" data-view="guide" onclick="go('guide')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <span>How this works</span></button>
+  </nav>
+
+  <main id="main">
+    <div id="banners"></div>
+
+    <!-- ── QUEUE ── -->
+    <section class="view on" id="v-queue">
+      <div class="ph">
+        <h1 id="q-title">Assigned to us</h1>
+        <p id="q-sub">Projects ClearSky has screened and sent over for independent review.
+          Open one to see the packet, mark its categories, and sign a verdict.</p>
+      </div>
+      <div class="stats" id="q-stats"></div>
+      <div class="card">
+        <div class="card-h">
+          <h2>Open assignments</h2>
+          <div class="chips" id="q-chips" style="margin-left:auto"></div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Project</th><th>Categories</th><th>Asked for</th>
+            <th>Status</th><th>Turnaround</th><th>Assigned</th>
+          </tr></thead>
+          <tbody id="q-rows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ── COMPLETED ── -->
+    <section class="view" id="v-done">
+      <div class="ph">
+        <h1>Completed</h1>
+        <p>Signed verdicts. Read-only — reissuing a verdict keeps the original in the record
+           rather than replacing it, so nothing here ever disappears.</p>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Signed verdicts</h2><span class="sub" id="d-count"></span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Project</th><th>Feasibility</th><th>Bankability</th>
+            <th>Categories</th><th>Turnaround</th><th>Signed</th>
+          </tr></thead>
+          <tbody id="d-rows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ── GUIDE ── -->
+    <section class="view" id="v-guide">
+      <div class="ph"><h1>How this works</h1>
+        <p>What you are being asked for, and what each answer is used for downstream.</p></div>
+      <div class="card"><div class="card-b prose">
+        <h3>Where you sit in the pipeline</h3>
+        <p>Every project you see here has already been through a machine screen and a human
+           desk review. You are not the first look — you are the independent one. If a packet
+           reaches you thin, that is a failure upstream and we would rather have it back than
+           have you guess: use <b>Ask a question</b>, which pauses your turnaround clock.</p>
+
+        <h3>The three things we need</h3>
+        <ol>
+          <li><b>Categories.</b> Mark what this project actually is. We send you our own
+              categorisation and yours is recorded separately — where they differ, that
+              difference is a finding, not an error to reconcile.</li>
+          <li><b>A verdict on each axis you were asked for.</b> Feasibility is whether it can
+              be built. Bankability is whether it would be funded on the terms provided.
+              A project can pass one and fail the other, which is the most useful answer
+              you can give us.</li>
+          <li><b>A document.</b> A signed verdict needs its report attached. PDF, because the
+              artifact needs to be the thing a lender receives rather than a draft.</li>
+        </ol>
+
+        <h3>Say when you cannot tell</h3>
+        <p><b>Cannot determine</b> is a real answer and we would rather have it than a
+           confident guess. It tells us our packet was thin, which is something we can fix.
+           A pass we cannot distinguish from a guess is something we cannot.</p>
+
+        <h3>Conditional means listing the conditions</h3>
+        <p>A conditional verdict with an empty conditions field reads as a yes to whoever is
+           in a hurry, so the console will not let you sign one. Same for a negative verdict
+           with no blocker named — it cannot be worked or appealed.</p>
+
+        <h3>Signing is append-only</h3>
+        <p>Once signed, the verdict and its documents are part of the record. You can reissue
+           with a reason and the new opinion supersedes the old one, but nothing is deleted
+           or edited in place. That is what makes the opinion worth attaching to a financing.</p>
+      </div></div>
+    </section>
+  </main>
+</div>
+</div>
+
+<!-- ══════════════════ DRAWER ══════════════════ -->
+<div id="scrim" onclick="closeDrawer()"></div>
+<aside id="drawer" role="dialog" aria-modal="true">
+  <div class="dr-h">
+    <div class="top">
+      <div style="flex:1;min-width:0">
+        <h2 id="dr-title">—</h2>
+        <div class="meta" id="dr-meta"></div>
+      </div>
+      <button class="dr-x" onclick="closeDrawer()" aria-label="Close">×</button>
+    </div>
+  </div>
+  <div class="dr-b" id="dr-body"></div>
+  <div class="dr-f" id="dr-foot"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<!-- Versioned. Bump on every change to either, or the browser serves a cached
+     copy and the new page runs against the old data layer — which fails as
+     "the queue is blank" rather than as a load error. -->
+<script src="/config.js?v=2"></script>
+<script src="/access-data.js?v=1"></script>
+<script src="/partner-data.js?v=2"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   OMEGA PARTNER VERIFICATION CONSOLE (v1)
+
+   Reads ONE collection: `verifications`, filtered to the signed-in partner's
+   own org. It has no read on intake_projects and no read on projects — the
+   packet it renders was copied onto the assignment when ClearSky sent it.
+   See partner-data.js § THE PACKET IS A SNAPSHOT.
+   ══════════════════════════════════════════════════════════════════════════ */
+var P = PartnerData;
+var auth, db, ME = { email:'', name:'', uid:'' }, ACTOR = null;
+var STATE = {
+  rows:[], loaded:false, demo:false, view:'queue',
+  filter:'open', openId:null,
+  /* The in-progress verdict form, held here rather than read off the DOM on
+     submit so a re-render (an upload finishing, a note saving) does not wipe
+     what the reviewer has typed. */
+  form:null, problems:[]
+};
+
+function ready(){
+  var el = document.getElementById('boot');
+  if (!el || el.classList.contains('hide')) return;
+  el.classList.add('hide');
+  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 320);
+}
+
+(function boot(){
+  if (typeof firebase === 'undefined' || !window.CLEARSKY_CONFIG){ setTimeout(boot, 120); return; }
+  try { firebase.initializeApp(window.CLEARSKY_CONFIG.firebase); }
+  catch(e){ if(!/already exists/.test(e.message)) console.error('Firebase init:', e); }
+  auth = firebase.auth();
+  db   = firebase.firestore();
+
+  auth.onAuthStateChanged(function(user){
+    if (!user){ ready(); showLogin(); return; }
+
+    /* Identity comes from the shared access layer, not from a domain list in
+       config. A pending or suspended account is bounced to the portfolio
+       console's waiting screen rather than being told "wrong password" here —
+       one waiting screen, one place to explain it. */
+    OmegaAccess.resolve(db, user).then(function(rec){
+      ready();
+      if (rec.status !== 'active'){
+        location.replace('/portfolio.html');
+        return;
+      }
+      var a = P.resolveActor(rec);
+      if (!a){ showAuthErr(P.accessMessage(user.email||'')); auth.signOut(); return; }
+      ACTOR = a;
+      ME.email = rec.email; ME.uid = user.uid; ME.name = rec.name;
+      P.init(db, ME, ACTOR);
+      showApp(user);
+    })['catch'](function(err){
+      ready();
+      console.error('[partner] identity:', err);
+      showAuthErr('Could not read your account. On a new deployment this is usually the '
+        + 'omega_users rules not being merged yet. ' + (err && err.message || ''));
+      auth.signOut();
+    });
+  });
+})();
+
+function showLogin(){
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+function showAuthErr(m){
+  var el = document.getElementById('auth-err');
+  el.textContent = m; el.style.display = 'block';
+  var b = document.getElementById('email-auth-btn');
+  if (b){ b.disabled = false; b.textContent = 'Sign in'; }
+  var g = document.getElementById('google-signin-btn');
+  if (g) g.disabled = false;
+}
+function showAuthOk(m){
+  var el = document.getElementById('auth-ok');
+  el.textContent = m; el.style.display = 'block';
+}
+function clearAuthMsg(){
+  ['auth-err','auth-ok'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.style.display='none';
+  });
+}
+
+function showApp(user){
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('tb-name').textContent = ME.name;
+  document.getElementById('tb-badge').textContent = ACTOR.name;
+  document.getElementById('q-title').textContent =
+    ACTOR.kind === 'internal' ? 'All partner assignments' : 'Assigned to ' + ACTOR.name;
+  if (ACTOR.kind === 'internal'){
+    document.getElementById('q-sub').textContent =
+      'Every partner\u2019s queue, read-only. This is how you see what a partner is sitting '
+      + 'on without asking them \u2014 staff accounts cannot sign a partner verdict.';
+  }
+  go(location.hash.replace('#/','') || 'queue', true);
+  refresh();
+  setInterval(tick, 1000);
+}
+
+/* ── Auth actions ─────────────────────────────────────────────────────── */
+function signInWithGoogle(){
+  clearAuthMsg();
+  var btn = document.getElementById('google-signin-btn');
+  btn.disabled = true;
+  var p = new firebase.auth.GoogleAuthProvider();
+  p.setCustomParameters({ prompt:'select_account' });
+  auth.signInWithPopup(p)['catch'](function(err){ showAuthErr(err.message); });
+}
+function emailAuth(){
+  clearAuthMsg();
+  var email = document.getElementById('auth-email').value.trim();
+  var pass  = document.getElementById('auth-pass').value;
+  if (!email || !pass){ showAuthErr('Enter your email and password.'); return; }
+  /* No domain pre-check any more. There is no allowlist to check against, and
+     the honest flow for an unknown address is: sign in, land on the waiting
+     screen, get approved. Rejecting them here would tell an invited partner
+     their password is wrong. */
+  var btn = document.getElementById('email-auth-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  auth.signInWithEmailAndPassword(email, pass)['catch'](function(err){
+    var c = (err && err.code) || '';
+    if (c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found')
+      showAuthErr('That email and password don\u2019t match an account.');
+    else if (c==='auth/too-many-requests')
+      showAuthErr('Too many attempts. Wait a few minutes and try again.');
+    else showAuthErr((err && err.message) || 'Sign-in failed.');
+  });
+}
+function resetPassword(){
+  clearAuthMsg();
+  var email = document.getElementById('auth-email').value.trim();
+  if (!email){ showAuthErr('Enter your email address first.'); return; }
+  auth.sendPasswordResetEmail(email).then(function(){
+    showAuthOk('If that address has an account, a reset link is on its way.');
+  })['catch'](function(){
+    /* Same message either way, deliberately: a different one would confirm
+       which addresses exist to anyone who can load this page. */
+    showAuthOk('If that address has an account, a reset link is on its way.');
+  });
+}
+function signOut(){ auth.signOut(); }
+document.addEventListener('keydown', function(e){
+  if (e.key==='Enter' && document.getElementById('auth-screen').style.display==='flex') emailAuth();
+  if (e.key==='Escape') closeDrawer();
+});
+
+/* ── Data ─────────────────────────────────────────────────────────────── */
+function refresh(manual){
+  var btn = document.getElementById('btn-refresh');
+  if (btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
+  P.loadAssignments().then(function(rows){
+    STATE.rows = rows; STATE.loaded = true; STATE.demo = false;
+    render();
+  })['catch'](function(err){
+    console.error('[partner] load failed:', err);
+    STATE.loaded = true;
+    banner('warn', 'The queue could not be read',
+      'Firestore refused the read. If this deployment is new, firestore.rules.partner '
+      + 'has probably not been merged yet \u2014 without it a partner signs in fine and sees '
+      + 'nothing, which looks like an empty queue. Error: ' + (err && err.message || err));
+    render();
+  })['finally'](function(){
+    if (btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
+    if (manual) toast('Refreshed');
+  });
+}
+
+function loadSample(){
+  STATE.rows = P.sample(ACTOR.orgId, ACTOR.name);
+  STATE.demo = true; STATE.loaded = true;
+  render(); toast('Sample assignments loaded \u2014 nothing is saved');
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+function go(view, silent){
+  STATE.view = view;
+  var items = document.querySelectorAll('.sn-item[data-view]');
+  for (var i=0;i<items.length;i++)
+    items[i].classList.toggle('active', items[i].getAttribute('data-view')===view);
+  var views = document.querySelectorAll('.view');
+  for (var j=0;j<views.length;j++) views[j].classList.remove('on');
+  var el = document.getElementById('v-'+view);
+  if (el) el.classList.add('on');
+  if (!silent) location.hash = '#/'+view;
+  document.getElementById('side').classList.remove('on');
+  render();
+}
+
+/* ── Render ───────────────────────────────────────────────────────────── */
+function render(){
+  if (!STATE.loaded) return;
+  renderBanners();
+  renderStats();
+  renderChips();
+  renderQueue();
+  renderDone();
+  renderCounts();
+  if (STATE.openId) renderDrawer();
+}
+
+function banner(kind, title, body){
+  var el = document.getElementById('banners');
+  var d = document.createElement('div');
+  d.className = 'banner ' + kind;
+  d.innerHTML = '<div><b>'+P.esc(title)+'</b><br>'+P.esc(body)+'</div>';
+  el.appendChild(d);
+}
+
+function renderBanners(){
+  var el = document.getElementById('banners');
+  el.innerHTML = '';
+  if (STATE.demo){
+    el.innerHTML = '<div class="banner demo"><div><b>Sample data.</b> '
+      + 'These three assignments are fabricated and held in memory only \u2014 nothing is '
+      + 'written and nothing you do here reaches ClearSky. Refresh to clear them.</div></div>';
+    return;
+  }
+  if (!STATE.rows.length && STATE.loaded){
+    var extra = (window.CLEARSKY_CONFIG.partner||{}).allowSample
+      ? ' <button class="lnk" onclick="loadSample()">Load sample assignments</button>' : '';
+    el.innerHTML = '<div class="banner info"><div><b>Nothing assigned yet.</b> '
+      + 'Projects appear here when ClearSky sends one over. If you were expecting something, '
+      + 'ask them to confirm the assignment went to <span class="mono">'
+      + P.esc(ACTOR.orgId) + '</span>.' + extra + '</div></div>';
+  }
+  if (ACTOR.kind==='partner' && !ACTOR.retained){
+    el.innerHTML += '<div class="banner info"><div><b>Not a retained verifier.</b> '
+      + P.esc(ACTOR.name) + ' has portal access but is not currently engaged to sign '
+      + 'feasibility or bankability opinions, so nothing will be assigned here. '
+      + 'The portfolio console is where your deals live.</div></div>';
+  }
+  if (ACTOR.kind==='partner' && ACTOR.retained && !ACTOR.canSign){
+    el.innerHTML += '<div class="banner warn"><div><b>You can review but not sign.</b> '
+      + 'Your address is not on the signer list for ' + P.esc(ACTOR.name) + '. You can work '
+      + 'the packet, save a draft and upload documents; a named signer completes it.</div></div>';
+  }
+  if (ACTOR.kind==='internal'){
+    el.innerHTML += '<div class="banner info"><div><b>ClearSky observer.</b> '
+      + 'You are seeing every partner\u2019s queue read-only. Staff accounts deliberately '
+      + 'cannot sign a partner verdict \u2014 an opinion we signed ourselves is not an '
+      + 'independent one.</div></div>';
+  }
+}
+
+function renderStats(){
+  var s = P.summarize(STATE.rows);
+  var host = document.getElementById('q-stats');
+  function card(k, v, sub, alert){
+    return '<div class="stat'+(alert?' alert':'')+'"><div class="k">'+k+'</div>'
+      + '<div class="v mono">'+v+'</div><div class="s">'+sub+'</div></div>';
+  }
+  host.innerHTML =
+      card('Open', s.open, s.unopened + ' not opened yet')
+    + card('Waiting on ClearSky', s.blocked, s.blocked ? 'Clock paused on these' : 'Nothing blocked')
+    + card('Past target', s.breach, s.warn + ' approaching', s.breach > 0)
+    + card('Signed', s.signed, s.medianMs != null
+        ? 'Median turnaround ' + P.fmtDur(s.medianMs) : 'No turnaround yet')
+    + card('Recategorised', s.disagreeing, s.signed
+        ? 'of ' + s.signed + ' signed \u2014 where our categories and yours differed'
+        : 'Nothing signed yet');
+}
+
+function renderChips(){
+  var defs = [
+    { k:'open',   l:'Open' },
+    { k:'new',    l:'Not opened' },
+    { k:'mine',   l:'In review' },
+    { k:'blocked',l:'Waiting on ClearSky' },
+    { k:'all',    l:'All' }
+  ];
+  var host = document.getElementById('q-chips'), h = '';
+  for (var i=0;i<defs.length;i++){
+    var n = filterRows(defs[i].k).length;
+    h += '<button class="chip'+(STATE.filter===defs[i].k?' on':'')+'" onclick="setFilter(\''
+       + defs[i].k+'\')">'+defs[i].l+' <span class="mono">'+n+'</span></button>';
+  }
+  host.innerHTML = h;
+}
+function setFilter(k){ STATE.filter = k; render(); }
+
+function filterRows(k){
+  return STATE.rows.filter(function(v){
+    if (k==='all')     return true;
+    if (k==='open')    return P.isOpen(v);
+    if (k==='new')     return v.status==='assigned';
+    if (k==='mine')    return v.status==='accepted' || v.status==='in_review';
+    if (k==='blocked') return v.status==='info_requested';
+    return true;
+  });
+}
+
+function catChips(keys, cls){
+  if (!keys || !keys.length) return '<span style="color:var(--ink-3)">\u2014</span>';
+  return keys.map(function(k){
+    return '<span class="cat '+(cls||'')+'">'+P.esc(P.categoryOf(k).short)+'</span>';
+  }).join('');
+}
+
+function statusPill(v){
+  var s = P.statusOf(v.status);
+  return '<span class="pill" style="background:'+s.color+'18;color:'+s.color+'">'
+       + '<span class="dot"></span>'+P.esc(s.label)+'</span>';
+}
+
+function clockCell(v){
+  var c = P.clock(v);
+  if (c.elapsed == null) return '<span style="color:var(--ink-3)">\u2014</span>';
+  return '<div class="clk '+c.state+'"><div class="n mono">'+c.text+'</div>'
+    + '<div class="bar"><i style="width:'+Math.min(100,c.pct)+'%"></i></div>'
+    + (c.paused ? '<div class="p">paused</div>' : '')
+    + '</div>';
+}
+
+function renderQueue(){
+  var rows = filterRows(STATE.filter);
+  rows.sort(function(a,b){
+    /* Breaching first, then closest to target. A queue sorted by date puts the
+       thing about to be late underneath yesterday's easy one. */
+    var ca = P.clock(a), cb = P.clock(b);
+    return (cb.pct||0) - (ca.pct||0);
+  });
+  var host = document.getElementById('q-rows');
+  if (!rows.length){
+    host.innerHTML = '<tr><td colspan="6"><div class="empty"><b>Nothing here</b>'
+      + 'No assignments match this filter.</div></td></tr>';
+    return;
+  }
+  var h = '';
+  for (var i=0;i<rows.length;i++){
+    var v = rows[i];
+    var scopes = v.scopeRequested.map(function(s){
+      var c = P.scopeCfg()[s]; return c ? c.label : s; }).join(' + ');
+    h += '<tr class="row" onclick="openDrawer(\''+v.id+'\')">'
+      + '<td><div class="t-name">'+P.esc(v.projectName)+'</div>'
+      +   '<div class="t-sub">'+P.esc(v.address || 'Location not stated')
+      +   (P.discloseClient() && v.clientName ? ' \u00b7 '+P.esc(v.clientName) : '')+'</div></td>'
+      + '<td>'+catChips(v.ourCategories)+'</td>'
+      + '<td style="font-size:12px;color:var(--ink-2)">'+P.esc(scopes)+'</td>'
+      + '<td>'+statusPill(v)+'</td>'
+      + '<td>'+clockCell(v)+'</td>'
+      + '<td style="font-size:12px;color:var(--ink-2)">'+P.esc(P.fmtAgo(v.assignedAt))+'</td>'
+      + '</tr>';
+  }
+  host.innerHTML = h;
+}
+
+function renderDone(){
+  var rows = STATE.rows.filter(P.isSigned);
+  rows.sort(function(a,b){ return P.ms(b.verdict.signedAt) - P.ms(a.verdict.signedAt); });
+  document.getElementById('d-count').textContent =
+    rows.length ? rows.length + ' signed' : '';
+  var host = document.getElementById('d-rows');
+  if (!rows.length){
+    host.innerHTML = '<tr><td colspan="6"><div class="empty"><b>No signed verdicts yet</b>'
+      + 'Verdicts appear here once they are signed.</div></td></tr>';
+    return;
+  }
+  var h = '';
+  for (var i=0;i<rows.length;i++){
+    var v = rows[i];
+    var f = P.feasibilityOf(v.verdict.feasibility), b = P.bankabilityOf(v.verdict.bankability);
+    var changed = !P.sameSet(v.ourCategories, v.verdict.categories);
+    h += '<tr class="row" onclick="openDrawer(\''+v.id+'\')">'
+      + '<td><div class="t-name">'+P.esc(v.projectName)+'</div>'
+      +   '<div class="t-sub">'+P.esc(v.address)+'</div></td>'
+      + '<td>'+(f ? '<span class="pill" style="background:'+f.color+'18;color:'+f.color
+                    +'"><span class="dot"></span>'+P.esc(f.label)+'</span>'
+                  : '<span style="color:var(--ink-3)">not asked</span>')+'</td>'
+      + '<td>'+(b ? '<span class="pill" style="background:'+b.color+'18;color:'+b.color
+                    +'"><span class="dot"></span>'+P.esc(b.label)+'</span>'
+                  : '<span style="color:var(--ink-3)">not asked</span>')+'</td>'
+      + '<td>'+catChips(v.verdict.categories,'theirs')
+      +   (changed ? '<div class="t-sub">changed from '+P.esc(v.ourCategories.map(function(k){
+             return P.categoryOf(k).short; }).join(', ') || 'none')+'</div>' : '')+'</td>'
+      + '<td class="mono" style="font-size:12.5px">'+P.fmtDur(P.elapsedMs(v))+'</td>'
+      + '<td style="font-size:12px;color:var(--ink-2)">'+P.esc(P.fmtDate(v.verdict.signedAt))+'</td>'
+      + '</tr>';
+  }
+  host.innerHTML = h;
+}
+
+function renderCounts(){
+  document.getElementById('c-queue').textContent = STATE.rows.filter(P.isOpen).length;
+  document.getElementById('c-done').textContent  = STATE.rows.filter(P.isSigned).length;
+}
+
+/* Repaint the queue once a second so the clocks stay live. Skipped while the
+   drawer is open — the reviewer is typing in there and a repaint underneath
+   them is a scroll jump for no benefit, since the row they came from is
+   hidden anyway. */
+function tick(){
+  if (STATE.view !== 'queue' || STATE.openId) return;
+  if (!document.querySelectorAll('#q-rows .clk').length) return;
+  renderQueue();
+}
+
+/* ── Drawer ───────────────────────────────────────────────────────────── */
+function find(id){
+  for (var i=0;i<STATE.rows.length;i++) if (STATE.rows[i].id===id) return STATE.rows[i];
+  return null;
+}
+
+function openDrawer(id){
+  var v = find(id); if (!v) return;
+  STATE.openId = id;
+  STATE.problems = [];
+  /* Seed the form from the signed verdict, then the draft, then blank. Signed
+     wins so reissuing starts from what was actually said rather than from an
+     older draft nobody remembers writing. */
+  var seed = P.isSigned(v) ? v.verdict : (v.draft || {});
+  STATE.form = {
+    categories: (seed.categories && seed.categories.length ? seed.categories : v.ourCategories).slice(),
+    feasibility: seed.feasibility || '',
+    bankability: seed.bankability || '',
+    confidence:  seed.confidence || '',
+    conditions:  (seed.conditions || []).join('\n'),
+    blockers:    (seed.blockers || []).join('\n'),
+    summary:     seed.summary || '',
+    supersede:   ''
+  };
+  document.getElementById('scrim').classList.add('on');
+  document.getElementById('drawer').classList.add('on');
+  renderDrawer();
+}
+function closeDrawer(){
+  STATE.openId = null; STATE.form = null;
+  document.getElementById('scrim').classList.remove('on');
+  document.getElementById('drawer').classList.remove('on');
+}
+
+function renderDrawer(){
+  var v = find(STATE.openId); if (!v) return closeDrawer();
+  var signed = P.isSigned(v), ro = signed || v._demo || ACTOR.kind==='internal';
+
+  document.getElementById('dr-title').textContent = v.projectName;
+  document.getElementById('dr-meta').innerHTML =
+      statusPill(v) + ' &nbsp; ' + P.esc(v.address || 'Location not stated')
+    + (P.discloseClient() && v.clientName ? ' \u00b7 ' + P.esc(v.clientName) : '')
+    + ' \u00b7 assigned ' + P.esc(P.fmtAgo(v.assignedAt))
+    + (v.round > 1 ? ' \u00b7 round ' + v.round : '');
+
+  var h = '';
+
+  /* ── What we sent ───────────────────────────────────────────────────── */
+  h += '<div class="sec"><div class="sec-h">The packet'
+     + '<span class="r">Frozen when ClearSky assigned it</span></div><div class="sec-b">';
+  h += '<dl class="kv">'
+     + row('Site', v.address || '\u2014')
+     + (P.discloseClient() ? row('Client', v.clientName || '\u2014') : '')
+     + row('Utility', v.utility || '\u2014')
+     + row('AHJ', v.ahj || '\u2014')
+     + row('Stage', v.stage || '\u2014')
+     + row('Our categories', catChips(v.ourCategories))
+     + row('Asked for', v.scopeRequested.map(function(s){
+         var c = P.scopeCfg()[s]; return c ? c.label : s; }).join(' + '))
+     + '</dl>';
+
+  if (v.sizing.length){
+    h += '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+       + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+       + 'Sizing as screened</div>';
+    for (var i=0;i<v.sizing.length;i++){
+      var s = v.sizing[i];
+      h += '<div class="drv"><span class="e">\u00b7</span><span><b>'
+         + P.esc(s.label || s.key)+'</b> \u2014 '+P.esc(s.text || 'size not stated')+'</span></div>';
+    }
+    h += '</div>';
+  }
+
+  if (v.modelRun){
+    h += '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+       + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+       + 'Our model \u00b7 '+P.esc(v.modelRun.version||'')+'</div>'
+       + '<div class="mono" style="font-size:17px;color:var(--navy)">'
+       + (v.modelRun.probability != null
+          ? Math.round(v.modelRun.probability*100)+'% pass probability'
+          : 'no score')
+       + '</div>';
+    var drv = v.modelRun.drivers || [];
+    for (var d=0;d<drv.length;d++){
+      var e = drv[d].effect==='+' ? 'pos' : drv[d].effect==='-' ? 'neg' : 'flag';
+      h += '<div class="drv"><span class="e '+e+'">'+P.esc(drv[d].effect||'\u00b7')+'</span>'
+         + '<span>'+P.esc(drv[d].label||'')+'</span></div>';
+    }
+    h += '<div class="sec-note">This is our screen, not a conclusion. Disagreeing with it '
+       + 'is a useful outcome \u2014 it is how we find out where the model is wrong.</div></div>';
+  }
+
+  if (v.commercial){
+    h += '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+       + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+       + 'Commercial terms</div><dl class="kv">'
+       + row('Counterparty', v.commercial.counterparty || '\u2014')
+       + row('Status', v.commercial.status || '\u2014')
+       + row('Term', v.commercial.term || '\u2014')
+       + '</dl></div>';
+  }
+
+  if (v.briefing){
+    h += '<div style="margin-top:13px;font-size:12.5px;line-height:1.6;color:var(--ink-2);'
+       + 'background:#F7F9FB;border-radius:8px;padding:11px 13px">'+P.esc(v.briefing)+'</div>';
+  }
+
+  if (v.packetFiles.length){
+    h += '<div style="margin-top:13px">';
+    for (var f=0;f<v.packetFiles.length;f++){
+      h += '<div class="doc"><div class="ic">FILE</div><div class="n"><b>'
+         + P.esc(v.packetFiles[f].name||'File')+'</b></div>'
+         + (v.packetFiles[f].url ? '<a class="lnk" target="_blank" rel="noopener" href="'
+            + P.esc(v.packetFiles[f].url)+'">Open</a>' : '')+'</div>';
+    }
+    h += '</div>';
+  }
+  h += '</div></div>';
+
+  /* ── Signed verdict, or the form ────────────────────────────────────── */
+  if (signed) h += signedBlock(v);
+  h += verdictForm(v, ro);
+
+  /* ── Documents ──────────────────────────────────────────────────────── */
+  h += docsBlock(v, ro);
+
+  /* ── Questions ──────────────────────────────────────────────────────── */
+  if (v.infoRequests.length){
+    h += '<div class="sec"><div class="sec-h">Questions to ClearSky</div><div class="sec-b">';
+    for (var q=0;q<v.infoRequests.length;q++){
+      var r = v.infoRequests[q];
+      h += '<div class="note'+(r.answeredAt?'':' shared')+'">'
+         + '<div class="m">'+P.esc(r.by||'')+' \u00b7 '+P.esc(P.fmtDateTime(r.ts))
+         + (r.answeredAt ? ' \u00b7 answered' : ' \u00b7 <b style="color:var(--warn)">awaiting reply</b>')
+         + '</div><div class="t">'+P.esc(r.question||'')+'</div>'
+         + (r.answer ? '<div class="t" style="color:var(--ink-2);margin-top:6px">\u21b3 '
+             +P.esc(r.answer)+'</div>' : '')+'</div>';
+    }
+    h += '</div></div>';
+  }
+
+  /* ── Notes ──────────────────────────────────────────────────────────── */
+  h += '<div class="sec"><div class="sec-h">Notes<span class="r">'
+     + 'Internal notes stay with your team \u00b7 shared notes go back to ClearSky</span></div>'
+     + '<div class="sec-b">';
+  if (!ro){
+    h += '<div class="fld" style="margin-top:0"><textarea id="note-text" '
+       + 'placeholder="What did you find? Anything here is kept with the record."></textarea></div>'
+       + '<div style="display:flex;gap:8px;margin-top:9px">'
+       + '<button class="btn-o" onclick="saveNote(false)">Save internal note</button>'
+       + '<button class="btn-o" onclick="saveNote(true)">Send to ClearSky</button></div>'
+       + '<div style="height:14px"></div>';
+  }
+  if (!v.notes.length) h += '<div style="font-size:12.5px;color:var(--ink-3)">No notes yet.</div>';
+  for (var n=v.notes.length-1;n>=0;n--){
+    var nt = v.notes[n];
+    h += '<div class="note'+(nt.visibility==='shared'?' shared':'')+'">'
+       + '<div class="m">'+P.esc(nt.author||'')+' \u00b7 '+P.esc(P.fmtDateTime(nt.ts))
+       + ' \u00b7 '+(nt.visibility==='shared'?'shared with ClearSky':'internal')+'</div>'
+       + '<div class="t">'+P.esc(nt.text||'')+'</div></div>';
+  }
+  h += '</div></div>';
+
+  /* ── Activity ───────────────────────────────────────────────────────── */
+  if (v.activity.length){
+    h += '<div class="sec"><div class="sec-h">History</div><div class="sec-b">';
+    var acts = v.activity.slice().sort(function(a,b){ return P.ms(b.ts)-P.ms(a.ts); });
+    for (var a=0;a<acts.length;a++){
+      h += '<div class="act"><b>'+P.esc(acts[a].actor||'')+'</b> \u2014 '
+         + P.esc(acts[a].message||'')+' <span>'+P.esc(P.fmtAgo(acts[a].ts))+'</span></div>';
+    }
+    h += '</div></div>';
+  }
+
+  /* Anything the data layer did not map, shown rather than dropped. */
+  var un = P.unmapped(v);
+  if (un){
+    h += '<div class="sec"><div class="sec-h">Fields the console didn\u2019t recognise'
+       + '<span class="r">Shown rather than dropped</span></div><div class="sec-b">'
+       + '<pre class="raw">'+P.esc(JSON.stringify(un,null,2))+'</pre></div></div>';
+  }
+
+  document.getElementById('dr-body').innerHTML = h;
+  restoreForm();
+  renderFoot(v, ro);
+}
+
+function row(k, v){ return '<dt>'+P.esc(k)+'</dt><dd>'+v+'</dd>'; }
+
+function signedBlock(v){
+  var f = P.feasibilityOf(v.verdict.feasibility), b = P.bankabilityOf(v.verdict.bankability);
+  var r = v.verdict.reviewer || {};
+  var h = '<div class="sec"><div class="sec-h">Signed verdict'
+        + '<span class="r">Round '+(v.round||1)+'</span></div><div class="sec-b">';
+  h += '<div class="verdict">'
+     + '<div class="ax'+(f?'':' na')+'"><div class="lbl">Feasibility</div>'
+     +   '<div class="val" style="'+(f?'color:'+f.color:'')+'">'
+     +   P.esc(f?f.label:'Not requested')+'</div>'
+     +   '<div class="sub">'+P.esc(f?f.hint:'')+'</div></div>'
+     + '<div class="ax'+(b?'':' na')+'"><div class="lbl">Bankability</div>'
+     +   '<div class="val" style="'+(b?'color:'+b.color:'')+'">'
+     +   P.esc(b?b.label:'Not requested')+'</div>'
+     +   '<div class="sub">'+P.esc(b?b.hint:'')+'</div></div>'
+     + '</div>';
+
+  h += '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+     + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+     + 'Categories</div>'+catChips(v.verdict.categories,'theirs');
+  if (!P.sameSet(v.ourCategories, v.verdict.categories)){
+    var added = v.verdict.categories.filter(function(k){ return v.ourCategories.indexOf(k)<0; });
+    var gone  = v.ourCategories.filter(function(k){ return v.verdict.categories.indexOf(k)<0; });
+    h += '<div style="margin-top:7px;font-size:12px;color:var(--ink-2)">Differs from ours: '
+       + (added.length ? catChips(added,'added') : '')
+       + (gone.length ? catChips(gone,'dropped') : '')
+       + '</div>';
+  }
+  h += '</div>';
+
+  if (v.verdict.conditions.length) h += listBlock('Conditions', v.verdict.conditions);
+  if (v.verdict.blockers.length)   h += listBlock('Blockers', v.verdict.blockers);
+
+  h += '<div style="margin-top:13px;font-size:13px;line-height:1.65;white-space:pre-wrap">'
+     + P.esc(v.verdict.summary)+'</div>';
+
+  h += '<div class="sig"><b>Signed by '+P.esc(r.name||'\u2014')+'</b>'
+     + (r.org ? ', '+P.esc(r.org) : '')+' on '+P.esc(P.fmtDateTime(v.verdict.signedAt))
+     + ' \u00b7 confidence '+P.esc(P.labelFor(P.CONFIDENCE, v.verdict.confidence)).toLowerCase()
+     + ' \u00b7 turnaround '+P.esc(P.fmtDur(P.elapsedMs(v)))+'</div>';
+
+  if (v.verdictHistory.length){
+    h += '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+       + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+       + 'Superseded ('+v.verdictHistory.length+')</div>';
+    for (var i=v.verdictHistory.length-1;i>=0;i--){
+      var o = v.verdictHistory[i];
+      h += '<div class="note"><div class="m">Signed '+P.esc(P.fmtDate(o.signedAt))
+         + ' \u00b7 superseded '+P.esc(P.fmtDate(o.supersededAt))+'</div>'
+         + '<div class="t">'+P.esc(P.labelFor(P.FEASIBILITY,o.feasibility))+' / '
+         + P.esc(P.labelFor(P.BANKABILITY,o.bankability))
+         + (o.supersededReason ? '\n\u21b3 '+P.esc(o.supersededReason) : '')+'</div></div>';
+    }
+    h += '</div>';
+  }
+  return h + '</div></div>';
+}
+
+function listBlock(title, items){
+  var h = '<div style="margin-top:13px"><div style="font-size:11px;font-weight:700;'
+        + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+        + P.esc(title)+'</div>';
+  for (var i=0;i<items.length;i++)
+    h += '<div class="drv"><span class="e">'+(i+1)+'</span><span>'+P.esc(items[i])+'</span></div>';
+  return h + '</div>';
+}
+
+function verdictForm(v, ro){
+  if (ro && !P.isSigned(v)) {
+    return '<div class="sec"><div class="sec-h">Verdict</div><div class="sec-b">'
+      + '<div style="font-size:12.5px;color:var(--ink-2);line-height:1.6">'
+      + (v._demo ? 'This is a sample record, so nothing can be signed on it.'
+         : 'Read-only from this account.')
+      + '</div></div></div>';
+  }
+  var f = STATE.form || {};
+  var title = P.isSigned(v) ? 'Reissue the verdict' : 'Your verdict';
+  var h = '<div class="sec"><div class="sec-h">'+title
+        + '<span class="r">Nothing is sent until you sign</span></div><div class="sec-b">';
+
+  if (P.isSigned(v)){
+    h += '<div class="banner warn" style="margin-bottom:14px"><div>'
+       + '<b>This verdict is already signed.</b> Reissuing keeps the original in the record '
+       + 'and marks it superseded. A reason is required.</div></div>';
+  }
+
+  if (STATE.problems.length){
+    h += '<div class="problems"><b>Not ready to sign</b><ul>';
+    for (var p=0;p<STATE.problems.length;p++) h += '<li>'+P.esc(STATE.problems[p].msg)+'</li>';
+    h += '</ul></div>';
+  }
+
+  /* Categories. Ours are pre-selected, so the reviewer either confirms them by
+     doing nothing or changes them deliberately — and the change is the finding. */
+  h += '<div class="fld" style="margin-top:0"><label>Project categories</label>'
+     + '<div class="catbox" id="catbox">';
+  var cats = P.categories();
+  for (var c=0;c<cats.length;c++){
+    var on = (f.categories||[]).indexOf(cats[c].key) >= 0;
+    h += '<span class="catopt'+(on?' on':'')+'" data-cat="'+cats[c].key+'" '
+       + 'onclick="toggleCat(\''+cats[c].key+'\')">'+P.esc(cats[c].label)+'</span>';
+  }
+  h += '</div><div class="hint">Pre-filled with our categorisation. Change it if we got it '
+     + 'wrong \u2014 we record both and the difference is a finding, not a correction.</div></div>';
+
+  h += '<div class="grid2" style="margin-top:16px">';
+  if (P.wants(v,'feasibility'))
+    h += '<div>'+optGroup('feasibility','Feasibility', P.FEASIBILITY, f.feasibility)+'</div>';
+  if (P.wants(v,'bankability'))
+    h += '<div>'+optGroup('bankability','Bankability', P.BANKABILITY, f.bankability)+'</div>';
+  h += '</div>';
+
+  h += '<div class="fld"><label>Conditions</label>'
+     + '<textarea id="fx-conditions" oninput="formIn(\'conditions\',this.value)" '
+     + 'placeholder="One per line. Required for any conditional verdict.">'
+     + P.esc(f.conditions||'')+'</textarea>'
+     + '<div class="hint">One per line. A conditional verdict with no conditions reads as a '
+     + 'yes to whoever is in a hurry, so the console will not let you sign one.</div></div>';
+
+  h += '<div class="fld"><label>Blockers</label>'
+     + '<textarea id="fx-blockers" oninput="formIn(\'blockers\',this.value)" '
+     + 'placeholder="One per line. Required for a negative verdict.">'
+     + P.esc(f.blockers||'')+'</textarea>'
+     + '<div class="hint">What cannot be engineered or priced away. A negative verdict with '
+     + 'no blocker named cannot be worked or appealed.</div></div>';
+
+  h += '<div class="fld"><label>Summary</label>'
+     + '<textarea id="fx-summary" style="min-height:110px" '
+     + 'oninput="formIn(\'summary\',this.value)" '
+     + 'placeholder="What you found and what it turns on.">'+P.esc(f.summary||'')+'</textarea>'
+     + '<div class="hint">This is the part that gets read. Two or three sentences minimum.</div></div>';
+
+  h += '<div class="fld"><label>Confidence</label>'
+     + optGroup('confidence','', P.CONFIDENCE, f.confidence)+'</div>';
+
+  if (P.isSigned(v)){
+    h += '<div class="fld"><label>Reason for reissuing</label>'
+       + '<input id="fx-supersede" oninput="formIn(\'supersede\',this.value)" '
+       + 'value="'+P.esc(f.supersede||'')+'" placeholder="What changed since the first opinion"></div>';
+  }
+  return h + '</div></div>';
+}
+
+function optGroup(field, label, list, current){
+  var h = label ? '<label>'+P.esc(label)+'</label>' : '';
+  h += '<div class="opts">';
+  for (var i=0;i<list.length;i++){
+    var o = list[i], on = current === o.key;
+    h += '<label class="opt'+(on?' on':'')+'">'
+       + '<input type="radio" name="'+field+'" '+(on?'checked':'')
+       + ' onchange="formIn(\''+field+'\',\''+o.key+'\')">'
+       + '<span><span class="l">'+P.esc(o.label)+'</span>'
+       + (o.hint ? '<span class="h">'+P.esc(o.hint)+'</span>' : '')+'</span></label>';
+  }
+  return h + '</div>';
+}
+
+function formIn(k, val){
+  if (!STATE.form) return;
+  STATE.form[k] = val;
+  /* Radios need a repaint to move the highlight; textareas must not get one
+     or the caret jumps to the end mid-sentence. */
+  if (k==='feasibility'||k==='bankability'||k==='confidence') renderDrawer();
+}
+function toggleCat(key){
+  if (!STATE.form) return;
+  var i = STATE.form.categories.indexOf(key);
+  if (i>=0) STATE.form.categories.splice(i,1); else STATE.form.categories.push(key);
+  renderDrawer();
+}
+/* Put focus back where it was after a repaint. */
+function restoreForm(){
+  if (!STATE.form) return;
+  ['conditions','blockers','summary','supersede'].forEach(function(k){
+    var el = document.getElementById('fx-'+k);
+    if (el && STATE.form[k] != null && el.value !== STATE.form[k]) el.value = STATE.form[k];
+  });
+}
+
+function docsBlock(v, ro){
+  var kinds = P.docKinds();
+  var h = '<div class="sec"><div class="sec-h">Documents'
+        + '<span class="r">Max '+P.maxFileMb()+' MB</span></div><div class="sec-b">';
+
+  if (!v.documents.length)
+    h += '<div style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">'
+       + 'Nothing uploaded yet. A signed verdict needs its report attached \u2014 an opinion '
+       + 'with no document is a chat message.</div>';
+
+  for (var i=0;i<v.documents.length;i++){
+    var d = v.documents[i], spec = kinds[d.kind] || { label:d.kind };
+    h += '<div class="doc"><div class="ic">'+P.esc((spec.label||'DOC').slice(0,4).toUpperCase())+'</div>'
+       + '<div class="n"><b>'+P.esc(d.name)+'</b><span>'+P.esc(spec.label)+' \u00b7 '
+       + P.fmtBytes(d.size)+' \u00b7 '+P.esc(d.uploadedByName||d.uploadedBy||'')
+       + ' \u00b7 '+P.esc(P.fmtAgo(d.uploadedAt))+'</span></div>'
+       + (d.url ? '<a class="lnk" target="_blank" rel="noopener" href="'+P.esc(d.url)+'">Open</a>' : '')
+       + (!ro ? '<button class="lnk danger" onclick="dropDoc(\''+P.esc(d.id)+'\')">Remove</button>' : '')
+       + '</div>';
+  }
+
+  if (!ro){
+    h += '<div style="margin-top:12px">';
+    for (var k in kinds){
+      if (!kinds.hasOwnProperty(k)) continue;
+      var need = (kinds[k].requiredFor||[]).some(function(s){ return P.wants(v,s); });
+      h += '<div style="margin-bottom:9px">'
+         + '<input type="file" id="up-'+k+'" style="display:none" '
+         + (kinds[k].pdfOnly ? 'accept="application/pdf" ' : '')
+         + 'onchange="doUpload(\''+k+'\',this)">'
+         + '<div class="up" onclick="document.getElementById(\'up-'+k+'\').click()">'
+         + P.esc(kinds[k].label) + (need ? ' \u00b7 required' : ' \u00b7 optional')
+         + (kinds[k].pdfOnly ? ' \u00b7 PDF' : '')
+         + '</div><div class="prog" id="pg-'+k+'"><i></i></div></div>';
+    }
+    h += '</div>';
+  }
+  return h + '</div></div>';
+}
+
+function renderFoot(v, ro){
+  var foot = document.getElementById('dr-foot'), h = '';
+  if (v._demo){
+    h = '<span style="font-size:12px;color:var(--ink-2)">Sample record \u2014 nothing here is saved.</span>';
+  } else if (ACTOR.kind==='internal'){
+    h = '<span style="font-size:12px;color:var(--ink-2)">Read-only. ClearSky staff cannot sign '
+      + 'a partner verdict.</span>';
+  } else {
+    if (v.status==='assigned'){
+      h += '<button class="btn-a" onclick="doAccept()">Accept assignment</button>'
+        +  '<button class="btn-o" onclick="doDecline()">Decline</button>'
+        +  '<span style="font-size:11.5px;color:var(--ink-2);flex:1;line-height:1.45">'
+        +  'Accepting confirms no conflict of interest.</span>';
+    } else if (P.isOpen(v)){
+      h += '<button class="btn-o" onclick="doSaveDraft()">Save draft</button>'
+        +  '<button class="btn-o" onclick="doAskQuestion()">Ask a question</button>'
+        +  '<div class="spacer"></div>'
+        +  '<button class="btn-a" onclick="doSign()">Sign and return</button>';
+    } else if (P.isSigned(v)){
+      h += '<span style="font-size:12px;color:var(--ink-2);flex:1">Signed '
+        +  P.esc(P.fmtDate(v.verdict.signedAt))+'. Reissue below if something has changed.</span>'
+        +  '<button class="btn-o" onclick="doSign()">Reissue verdict</button>';
+    } else {
+      h += '<span style="font-size:12px;color:var(--ink-2)">'
+        +  P.esc(P.statusOf(v.status).hint)+'</span>';
+    }
+  }
+  foot.innerHTML = h;
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────── */
+function after(p, msg){
+  return p.then(function(){ toast(msg); return refresh(); })
+    ['catch'](function(e){
+      if (e && e.validation){ STATE.problems = e.validation; renderDrawer();
+        toast('Not ready to sign', true); return; }
+      toast((e && e.message) || 'That didn\u2019t save', true);
+    });
+}
+function guardDemo(){
+  if (STATE.demo){ toast('Sample records are read-only', true); return true; }
+  return false;
+}
+
+function doAccept(){
+  if (guardDemo()) return;
+  after(P.accept(find(STATE.openId)), 'Assignment accepted');
+}
+function doDecline(){
+  if (guardDemo()) return;
+  var why = prompt('Why are you declining? This goes back to ClearSky.');
+  if (!why) return;
+  after(P.decline(find(STATE.openId), why), 'Declined');
+}
+function doSaveDraft(){
+  if (guardDemo()) return;
+  var v = find(STATE.openId);
+  var p = (v.status==='accepted' || v.status==='info_requested')
+    ? P.startReview(v).then(function(){ return P.saveDraft(v, STATE.form); })
+    : P.saveDraft(v, STATE.form);
+  after(p, 'Draft saved');
+}
+function doAskQuestion(){
+  if (guardDemo()) return;
+  var q = prompt('What do you need? Your turnaround clock pauses until we answer.');
+  if (!q) return;
+  after(P.requestInfo(find(STATE.openId), q), 'Question sent \u2014 your clock is paused');
+}
+function saveNote(shared){
+  if (guardDemo()) return;
+  var el = document.getElementById('note-text');
+  var t = el ? el.value.trim() : '';
+  if (!t){ toast('Nothing to save', true); return; }
+  after(P.addNote(find(STATE.openId), t, shared), shared ? 'Sent to ClearSky' : 'Note saved');
+}
+function doSign(){
+  if (guardDemo()) return;
+  var v = find(STATE.openId);
+  var problems = P.validate(v, STATE.form);
+  if (problems.length){ STATE.problems = problems; renderDrawer(); toast('Not ready to sign', true); return; }
+  if (!confirm('Sign this verdict as ' + ME.name + '?\n\n'
+    + 'Once signed it becomes part of the record. It can be reissued with a reason, '
+    + 'but it cannot be edited or deleted.')) return;
+  STATE.problems = [];
+  after(P.sign(v, STATE.form, STATE.form.supersede), 'Verdict signed and returned');
+}
+function doUpload(kind, input){
+  if (guardDemo()){ input.value=''; return; }
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var bar = document.getElementById('pg-'+kind);
+  if (bar){ bar.style.display='block'; bar.firstChild.style.width='0'; }
+  P.uploadDocument(find(STATE.openId), file, kind, function(frac){
+    if (bar) bar.firstChild.style.width = Math.round(frac*100)+'%';
+  }).then(function(){
+    toast('Uploaded'); return refresh();
+  })['catch'](function(e){
+    toast((e && e.message) || 'Upload failed', true);
+  })['finally'](function(){
+    input.value = '';
+    if (bar) bar.style.display='none';
+  });
+}
+function dropDoc(id){
+  if (guardDemo()) return;
+  var v = find(STATE.openId), doc = null;
+  for (var i=0;i<v.documents.length;i++) if (v.documents[i].id===id) doc = v.documents[i];
+  if (!doc) return;
+  if (!confirm('Remove ' + doc.name + '?')) return;
+  after(P.removeDocument(v, doc), 'Removed');
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+var _toastT;
+function toast(msg, bad){
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast on' + (bad ? ' bad' : '');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(function(){ el.className = 'toast' + (bad?' bad':''); }, 3200);
+}
+</script>
+</body>
+</html>

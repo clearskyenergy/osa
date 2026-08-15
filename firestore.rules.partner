@@ -1,0 +1,337 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ClearSky-OMEGA · rules additions — partner portal
+   Supersedes the earlier verification-only fragment. Four collections now:
+
+     omega_users          who may use the portal, and as what
+     omega_partner_orgs   the partner registry
+     deals                the portfolio spine
+     verifications        third-party opinions
+
+   A FRAGMENT, NOT A FILE. Merge into the firestore.rules you already deploy.
+   Publishing this alone revokes every permission the platform depends on — it
+   says nothing about intake_projects, projects, team_members or omega_staff.
+
+   ── The single most important thing in this file ────────────────────────────
+   A PENDING USER MUST BE REFUSED, NOT MERELY HIDDEN.
+
+   Access moved from a hardcoded domain allowlist to request-and-approve, which
+   means a stranger can now sign in and reach a screen. That is only safe
+   because isActive() gates every read below. If you relax one of those to
+   signedIn() for convenience, you have quietly turned the approval queue into
+   a formality and the portal into a public site — and there is no UI change
+   that restores it.
+
+   ── The owner ───────────────────────────────────────────────────────────────
+   ownerEmail() below MUST match access.owner in config.js. It is hardcoded
+   here rather than read from anywhere, because the entire point is that the
+   owner survives a bad write to Firestore. If you move it, move both.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ── Identity ──────────────────────────────────────────────────────────── */
+    function signedIn()     { return request.auth != null && request.auth.token.email != null; }
+    function callerEmail()  { return request.auth.token.email.lower(); }
+    function callerDomain() { return callerEmail().split('@')[1]; }
+
+    /* KEEP IN STEP WITH config.js § access.owner */
+    function ownerEmail()   { return 'tom@clearsky-usa.com'; }
+    function isOwner()      { return signedIn() && callerEmail() == ownerEmail(); }
+
+    function isStaffDomain() {
+      return signedIn() && callerDomain() in ['clearsky-usa.com', 'csebuilders.com'];
+    }
+
+    /* The caller's own omega_users record. Firestore caches get() within a
+       single rule evaluation, so the repeated calls below cost one document
+       read, not six. */
+    function meDoc() {
+      return get(/databases/$(database)/documents/omega_users/$(request.auth.uid)).data;
+    }
+    function meExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/omega_users/$(request.auth.uid));
+    }
+    /* THE GATE. Everything reads through this. */
+    function isActive() {
+      return isOwner() || (meExists() && meDoc().status == 'active');
+    }
+    function myRole()  { return meExists() ? meDoc().role : 'none'; }
+    function myOrg()   { return meExists() ? meDoc().orgId : ''; }
+    function myScope() { return meExists() && meDoc().manageOrgs is list ? meDoc().manageOrgs : []; }
+
+    function isAdmin()        { return isOwner() || (isActive() && myRole() in ['owner', 'admin']); }
+    function isLimitedAdmin() { return isActive() && myRole() == 'limited_admin'; }
+    function isPartnerAdmin() { return isActive() && myRole() == 'partner_admin'; }
+    function canWriteDeals()  { return isAdmin() || isLimitedAdmin(); }
+
+    /* Legacy predicate from the ops console, kept so the merged file still
+       reads. Staff domains are administrators here by construction. */
+    function isOmegaStaff()   { return isStaffDomain() || isAdmin(); }
+
+
+    /* ═════════════════════════════════════════════════════════════════════════
+       omega_users — the access request and the grant, in one document
+       ═════════════════════════════════════════════════════════════════════════
+       Doc id is the Auth uid, not the email. An email can be reassigned inside
+       a company; a uid cannot. Keying on email would let a departing
+       employee's successor inherit their approvals along with their mailbox. */
+    match /omega_users/{uid} {
+
+      function isSelf()        { return signedIn() && uid == request.auth.uid; }
+      function targetIsOwner() { return resource != null && resource.data.email == ownerEmail(); }
+      function changed(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+      }
+      /* Everything that decides what somebody can do. A person may edit their
+         own profile and none of this. */
+      function accessFields() {
+        return ['role', 'status', 'manageOrgs', 'orgId', 'email', 'uid',
+                'approvedAt', 'approvedBy', 'suspendedAt', 'accessLog'];
+      }
+
+      /* ── Read ────────────────────────────────────────────────────────────
+         Yourself always — a pending user has to load their own row to see they
+         are pending, and it is the ONLY document a pending account can read
+         anywhere in this file.
+
+         Otherwise administrators see everyone, limited administrators see
+         their scope, partner administrators see their own organisation. A
+         plain member cannot enumerate even their own colleagues; nothing in
+         either console needs it. */
+      allow read: if isSelf()
+        || isAdmin()
+        || (isLimitedAdmin() && resource.data.orgId in myScope())
+        || (isPartnerAdmin() && resource.data.orgId == myOrg());
+
+      /* ── Create ──────────────────────────────────────────────────────────
+         Only your own row, only on first sign-in, and only as pending.
+
+         The status pin is what stops self-registration from being
+         self-approval. Without it the client could seed status:'active' and
+         the whole approval model would be decoration on a public site.
+
+         ClearSky's own domains may seed themselves active — making staff wait
+         for approval from staff is a loop with no exit. */
+      allow create: if isSelf()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == callerEmail()
+        && (
+             (isStaffDomain()  && request.resource.data.status == 'active'
+                              && request.resource.data.role in ['admin', 'owner'])
+             ||
+             (!isStaffDomain() && request.resource.data.status == 'pending')
+           );
+
+      /* ── Update ──────────────────────────────────────────────────────────
+         Four grants that share a verb and must not share a rule. */
+      allow update: if
+        /* 1 · Yourself, on profile fields only. This is what lets a pending
+              user fill in their name and company while they wait, and what
+              stops them approving themselves in the same write. */
+        (isSelf() && !changed(accessFields()))
+        ||
+        /* 2 · An administrator, on anyone except the owner. */
+        (isAdmin() && !targetIsOwner())
+        ||
+        /* 3 · A limited administrator, inside their named scope, never minting
+              anyone at or above their own level. */
+        (isLimitedAdmin() && !targetIsOwner()
+          && resource.data.orgId in myScope()
+          && request.resource.data.role in ['partner_admin', 'member', 'viewer'])
+        ||
+        /* 4 · A partner administrator, inside their own organisation only, and
+              only below their own rank. Without the role clamp the first
+              partner admin mints a second and loses control of their own org
+              on the next disagreement. */
+        (isPartnerAdmin() && !targetIsOwner()
+          && resource.data.orgId == myOrg()
+          && request.resource.data.orgId == myOrg()
+          && request.resource.data.role in ['member', 'viewer']);
+
+      /* ── Delete ──────────────────────────────────────────────────────────
+         Nobody. Suspending keeps the audit trail; deleting destroys the record
+         of what somebody had access to and when, which is the one thing you
+         need after an incident. */
+      allow delete: if false;
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════════════════
+       omega_partner_orgs — the partner registry
+       ═════════════════════════════════════════════════════════════════════════
+       Not a gate. Sign-in depends on approval, not on being listed here. What
+       this holds is the commercial fact about a company — what kind of partner
+       they are, how referrals are paid — which belongs to the organisation
+       rather than to whoever from it happens to be logged in.
+
+       Readable by every active user, because an organisation's display name
+       appears on rows they can already see and a failed lookup renders as a
+       raw domain. Writable by administrators only: referralBasis is a term of
+       a commercial agreement. */
+    match /omega_partner_orgs/{orgId} {
+      allow read:   if isActive();
+      allow write:  if isAdmin();
+      allow delete: if false;
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════════════════
+       deals — the portfolio spine
+       ═════════════════════════════════════════════════════════════════════════ */
+    match /deals/{dealId} {
+
+      function involved() {
+        return resource.data.orgsInvolved is list && myOrg() in resource.data.orgsInvolved;
+      }
+      function originatedByScope() {
+        return resource.data.origination.partnerOrg in myScope();
+      }
+      function touchesAttribution() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['origination', 'originationHistory']);
+      }
+      function touchesFunding() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(['funding']);
+      }
+
+      /* ── Read ────────────────────────────────────────────────────────────
+         Administrators see everything, limited administrators see their scope,
+         everyone else sees deals their own organisation touched — as
+         originator, investor, EPC, supplier or named participant.
+
+         orgsInvolved is a flat array maintained on every write precisely so
+         this is one array-contains rule rather than five ORed field checks,
+         each needing its own composite index and each silently starting to
+         refuse queries the day somebody adds a sixth role. */
+      allow read: if isAdmin()
+        || (isLimitedAdmin() && originatedByScope())
+        || (isActive() && involved());
+
+      /* ── Create ──────────────────────────────────────────────────────────
+         Staff and limited administrators. A partner cannot create a deal and
+         name themselves as its originator, which would be the easiest referral
+         fee anyone ever earned. */
+      allow create: if canWriteDeals()
+        && request.resource.data.origination.partnerOrg is string
+        && request.resource.data.stage == 'referred';
+
+      /* ── Update ──────────────────────────────────────────────────────────
+         Attribution and money are carved out from everything else, because
+         they are the two things people are tempted to adjust quietly.
+
+         origination.partnerOrg decides who gets paid: administrators only. The
+         client also preserves the previous value in originationHistory, but
+         this rule is what makes that non-optional.
+
+         funding.* is administrators only, so a limited administrator can run a
+         region's pipeline without being able to declare a financial close. */
+      allow update: if
+        (isAdmin())
+        ||
+        (isLimitedAdmin() && originatedByScope()
+          && !touchesAttribution() && !touchesFunding());
+
+      /* ── Delete ──────────────────────────────────────────────────────────
+         Nobody. A dead deal is marked dead with a reason and stays in every
+         partner denominator forever — that is the entire point of the
+         conversion numbers, and deleting one flatters exactly the partner
+         whose deals keep dying. */
+      allow delete: if false;
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════════════════
+       verifications — third-party feasibility and bankability opinions
+       ═════════════════════════════════════════════════════════════════════════
+       Unchanged in substance from the earlier fragment. The one difference is
+       that isActive() now gates the partner side too, so a suspended reviewer
+       stops at their next read rather than at their next sign-in. */
+    match /verifications/{vid} {
+
+      function assignedToCaller() {
+        return isActive() && resource.data.partnerOrg == myOrg();
+      }
+      function isOpenStatus() {
+        return resource.data.status in ['assigned', 'accepted', 'in_review', 'info_requested'];
+      }
+      /* The whole access model in one list. `packet` is here because it is the
+         frozen record of what the reviewer was given: a reviewer who can edit
+         the brief can make their opinion agree with something nobody sent
+         them, and the signed document stops being evidence of anything. */
+      function partnerLockedFields() {
+        return ['partnerOrg', 'orgId', 'packet', 'source', 'sourceId',
+                'scopeRequested', 'priority', 'assignedBy', 'assignedAt', 'dueAt',
+                'verdictHistory', 'closedAt'];
+      }
+      function touches(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+      }
+      function touchesVerdict() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['verdict', 'verdictHistory']);
+      }
+
+      /* Nothing anywhere in this file grants a read on intake_projects or
+         projects. That is why an assignment carries a frozen packet instead of
+         a reference — adding a cross-collection read to save copying some JSON
+         would hand an external company the client's entire queue. */
+      allow read: if isAdmin() || assignedToCaller();
+
+      allow create: if isAdmin()
+        && request.resource.data.partnerOrg is string
+        && request.resource.data.partnerOrg == request.resource.data.partnerOrg.lower()
+        && request.resource.data.status == 'assigned'
+        && request.resource.data.packet is map;
+
+      allow update: if
+        /* Staff: reassign, withdraw, answer questions, close. Never the
+           verdict — the value of an independent opinion is entirely in its
+           being independent, and one party able to both commission and author
+           it collapses that to nothing. */
+        (isAdmin() && !touchesVerdict())
+        ||
+        (assignedToCaller() && isOpenStatus() && !touches(partnerLockedFields()));
+
+      allow delete: if false;
+    }
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   STORAGE RULES — bankability documents (storage.rules, same merge caveat)
+
+   The partner check is done on the PATH, not on a Firestore lookup. Storage
+   rules can read Firestore, but each read costs a document get on every file
+   operation, and the rule gets deployed without it the first time somebody is
+   in a hurry. Keying the path so a string comparison suffices removes the
+   temptation.
+
+   The trade: any signed-in user can write into any {vid} folder, since the
+   path alone does not say whose assignment it is. Acceptable because the
+   Firestore document is what makes a file visible — an upload nobody can
+   attach to a record nobody can find is litter, not a breach. If that stops
+   holding, move to the Firestore lookup and pay for it.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/*
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn()     { return request.auth != null && request.auth.token.email != null; }
+    function callerDomain() { return request.auth.token.email.lower().split('@')[1]; }
+    function isStaff()      { return signedIn() && callerDomain() in ['clearsky-usa.com','csebuilders.com']; }
+
+    match /verifications/{vid}/{file} {
+      allow read:   if signedIn();
+      allow write:  if signedIn()
+                    && request.resource.size < 50 * 1024 * 1024
+                    && request.resource.contentType.matches('application/pdf|image/.*|application/vnd.*|text/.*');
+      allow delete: if isStaff();
+    }
+  }
+}
+*/
