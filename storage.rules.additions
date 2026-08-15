@@ -1,0 +1,87 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ClearSky-OMEGA · STORAGE rules addition — verification documents
+
+   ⚠ A FRAGMENT. THIS IS NOT YOUR STORAGE RULES FILE.
+
+   Firestore rules and Storage rules are two separate files with two separate
+   deploy targets. I have your firestore.rules; I have NOT seen your
+   storage.rules, and it almost certainly contains the buckets the editor, the
+   intake form and the financing portal already write to.
+
+   So: paste the ONE match block below into your existing storage.rules,
+   inside the existing `match /b/{bucket}/o { ... }`. Do not replace the file.
+   Replacing it would silently revoke every upload path the platform already
+   depends on, and the failure would show up as "attachments stopped working"
+   somewhere unrelated a week later.
+
+   If the helper functions below already exist in your file under the same
+   names, delete the duplicates here and keep yours — same reasoning as the
+   Firestore fragment.
+
+   WITHOUT THIS DEPLOYED: a reviewer works a whole assessment, presses upload
+   on the bankability PDF, and it fails at the last step. Everything else in
+   the verification console works fine, which makes it look like a file
+   problem rather than a rules problem.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+
+/* ── PASTE FROM HERE, INSIDE match /b/{bucket}/o ──────────────────────────── */
+
+    function vSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+    function vCallerDomain() {
+      return request.auth.token.email.lower().split('@')[1];
+    }
+    function vIsStaff() {
+      return vSignedIn()
+        && vCallerDomain() in ['clearsky-usa.com', 'csebuilders.com'];
+    }
+
+    /* Path is verifications/{verificationId}/{file}, keyed by verification id
+       first, so the partner check is a plain string comparison on the PATH.
+
+       WHY NOT A FIRESTORE LOOKUP. Storage rules can read Firestore, but every
+       such read costs a document get on every file operation — and the rule
+       gets deployed without it the first time somebody is in a hurry. Keying
+       the path so a comparison suffices removes the temptation.
+
+       THE TRADE, STATED PLAINLY: any signed-in user can write into any {vid}
+       folder, because the path alone does not say whose assignment it is.
+       That is acceptable here because the Firestore document is what makes a
+       file visible — an upload nobody can attach to a record nobody can find
+       is litter, not a breach. If that ever stops holding (public listing, a
+       bucket-wide index, anything that makes the path itself enumerable),
+       move to the Firestore lookup and pay for it.
+
+       Delete is staff-only. Once a verdict is signed its documents are part
+       of the record, and the Firestore rules refuse to remove them from the
+       document — a partner who could still delete the underlying file would
+       leave the record pointing at nothing. */
+    match /verifications/{vid}/{file} {
+      allow read:   if vSignedIn();
+      allow write:  if vSignedIn()
+                    && request.resource.size < 50 * 1024 * 1024
+                    && request.resource.contentType.matches(
+                         'application/pdf|image/.*|application/vnd.*|text/.*');
+      allow delete: if vIsStaff();
+    }
+
+/* ── PASTE TO HERE ────────────────────────────────────────────────────────── */
+
+
+/* If you have no storage.rules at all yet, the complete minimal file is:
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ... your existing blocks would go here ...
+
+    // the block above
+  }
+}
+
+   But check first — an existing bucket almost always has rules already, and
+   "I didn't find the file" is not the same as "there isn't one".
+*/

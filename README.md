@@ -175,7 +175,7 @@ say why.
 ## Who gets in
 
 Resolved from the email domain against `partner.orgs` in `config.js`. The
-browser check is the polite one; `firestore.rules.partner` is the real one.
+browser check is the polite one; `firestore.rules` is the real one.
 
 **Partners are not discovered.** Tenants in the ops console appear because they
 submitted something, which is a convenience. A verification partner appearing
@@ -312,10 +312,23 @@ must not be losable by a misclick, and every role system that skips this locks
 its own administrators out eventually. Moving it is a config edit and a
 redeploy, which is the right friction for this one change.
 
-⚠️ **`ownerEmail()` in `firestore.rules.partner` must match `access.owner` in
-`config.js`.** Change one, change both.
+⚠️ **`portalOwnerEmail()` in `firestore.rules` must match `access.owner` in
+`config.js`.** Change one, change both. It is hardcoded in the rules rather than
+read from a document precisely because the owner has to survive a bad write to
+Firestore.
 
 ### Verification scope survives, separately
+
+### Helper names in the merged rules
+
+Every portal helper is prefixed `portal*` / `p*` — `isPortalAdmin()`,
+`pActive()`, `pOrg()` and so on. That is not styling. Five names the portal
+wanted (`signedIn`, `isAdmin`, `isOwner`, `myRole`, `isPartner`) **already exist
+in your rules with different meanings** — `isPartner()` gates who can browse the
+financing portal's deal flow, and `isOwner()` is a local function inside
+`/fin_projects` meaning the deal's sponsor. Redefining any of them would have
+silently rewritten the financing portal's access model. Don't tidy the prefixes
+away.
 
 `partner.orgs` is no longer a sign-in gate but is still the list of who may
 **sign an opinion**. Portal access is a login level; signing a bankability
@@ -336,7 +349,8 @@ told plainly why.
 | `portfolio-data.js` | this repo | Deals, stages, funding, BOM, partner KPIs |
 | `partner-data.js` | this repo | Assignment model, verdicts, SLA, documents |
 | `config.js` | this repo | **The only file to edit** |
-| `firestore.rules.partner` | **fragment** | Merge into your rules. Do NOT deploy alone |
+| `firestore.rules` | **complete file** | Your live rules with the four new collections merged in. Deploy as-is |
+| `storage.rules.additions` | **fragment** | One match block to paste into your *existing* storage.rules |
 | `assign-panel.js` | **the ops repo** | Drop-in "Send to partner" for the ops console |
 | `PROCESS.md` / `PORTFOLIO.md` | — | The operating models. Not code |
 | `omega-logo.png` | platform asset | Copy from the ops repo |
@@ -358,17 +372,24 @@ Nothing else in the ops console changes.
 ## Deploying
 
 1. Copy `omega-logo.png` from the ops repo. There is no logo in here.
-2. Set `access.owner` in `config.js` **and** `ownerEmail()` in
-   `firestore.rules.partner` to the same address. With no owner, the first
+2. Set `access.owner` in `config.js` **and** `portalOwnerEmail()` in
+   `firestore.rules` to the same address. With no owner, the first
    external person to sign in lands in an approval queue nobody has the standing
    to clear — the setup guard says so on the sign-in screen rather than letting
    it look like a password problem.
-3. **Merge `firestore.rules.partner` and deploy the merged file.** Without it
-   everyone signs in fine and sees an empty queue, which looks like *nothing
-   assigned yet* and not like a permissions problem. Check this first whenever
-   somebody says they can't see anything.
-4. Deploy the Storage rules block at the foot of the same file, or uploads fail
-   at the last step of a review someone has already done.
+3. **Deploy `firestore.rules`.** It is your live rules file with the four new
+   collections merged in — every existing collection, helper and clause is
+   present and unchanged. Deploying replaces the whole database's rules, so
+   deploy this file rather than a fragment. Without it everyone signs in fine
+   and sees an empty queue, which looks like *nothing assigned yet* and not
+   like a permissions problem. Check this first whenever somebody says they
+   can't see anything.
+4. Paste the block from `storage.rules.additions` into your **existing**
+   `storage.rules` — it is a fragment, not a file, and replacing your storage
+   rules wholesale would revoke every upload path the editor and intake form
+   already use. Without it a reviewer works a whole assessment and the upload
+   fails at the last step, which looks like a file problem rather than a rules
+   problem.
 5. Push to its own Vercel project on its own hostname. **Do not serve it from
    the ops console's domain** — a partner and a member of staff sharing an
    origin is one config mistake away from sharing a session.

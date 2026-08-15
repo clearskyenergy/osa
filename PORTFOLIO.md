@@ -237,8 +237,17 @@ locks its own administrators out eventually, at the worst possible moment.
 Moving it is a config edit and a redeploy — the right amount of friction for
 this one change.
 
-**The hardcoded `ownerEmail()` in `firestore.rules.partner` must match
+**The hardcoded `portalOwnerEmail()` in `firestore.rules` must match
 `access.owner` in `config.js`.** Change one, change both.
+
+`firestore.rules` in this repo is a **complete, deployable file** — the live
+ClearSky rules with four collections merged in, not a fragment. Deploying
+replaces the whole database's rules, so there is no safe way to ship this as a
+snippet. Every portal helper in it is prefixed `portal*` / `p*` because five of
+the names the portal wanted (`signedIn`, `isAdmin`, `isOwner`, `myRole`,
+`isPartner`) already exist there with different meanings — `isPartner()` gates
+the financing portal's deal flow. Renaming them back would silently rewrite that
+portal's access model.
 
 ### Verification scope is separate from portal access
 
