@@ -51,8 +51,8 @@ rules_version = '2';
 
    Redefining any of them would silently rewrite the financing portal's
    access model — isPartner() in particular gates who can browse deal
-   flow. So every portal helper below is named portal*/p*, and the
-   collision list above is the reason. Do not "tidy" the prefixes away.
+   flow. So every portal helper below carries a `portal` or `p` prefix, and
+   the collision list above is the reason. Do not "tidy" the prefixes away.
 
    ── WHAT GATES WHAT ────────────────────────────────────────────────
    The portal replaced a hardcoded domain allowlist with request-and-

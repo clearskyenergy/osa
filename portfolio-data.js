@@ -61,41 +61,67 @@
       hint:'Machine screen and human desk review. No money spent yet.',
       needs:[] },
 
-    { key:'pre_dev',      label:'Pre-development', short:'PreDev', rank:30, color:'#6366F1',
+    /* THE GATE INTO SPEND. Everything before this is looking; everything after
+       costs money. It is the only stage with a computed condition rather than a
+       field-presence check, and that is deliberate — see checkQualified(). */
+    { key:'qualified',    label:'Qualified',     short:'Qual',   rank:30, color:'#0D9488',
+      hint:'Passed viability scoring. The gate between looking at a site and spending on one.',
+      needs:['viability.score'],
+      check:function (d) {
+        var v = d.viability || {};
+        if (v.score == null) return 'Score the deal first.';
+        if (v.verdict !== 'pass')
+          return 'The viability score is ' + v.score + ', below the threshold of '
+               + (v.threshold != null ? v.threshold : '\u2014')
+               + '. Re-score it or override with a written reason.';
+        return null;
+      },
+      why:'A gate you can walk through without a score is not a gate, and this is '
+        + 'the one standing between a screening exercise and a six-figure line item.' },
+
+    { key:'pre_dev',      label:'Pre-development', short:'PreDev', rank:40, color:'#6366F1',
       hint:'We are spending: land, interconnection, permits, studies.',
       needs:['preDev.budgetUsd'],
       why:'Pre-dev without a budget is how a screening exercise becomes a '
         + 'six-figure line item nobody approved.' },
 
-    { key:'verified',     label:'Verified',      short:'Verified', rank:40, color:'#8B5CF6',
+    /* Permitting genuinely OVERLAPS pre-dev and often runs past funding. A linear
+       ladder cannot express that, so the stage means "furthest point reached" and
+       permitting.applications[] tracks the real, parallel work. Do not read the
+       stage as a schedule \u2014 see PLATFORM.md \u00a7 2. */
+    { key:'permitting',   label:'Permitting',    short:'Permit', rank:50, color:'#7C3AED',
+      hint:'AHJ and utility applications in flight. Overlaps pre-dev; the ladder shows the furthest point, not the only work.',
+      needs:['permitting.startedAt'] },
+
+    { key:'verified',     label:'Verified',      short:'Verified', rank:60, color:'#8B5CF6',
       hint:'A third party has signed a feasibility or bankability opinion.',
       needs:['verification.verdictId'],
       why:'This stage means an outside signature exists. Asserting it without '
         + 'one is the single claim in this pipeline you cannot walk back.' },
 
-    { key:'marketplace',  label:'In marketplace', short:'Market', rank:50, color:'#0891B2',
+    { key:'marketplace',  label:'In marketplace', short:'Market', rank:70, color:'#0891B2',
       hint:'Listed to capital.',
       needs:['sizeMw','capexUsd'],
       why:'A listing with no size and no capex is not a listing, it is a '
         + 'placeholder that wastes an investor\u2019s first look.' },
 
-    { key:'committed',    label:'Committed',     short:'Commit', rank:60, color:'#D97706',
+    { key:'committed',    label:'Committed',     short:'Commit', rank:80, color:'#D97706',
       hint:'Term sheet or LOI signed. Not money.',
       needs:['funding.committedUsd','funding.counterparty'],
       why:'Committed is a promise. It belongs in a different column from cash '
         + 'and in a different column from close.' },
 
-    { key:'funded',       label:'Funded',        short:'Funded', rank:70, color:'#16A34A',
+    { key:'funded',       label:'Funded',        short:'Funded', rank:90, color:'#16A34A',
       hint:'Financial close. The money is legally committed.',
       needs:['funding.closedUsd','funding.closedAt','funding.investorOrg'],
       why:'Close is the only event that converts a pipeline into a portfolio. '
         + 'It needs a date, an amount and a counterparty or it is not close.' },
 
-    { key:'construction', label:'Construction',  short:'Build',  rank:80, color:'#0F766E',
+    { key:'construction', label:'Construction',  short:'Build',  rank:100, color:'#0F766E',
       hint:'Notice to proceed issued. The BOM is live.',
       needs:['build.ntpAt'] },
 
-    { key:'operating',    label:'Operating',     short:'COD',    rank:90, color:'#065F46',
+    { key:'operating',    label:'Operating',     short:'COD',    rank:110, color:'#065F46',
       hint:'Commercial operation.',
       needs:['build.codAt'] }
   ];
@@ -238,6 +264,7 @@
   function normalize(id, d) {
     d = d || {};
     var o = d.origination || {}, f = d.funding || {}, b = d.build || {}, pd = d.preDev || {};
+    var vb = d.viability || {}, pm = d.permitting || {}, as = d.assignment || {};
 
     return {
       id:        id,
@@ -249,8 +276,6 @@
       /* Links out to the other collections. Deliberately ids, not copies: a
          deal is the live spine and is supposed to change, unlike a verification
          packet which is frozen on purpose. */
-      intakeId:  d.intakeId || '',
-      projectId: d.projectId || '',
       verificationIds: Array.isArray(d.verificationIds) ? d.verificationIds : [],
 
       /* ── Attribution ───────────────────────────────────────────────────── */
@@ -278,10 +303,75 @@
       deadAt:       d.deadAt || null,
 
       /* ── Physical / economic ───────────────────────────────────────────── */
+      /* What we are building and financing. Drives the viability criteria, the
+         BOM categories offered, and which manufacturers appear. Distinct from
+         `categories`, which is the technology present — see config.js. */
+      projectType:  d.projectType || '',
       categories:   Array.isArray(d.categories) ? d.categories : [],
       sizeMw:       num(d.sizeMw),
       sizeMwh:      num(d.sizeMwh),
       capexUsd:     num(d.capexUsd),
+
+      /* ── Viability ─────────────────────────────────────────────────────
+         Scores are APPENDED, never overwritten. "It scored 41 in March and 78
+         in June" is the interesting fact; a lone 78 tells you nothing about
+         whether the site improved or the scorer did. `viability` is the
+         current one, `viabilityHistory` is every one before it. */
+      viability: {
+        score:     num(vb.score),
+        threshold: vb.threshold != null ? num(vb.threshold) : null,
+        verdict:   vb.verdict || '',
+        model:     vb.model || '',
+        criteria:  Array.isArray(vb.criteria) ? vb.criteria : [],
+        scoredBy:  vb.scoredBy || '',
+        scoredAt:  vb.scoredAt || null,
+        override:  vb.override || '',
+        source:    vb.source || ''
+      },
+      viabilityHistory: Array.isArray(d.viabilityHistory) ? d.viabilityHistory : [],
+
+      /* ── Permitting ────────────────────────────────────────────────────
+         Applications are tracked independently of stage, because permitting
+         overlaps pre-dev and routinely outlives funding. The stage says how
+         far the deal got; this says what is actually in flight. */
+      permitting: {
+        startedAt: pm.startedAt || null,
+        ahj:       pm.ahj || '',
+        utility:   pm.utility || '',
+        owner:     pm.owner || '',
+        applications: Array.isArray(pm.applications) ? pm.applications : []
+      },
+
+      /* ── Assignment ────────────────────────────────────────────────────
+         A DIFFERENT AXIS FROM STAGE, and merging the two is the mistake this
+         block exists to avoid: a deal in pre_dev may have design finished and
+         permitting stalled, and a deal in permitting may have design not
+         started. Assignees resolve against omega_staff \u2014 this deliberately
+         does not keep a second roster. */
+      assignment: {
+        designLead: String(as.designLead || '').toLowerCase(),
+        devLead:    String(as.devLead || '').toLowerCase(),
+        reviewers:  Array.isArray(as.reviewers) ? as.reviewers : [],
+        dueAt:      as.dueAt || null,
+        assignedAt: as.assignedAt || null,
+        assignedBy: as.assignedBy || '',
+        notes:      as.notes || ''
+      },
+
+      /* ── Where this deal already lives ─────────────────────────────────
+         Ids, not copies. The spine references; it does not duplicate. */
+      intakeId:      d.intakeId || '',
+      projectId:     d.projectId || '',
+      finProjectId:  d.finProjectId || '',
+      adoptedFrom:   d.adoptedFrom || '',
+      adoptedAt:     d.adoptedAt || null,
+      importBatch:   d.importBatch || '',
+
+      /* ── The CRM seam ──────────────────────────────────────────────────
+         Empty until you sync. It exists now so that when you do, the mapping
+         already has a home and you are never matching on site name \u2014 which
+         is exactly how duplicate CRM records get created. See PLATFORM.md \u00a7 4. */
+      externalIds: d.externalIds || {},
 
       preDev: {
         budgetUsd: num(pd.budgetUsd),
@@ -306,6 +396,12 @@
         counterparty: f.counterparty || '',
         investorOrg:  String(f.investorOrg || '').toLowerCase(),
         structure:    f.structure || '',
+        /* Which capital partner, and their own release schedule instantiated
+           onto this deal. Stored per deal rather than read from config at
+           render time, because a partner changing their standard schedule
+           must not silently rewrite the terms of a deal that already closed. */
+        partnerKey:   f.partnerKey || '',
+        stages:       Array.isArray(f.stages) ? f.stages : [],
         listedAt:     f.listedAt || null,
         committedAt:  f.committedAt || null,
         closedAt:     f.closedAt || null,
@@ -320,6 +416,12 @@
       },
 
       bom:       Array.isArray(d.bom) ? d.bom : [],
+      /* Prescreen: the fast, pre-scoring look. Separate from `viability`
+         because they answer different questions — prescreen asks "is this
+         worth an hour of somebody's time", scoring asks "is this worth
+         money". Collapsing them means either screening everything slowly or
+         spending on things nobody looked at. */
+      prescreen: d.prescreen || null,
       notes:     Array.isArray(d.notes) ? d.notes : [],
       activity:  Array.isArray(d.activity) ? d.activity : [],
 
@@ -563,6 +665,14 @@
       if (v == null || v === '' || (typeof v === 'number' && !isFinite(v)))
         out.push(st.needs[i]);
     }
+    /* A computed condition, for gates a field-presence check cannot express.
+       `qualified` is the only one today: the score has to EXIST and to PASS,
+       and "a number is present" is not the same claim. Returned in the same
+       list so the caller has one thing to check. */
+    if (st.check && !out.length) {
+      var msg = st.check(deal);
+      if (msg) out.push('!' + msg);
+    }
     return out;
   }
 
@@ -765,6 +875,298 @@
     return patch(deal, { bom: firebase.firestore.FieldValue.arrayRemove(line) },
       { type:'bom', message:'Removed ' + line.item });
   }
+
+  /* ── Project type ────────────────────────────────────────────────────────
+     Setting the type also sets the technology categories it implies, so the
+     BOM and the partner reporting stay consistent without anybody re-tagging.
+     Categories the person added by hand are preserved — a type is a default,
+     not an eraser. */
+  function projectTypes() { return (cfg().portfolio || {}).projectTypes || []; }
+  function typeOf(k) {
+    var l = projectTypes();
+    for (var i=0;i<l.length;i++) if (l[i].key === k) return l[i];
+    return null;
+  }
+  function setProjectType(deal, key, extraCategories) {
+    var t = typeOf(key);
+    if (!t) return Promise.reject(new Error('Unknown project type.'));
+    var cats = (t.categories || []).slice();
+    (extraCategories || deal.categories || []).forEach(function (c) {
+      if (cats.indexOf(c) < 0) cats.push(c);
+    });
+    return patch(deal, { projectType:key, categories:cats },
+      { type:'edit', message:'Project type set to ' + t.label });
+  }
+
+  /* ── Prescreen ───────────────────────────────────────────────────────────
+     The fast look, before anybody spends an hour on a full score. Four
+     questions, a verdict, and a reason. It is deliberately NOT the viability
+     score: prescreen asks whether this is worth looking at, scoring asks
+     whether it is worth money, and a pipeline that only has the second one
+     either screens everything slowly or spends on things nobody read. */
+  function savePrescreen(deal, p) {
+    var pass = p.verdict === 'pass';
+    var rec = {
+      verdict:   p.verdict || '',
+      reason:    p.reason || '',
+      fit:       p.fit || '',
+      size:      p.size || '',
+      offtake:   p.offtake || '',
+      timing:    p.timing || '',
+      by:        _me ? _me.email : '',
+      at:        stamp()
+    };
+    return patch(deal, { prescreen: rec },
+      { type:'prescreen', message:'Prescreen: ' + (rec.verdict || 'no verdict')
+            + (rec.reason ? ' \u2014 ' + rec.reason : '') })
+      .then(function () { return pass; });
+  }
+
+  /* ── Funding stages ──────────────────────────────────────────────────────
+     Instantiates a capital partner's release schedule onto this deal, with
+     each stage's amount computed from the closed facility. Copied rather than
+     referenced on purpose: a partner revising their standard schedule must
+     not silently rewrite the terms of a deal that already closed. */
+  function financePartners() { return (cfg().portfolio || {}).financePartners || []; }
+  function financePartnerOf(k) {
+    var l = financePartners();
+    for (var i=0;i<l.length;i++) if (l[i].key === k) return l[i];
+    return null;
+  }
+  function applyFundingSchedule(deal, partnerKey, facilityUsd) {
+    var fp = financePartnerOf(partnerKey);
+    if (!fp) return Promise.reject(new Error('Unknown finance partner.'));
+    var total = num(facilityUsd) != null ? num(facilityUsd) : deal.funding.closedUsd;
+    var stages = (fp.stages || []).map(function (s) {
+      return { key:s.key, label:s.label, pct:s.pct,
+               amountUsd: total != null ? Math.round(total * (s.pct/100)) : null,
+               status:'pending', releasedAt:null, drawId:'' };
+    });
+    return patch(deal, {
+      'funding.partnerKey': partnerKey,
+      'funding.counterparty': fp.name,
+      'funding.stages': stages
+    }, { type:'funding', message:fp.name + ' schedule applied \u2014 '
+          + stages.length + ' release stages' });
+  }
+
+  /* Releasing a stage creates the DRAW, rather than just flipping a flag.
+     Two records would drift; one record with a stage reference cannot. */
+  function releaseStage(deal, stageKey) {
+    var st = null;
+    (deal.funding.stages || []).forEach(function (s) { if (s.key === stageKey) st = s; });
+    if (!st) return Promise.reject(new Error('Unknown funding stage.'));
+    if (st.status === 'released')
+      return Promise.reject(new Error('That stage has already been released.'));
+
+    var draw = {
+      id: 'dr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6),
+      no: (deal.funding.draws.length + 1),
+      amountUsd: st.amountUsd, purpose: st.label, category: 'stage',
+      stageKey: stageKey, status:'requested',
+      requestedAt: stamp(), approvedAt:null, fundedAt:null,
+      by: _me ? _me.email : ''
+    };
+    var stages = (deal.funding.stages || []).map(function (s) {
+      if (s.key !== stageKey) return s;
+      var c = {}; for (var k in s) c[k] = s[k];
+      c.status = 'requested'; c.drawId = draw.id;
+      return c;
+    });
+    return patch(deal, {
+      'funding.stages': stages,
+      'funding.draws': firebase.firestore.FieldValue.arrayUnion(draw)
+    }, { type:'draw', message:'Requested ' + st.label + ' \u2014 ' + money(st.amountUsd) });
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     VIABILITY SCORING — the gate into spend
+     ═══════════════════════════════════════════════════════════════════════
+     Two ways in, because you already have a tool and the console should not
+     insist on being it:
+
+       score(deal, criteria)   compute here from the weighted criteria in
+                               config.js, showing the breakdown
+       postScore(deal, {...})  accept a number computed anywhere else
+
+     Both store the breakdown, the model version, who and when. A score with no
+     breakdown cannot be argued with, and a gate nobody can argue with is a gate
+     people route around rather than fix.
+
+     APPEND-ONLY, same as a verification verdict. Re-scoring pushes the previous
+     score into viabilityHistory with its date. The trajectory is the finding:
+     a site that went 41 \u2192 78 after an interconnection study is a different
+     story from one that scored 78 first time, and a single current number
+     cannot tell them apart. */
+  function criteriaSet() {
+    return ((cfg().portfolio || {}).viability || {}).criteria || [];
+  }
+  function threshold() {
+    var t = ((cfg().portfolio || {}).viability || {}).threshold;
+    return t == null ? 60 : t;
+  }
+
+  /* values: { criterionKey: 0..10 }. Weighted to a 0..100 score. */
+  function computeScore(values) {
+    var cs = criteriaSet(), totalWeight = 0, earned = 0, rows = [];
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i];
+      var raw = values[c.key];
+      if (raw == null || raw === '') {
+        /* An unscored criterion is NOT a zero. Scoring it zero silently
+           punishes a site for a question nobody asked, which is how a
+           weighted model quietly becomes a random one. It drops out of both
+           sides of the fraction and is reported as unscored. */
+        rows.push({ key:c.key, label:c.label, weight:c.weight, value:null, unscored:true });
+        continue;
+      }
+      var v = Math.max(0, Math.min(10, Number(raw)));
+      totalWeight += c.weight;
+      earned += v * c.weight;
+      rows.push({ key:c.key, label:c.label, weight:c.weight, value:v, unscored:false });
+    }
+    var score = totalWeight ? Math.round((earned / (totalWeight * 10)) * 100) : null;
+    var scoredCount = rows.filter(function (r) { return !r.unscored; }).length;
+    return {
+      score: score,
+      criteria: rows,
+      coverage: cs.length ? scoredCount / cs.length : 0,
+      unscored: rows.filter(function (r) { return r.unscored; }).length
+    };
+  }
+
+  function saveScore(deal, computed, opts) {
+    opts = opts || {};
+    var th = opts.threshold != null ? num(opts.threshold) : threshold();
+    var v = {
+      score:     computed.score,
+      threshold: th,
+      verdict:   computed.score == null ? '' : (computed.score >= th ? 'pass' : 'fail'),
+      model:     opts.model || ((cfg().portfolio || {}).viability || {}).model || 'default-v1',
+      criteria:  computed.criteria || [],
+      coverage:  computed.coverage != null ? computed.coverage : null,
+      scoredBy:  _me ? _me.email : '',
+      scoredAt:  stamp(),
+      source:    opts.source || 'console',
+      override:  ''
+    };
+    var fields = { viability: v };
+    if (deal.viability && deal.viability.score != null) {
+      var prev = {};
+      for (var k in deal.viability) if (deal.viability.hasOwnProperty(k)) prev[k] = deal.viability[k];
+      prev.supersededAt = stamp();
+      fields.viabilityHistory = firebase.firestore.FieldValue.arrayUnion(prev);
+    }
+    return patch(deal, fields, { type:'viability',
+      message:'Scored ' + (v.score == null ? 'incomplete' : v.score + '/100')
+            + ' against a threshold of ' + th + ' \u2014 ' + (v.verdict || 'no verdict')
+            + (computed.unscored ? ' (' + computed.unscored + ' criteria unscored)' : '') });
+  }
+
+  /* A score from your own tool. Same storage, same gate, `source` records
+     where it came from so a model change can be traced later. */
+  function postScore(deal, payload) {
+    var s = num(payload.score);
+    if (s == null) return Promise.reject(new Error('A score is required.'));
+    return saveScore(deal, {
+      score: s,
+      criteria: Array.isArray(payload.criteria) ? payload.criteria : [],
+      coverage: null, unscored: 0
+    }, { model: payload.model || 'external', source: payload.source || 'external',
+         threshold: payload.threshold });
+  }
+
+  /* Advancing a failing deal anyway. Allowed, because a model that can never
+     be overruled is a model nobody trusts with real decisions \u2014 but it takes
+     a written reason, it is logged, and the failing score stays on the record
+     rather than being quietly re-run until it passes. */
+  function overrideViability(deal, reason) {
+    if (!reason) return Promise.reject(new Error(
+      'An override needs a written reason. The failing score stays on the record either way \u2014 '
+      + 'what the reason adds is why you went anyway.'));
+    return patch(deal, { 'viability.verdict':'pass', 'viability.override':reason },
+      { type:'viability', message:'Viability overridden: ' + reason });
+  }
+
+
+  /* ── Permitting ─────────────────────────────────────────────────────────
+     Applications are their own list because they run in parallel, take months,
+     and each has its own counterparty. A single "permitting: in progress" flag
+     tells you nothing you can chase. */
+  function startPermitting(deal, fields) {
+    return patch(deal, {
+      'permitting.startedAt': fields.startedAt || stamp(),
+      'permitting.ahj':       fields.ahj || deal.ahj || '',
+      'permitting.utility':   fields.utility || '',
+      'permitting.owner':     fields.owner || ''
+    }, { type:'permitting', message:'Permitting opened.' });
+  }
+  function addApplication(deal, app) {
+    if (!app.type) return Promise.reject(new Error('What kind of application?'));
+    var a = {
+      id: 'ap_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6),
+      type: app.type, authority: app.authority || '', ref: app.ref || '',
+      status: app.status || 'preparing',
+      submittedAt: app.submittedAt || null, approvedAt: null,
+      note: app.note || '', addedBy: _me ? _me.email : '', addedAt: stamp()
+    };
+    return patch(deal, {
+      permitting: Object.assign({}, deal.permitting, {
+        startedAt: deal.permitting.startedAt || stamp(),
+        applications: (deal.permitting.applications || []).concat([a])
+      })
+    }, { type:'permitting', message:'Application added: ' + a.type });
+  }
+  function setApplicationStatus(deal, appId, status) {
+    var next = (deal.permitting.applications || []).map(function (x) {
+      if (!x || x.id !== appId) return x;
+      var c = {}; for (var k in x) c[k] = x[k];
+      c.status = status;
+      if (status === 'submitted' && !c.submittedAt) c.submittedAt = stamp();
+      if (status === 'approved') c.approvedAt = stamp();
+      return c;
+    });
+    return patch(deal, {
+      permitting: Object.assign({}, deal.permitting, { applications: next })
+    }, { type:'permitting', message:'Application \u2192 ' + status });
+  }
+
+
+  /* ── Assignment ─────────────────────────────────────────────────────────
+     Assignees are emails resolved against omega_staff, not a second roster.
+     One definition of who works here \u2014 the same reason the ops console reuses
+     isOmegaStaff() instead of a parallel domain check. */
+  function assign(deal, a) {
+    var fields = {
+      'assignment.designLead': String(a.designLead || '').toLowerCase(),
+      'assignment.devLead':    String(a.devLead || '').toLowerCase(),
+      'assignment.dueAt':      a.dueAt || null,
+      'assignment.notes':      a.notes || '',
+      'assignment.assignedAt': stamp(),
+      'assignment.assignedBy': _me ? _me.email : ''
+    };
+    var who = [a.designLead, a.devLead].filter(Boolean).join(', ') || 'nobody';
+    return patch(deal, fields, { type:'assignment', message:'Assigned to ' + who });
+  }
+
+  /* Links an editor project to the deal. The project itself is created by the
+     caller against the CLIENT's orgId, so the finished drawing lands in the
+     client's own portal with no export step \u2014 the same path the ops console's
+     "Start build" already uses. */
+  function attachProject(deal, projectId, note) {
+    return patch(deal, { projectId: projectId },
+      { type:'assignment', message:'Design project linked' + (note ? ' \u2014 ' + note : '') });
+  }
+
+  /* Everything assigned to one person, across the portfolio. A workload is a
+     query across deals, never a column on one. */
+  function workload(list, email) {
+    email = String(email || '').toLowerCase();
+    return list.filter(function (d) {
+      return d.assignment.designLead === email || d.assignment.devLead === email;
+    });
+  }
+
 
   /* ── The loop back from the verification console ─────────────────────────
      Called when an opinion is signed. Copies the VERDICT, not a reference,
@@ -1065,7 +1467,9 @@
   var KNOWN = ['schemaVersion','name','address','state','clientOrgId','intakeId','projectId',
     'verificationIds','origination','originationHistory','participants','stage','stageHistory',
     'deadReason','deadAt','categories','sizeMw','sizeMwh','capexUsd','preDev','verification',
-    'funding','build','bom','notes','activity','orgsInvolved','createdAt','updatedAt','_demo'];
+    'funding','build','bom','notes','activity','orgsInvolved','createdAt','updatedAt','_demo',
+    'viability','viabilityHistory','permitting','assignment','finProjectId','adoptedFrom',
+    'adoptedAt','importBatch','externalIds','projectType','prescreen'];
   function unmapped(deal) {
     var raw = deal._raw || {}, out = {}, n = 0;
     for (var k in raw) { if (!raw.hasOwnProperty(k) || KNOWN.indexOf(k) >= 0) continue; out[k] = raw[k]; n++; }
@@ -1086,6 +1490,15 @@
     setFunding:setFunding, addDraw:addDraw, setDrawStatus:setDrawStatus,
     addBomLine:addBomLine, setBomStatus:setBomStatus, removeBomLine:removeBomLine,
     addNote:addNote, attachVerification:attachVerification,
+    projectTypes:projectTypes, typeOf:typeOf, setProjectType:setProjectType,
+    savePrescreen:savePrescreen, financePartners:financePartners,
+    financePartnerOf:financePartnerOf, applyFundingSchedule:applyFundingSchedule,
+    releaseStage:releaseStage,
+    criteriaSet:criteriaSet, threshold:threshold, computeScore:computeScore,
+    saveScore:saveScore, postScore:postScore, overrideViability:overrideViability,
+    startPermitting:startPermitting, addApplication:addApplication,
+    setApplicationStatus:setApplicationStatus,
+    assign:assign, attachProject:attachProject, workload:workload,
     drawnUsd:drawnUsd, requestedDrawUsd:requestedDrawUsd, undrawnUsd:undrawnUsd,
     deployedUsd:deployedUsd, bomTotalUsd:bomTotalUsd, lineTotal:lineTotal,
     everReached:everReached, enteredAt:enteredAt, daysToFund:daysToFund, ageDays:ageDays,

@@ -240,6 +240,31 @@ window.CLEARSKY_CONFIG = {
        access to a funding record. */
     defaultRole: 'viewer',
 
+    /* ── The organisations that use this portal ────────────────────────────
+       Seeded here so that a person from one of them who signs in is recognised
+       immediately — their org name renders correctly, they appear in the
+       assignee pickers, and an administrator approving them sees who they are
+       rather than a bare domain.
+
+       THIS IS NOT A GATE. Anyone can still request access from any domain and
+       land in the approval queue; this only pre-fills what we already know.
+       The registry in omega_partner_orgs overrides these once written, so
+       editing an organisation in the console beats editing this file.
+
+       clearsky-usa.com is auto-activated as administrator by the access layer
+       because it is a ClearSky domain. OGI Solar and Sunesol still go through
+       approval — being a known partner is not the same as being an approved
+       user, and collapsing the two would mean anyone at a partner domain
+       admits themselves. */
+    knownOrgs: {
+      'clearsky-usa.com': { name:'OMEGA',          kind:'internal',
+        note:'ClearSky Energy Solutions. Staff, auto-approved as administrators.' },
+      'ogisolar.com':     { name:'OGI Solar',      kind:'developer',
+        note:'Development partner. Assignable for verification, pre-dev and design.' },
+      'sunesol.com':      { name:'Sunesol Energy', kind:'developer',
+        note:'Development partner. Assignable for verification, pre-dev and design.' }
+    },
+
     /* Shown on the pending screen so a waiting partner knows who to chase. */
     approvalContact: 'tom@clearsky-usa.com'
   },
@@ -273,12 +298,167 @@ window.CLEARSKY_CONFIG = {
        as a percentage field would quietly misstate the ones that aren't. */
     defaultFeeBasis: '',
 
+    /* ── Project types ─────────────────────────────────────────────────────
+       WHAT WE BUILD. This is the first question on intake and it drives
+       everything downstream: which viability criteria apply, which equipment
+       categories appear on the BOM, and which manufacturers are offered.
+
+       Deliberately NOT the same list as `categories` below. A category is a
+       technology present on a site; a project TYPE is the thing we are selling
+       and financing. "Solar + BESS" is one project with one economic model,
+       not a solar project that happens to have batteries — and conflating the
+       two is why hybrid sites get costed twice and financed as neither.
+
+       `categories` lists which technology tags a type implies, so the BOM and
+       the partner reporting stay consistent without anybody re-tagging. */
+    projectTypes: [
+      { key:'solar',        label:'Solar',                 categories:['solar'],
+        hint:'Standalone PV, ground or roof.' },
+      { key:'solar_bess',   label:'Solar + storage',       categories:['solar','bess'],
+        hint:'One project, one model \u2014 not a solar site with batteries bolted on.' },
+      { key:'bess',         label:'Standalone storage',    categories:['bess'],
+        hint:'Front-of-meter or C&I battery, no generation.' },
+      { key:'compute',      label:'Data centre / compute', categories:['compute'],
+        hint:'Load-led. Power procurement is the project.' },
+      { key:'compute_gen',  label:'Compute + on-site generation', categories:['compute','powergen','bess'],
+        hint:'Behind-the-meter generation serving a compute load.' },
+      { key:'microgrid',    label:'Microgrid',             categories:['der','bess','solar','powergen'],
+        hint:'Islandable, multiple assets, controls are the hard part.' },
+      { key:'der',          label:'Distributed energy',    categories:['der'],
+        hint:'Aggregated or behind-the-meter DER portfolio.' },
+      { key:'dcfc',         label:'DC fast charging',      categories:['dcfc'],
+        hint:'Highway or fleet depot fast charging.' },
+      { key:'l2',           label:'Level 2 charging',      categories:['l2'],
+        hint:'Workplace, multifamily, destination.' },
+      { key:'charging_bess',label:'Charging + storage',    categories:['dcfc','bess'],
+        hint:'Demand-charge managed charging.' },
+      { key:'powergen',     label:'On-site generation',    categories:['powergen'],
+        hint:'Gensets, CHP, fuel cells.' }
+    ],
+
+    /* ── Equipment manufacturers ───────────────────────────────────────────
+       Offered on BOM lines, filtered by category. Adding one here makes it
+       selectable everywhere; it does not commit you to anything.
+
+       `orgId` matters: if a manufacturer is also a portal partner, purchase
+       orders against them roll into that partner's portfolio view alongside
+       any deals they referred. That is the loop PORTFOLIO.md \u00a7 2 is about \u2014
+       two commercial relationships with the same company, counted separately. */
+    manufacturers: [
+      { key:'canadian_solar', name:'Canadian Solar', orgId:'',
+        categories:['module','inverter','bess'] },
+      { key:'fenecon',        name:'FENECON',        orgId:'fenecon.com',
+        categories:['bess','inverter'] },
+      { key:'gotion',         name:'Gotion',         orgId:'',
+        categories:['battery','bess'] },
+      { key:'sparkz',         name:'SPARKZ',         orgId:'',
+        categories:['battery','bess'] }
+    ],
+
+    /* ── Distributors ──────────────────────────────────────────────────────
+       Who we actually order through. Separate from the manufacturer because
+       the purchase order, the lead time and the payment terms belong to the
+       distributor, and the warranty belongs to the manufacturer. One field
+       for both loses whichever one you need at the moment you need it. */
+    distributors: [
+      { key:'res',     name:'RES',                  orgId:'',
+        note:'Balance of system, racking, electrical.' },
+      { key:'walters', name:'Walters Distribution', orgId:'',
+        note:'General electrical distribution and ordering.' }
+    ],
+
+    /* ── Finance partners and their funding stages ─────────────────────────
+       Capital does not arrive in one payment. Each partner releases against
+       their own milestones, and the gap between "approved" and "in the
+       account" is the number a supplier waiting on a purchase order actually
+       feels \u2014 see PORTFOLIO.md \u00a7 4.
+
+       `stages` are that partner's OWN release schedule, in order, each with
+       the share of the facility it represents. Percentages are indicative and
+       editable per deal: the schedule is a template, not a contract, and the
+       moment it is treated as one somebody will report a draw that never
+       happened.
+
+       Pull further partners from the financing marketplace as they engage;
+       Amperage is the standing one. */
+    financePartners: [
+      { key:'amperage', name:'Amperage Capital', orgId:'',
+        note:'Primary capital partner. Phased release against milestones.',
+        stages: [
+          { key:'ntp',          label:'Notice to proceed',      pct:10,
+            hint:'Released at NTP. Mobilisation and long-lead deposits.' },
+          { key:'procurement',  label:'Equipment procurement',  pct:30,
+            hint:'Against issued purchase orders.' },
+          { key:'construction', label:'Construction milestone', pct:35,
+            hint:'Typically at mechanical completion of major works.' },
+          { key:'commissioning',label:'Commissioning',          pct:15,
+            hint:'On successful commissioning and utility witness test.' },
+          { key:'cod',          label:'Commercial operation',   pct:10,
+            hint:'Final release at COD, after punch list.' }
+        ] }
+    ],
+
+    /* ── Viability scoring ─────────────────────────────────────────────────
+       The gate into spend. Edit the criteria and weights freely; the weights
+       are relative, not percentages, so adding a criterion does not require
+       rebalancing the others.
+
+       Each criterion is scored 0-10 by the person reviewing. The weighted
+       result is expressed 0-100 and compared against `threshold`.
+
+       AN UNSCORED CRITERION IS NOT A ZERO. It drops out of both sides of the
+       fraction and is reported as unscored, because scoring it zero silently
+       punishes a site for a question nobody asked — which turns a weighted
+       model into a random one and nobody notices for months.
+
+       If you score with your own tool instead, post the number in and this
+       block is only used for the threshold. Either way the breakdown is stored:
+       a score with no breakdown cannot be argued with, and a gate nobody can
+       argue with is a gate people route around rather than fix. */
+    viability: {
+      model:     'clearsky-v1',
+      threshold: 60,
+      criteria: [
+        { key:'interconnect', weight:3, label:'Interconnection',
+          hint:'Capacity, queue position, distance to a point of interconnection.' },
+        { key:'land',         weight:3, label:'Land control',
+          hint:'Site control secured or credibly securable. This is a phone call, not a database.' },
+        { key:'offtake',      weight:2, label:'Offtake',
+          hint:'Is there a buyer for the output on terms that clear.' },
+        { key:'permitting',   weight:2, label:'Permitting and zoning',
+          hint:'AHJ posture, zoning fit, known objections.' },
+        { key:'site',         weight:1, label:'Physical site',
+          hint:'Grade, access, flood, wetlands, obstructions.' },
+        { key:'economics',    weight:3, label:'Economics',
+          hint:'Capex against revenue at plausible assumptions.' },
+        { key:'sponsor',      weight:1, label:'Sponsor and counterparty',
+          hint:'Can whoever is behind this actually deliver it.' }
+      ]
+    },
+
+    /* Permitting application types offered in the picker. Free text is still
+       allowed — this is a convenience, not a schema. */
+    permitTypes: [
+      'Interconnection application',
+      'Utility study (feasibility)',
+      'Utility study (system impact)',
+      'Conditional use permit',
+      'Zoning / rezoning',
+      'Building permit',
+      'Electrical permit',
+      'Environmental review',
+      'Stormwater / grading',
+      'Fire marshal review',
+      'Air permit',
+      'Other'
+    ],
+
     /* Stage-age thresholds, in days. A deal sitting in one stage past its
        threshold is flagged on the board — not late exactly, but stale, and
        stale is what a pipeline review is for. */
     stallDays: {
-      referred: 21, screening: 30, pre_dev: 120, verified: 45,
-      marketplace: 90, committed: 60, funded: 45, construction: 365
+      referred: 21, screening: 30, qualified: 45, pre_dev: 120, permitting: 180,
+      verified: 45, marketplace: 90, committed: 60, funded: 45, construction: 365
     },
 
     /* Portfolio-level targets, shown against actuals on the dashboard. Set

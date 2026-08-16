@@ -268,6 +268,100 @@ tfoot td{font-weight:600;color:var(--navy);border-top:1.5px solid var(--line);bo
   opacity:0;transition:.22s;pointer-events:none;max-width:88vw;text-align:center}
 .toast.on{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.bad{background:var(--bad)}
+/* ── Form engine ───────────────────────────────────────────────────────── */
+.ff-scrim{position:fixed;inset:0;background:rgba(11,34,51,.5);z-index:400;display:flex;
+  align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.ff-modal{background:#fff;border-radius:14px;width:100%;max-width:600px;
+  box-shadow:0 24px 70px rgba(0,0,0,.32);display:flex;flex-direction:column;max-height:88vh}
+.ff-head{padding:18px 22px 14px;border-bottom:1px solid var(--line);display:flex;gap:12px;
+  align-items:flex-start;flex-shrink:0}
+.ff-head h3{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-.3px}
+.ff-head p{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.55}
+.ff-x{background:none;border:none;font-size:22px;color:var(--ink-3);cursor:pointer;
+  line-height:1;padding:0 4px;margin-left:auto}
+.ff-body{padding:18px 22px;overflow-y:auto;flex:1}
+.ff-warn{background:#FEF4E6;color:#7A4A08;border-radius:8px;padding:11px 13px;
+  font-size:12.5px;line-height:1.55;margin-bottom:16px}
+.ff{margin-bottom:16px}
+.ff-l{display:block;font-size:11.5px;font-weight:600;color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ff-i{width:100%;border:1.5px solid #DDE3E9;border-radius:8px;padding:10px 12px;
+  font:400 14px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
+.ff-i:focus{border-color:var(--accent)}
+textarea.ff-i{resize:vertical;line-height:1.55;min-height:72px}
+select.ff-i{cursor:pointer}
+.ff-h{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.ff-err{font-size:11.5px;color:var(--bad);margin-top:5px;font-weight:500}
+.ff.bad .ff-i,.ff.bad .ff-cards,.ff.bad .ff-chips{border-color:var(--bad)}
+.ff-div{display:flex;align-items:center;gap:10px;margin:22px 0 14px;font-size:10.5px;
+  font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--ink-3)}
+.ff-div::after{content:'';flex:1;height:1px;background:var(--line)}
+.ff-static{font-size:12.5px;color:var(--ink-2);line-height:1.6;background:#F7F9FB;
+  border-radius:8px;padding:11px 13px;margin-bottom:16px}
+.ff-money{display:flex;align-items:center;border:1.5px solid #DDE3E9;border-radius:8px;
+  padding-left:11px;background:#fff}
+.ff-money:focus-within{border-color:var(--accent)}
+.ff-money span{color:var(--ink-3);font-size:14px}
+.ff-money .ff-i{border:none;padding-left:6px}
+.ff-money .ff-i:focus{border:none}
+.ff-cards{display:flex;flex-direction:column;gap:7px}
+.ff-card{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);
+  border-radius:9px;padding:10px 12px;cursor:pointer;background:#fff}
+.ff-card:hover{border-color:#C4CCD5}
+.ff-card.on{border-color:var(--accent);background:var(--accent-soft)}
+.ff-card input{margin-top:3px;accent-color:var(--accent)}
+.ff-card b{display:block;font-size:13px;font-weight:600;color:var(--navy)}
+.ff-card.on b{color:var(--accent)}
+.ff-card em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-2);
+  margin-top:2px;line-height:1.45}
+.ff-chips{display:flex;flex-wrap:wrap;gap:7px;border:1.5px solid transparent;border-radius:8px}
+.ff-chip{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:6px 13px;
+  font-size:12.5px;cursor:pointer;color:var(--ink-2);user-select:none}
+.ff-chip:hover{border-color:#C4CCD5}
+.ff-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.ff-score{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ff-score input[type=range]{flex:1;min-width:150px;accent-color:var(--accent)}
+.ff-score output{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;
+  color:var(--navy);min-width:48px}
+.ff-na{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);
+  cursor:pointer;white-space:nowrap}
+.ff-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:9px;
+  align-items:center;flex-shrink:0;background:#FBFCFD;border-radius:0 0 14px 14px}
+.ff-foot-note{flex:1;font-size:11.5px;color:var(--ink-3);line-height:1.45}
+.ff-btn{border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;
+  padding:9px 16px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.ff-btn:hover{border-color:#C4CCD5}
+.ff-btn.ff-go{background:var(--accent);border-color:var(--accent);color:#fff}
+.ff-btn.ff-go:hover{background:var(--accent-hi)}
+.ff-btn.ff-go.danger{background:var(--bad);border-color:var(--bad)}
+@media(max-width:640px){.ff-scrim{padding:0}.ff-modal{max-width:100%;border-radius:0;
+  max-height:100vh;height:100vh}.ff-foot{border-radius:0}}
+
+/* ── Kanban ────────────────────────────────────────────────────────────── */
+.kb{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.kb-col{flex:0 0 268px;background:#F4F6F8;border-radius:var(--r);border:1px solid var(--line)}
+.kb-h{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+  gap:8px;position:sticky;top:0;background:#F4F6F8;border-radius:var(--r) var(--r) 0 0;z-index:2}
+.kb-h b{font-size:12px;font-weight:700;color:var(--navy)}
+.kb-h .n{margin-left:auto;font-family:'DM Mono',monospace;font-size:11.5px;color:var(--ink-2);
+  background:#fff;border-radius:9px;padding:1px 8px}
+.kb-h i{display:block;width:8px;height:8px;border-radius:2px}
+.kb-b{padding:9px;display:flex;flex-direction:column;gap:8px;min-height:60px;
+  max-height:calc(100vh - 300px);overflow-y:auto}
+.kb-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 11px;
+  cursor:pointer;box-shadow:var(--shadow)}
+.kb-card:hover{border-color:var(--accent)}
+.kb-card.drag{opacity:.4}
+.kb-card b{display:block;font-size:13px;font-weight:600;color:var(--navy);line-height:1.3}
+.kb-card .m{font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.4}
+.kb-card .f{display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap}
+.kb-card .f span{font-size:10.5px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
+  border-radius:5px;padding:2px 6px}
+.kb-card .f span.money{background:var(--money-soft);color:var(--money)}
+.kb-card .f span.warn{background:#FEF4E6;color:#7A4A08}
+.kb-col.over .kb-b{background:var(--accent-soft);border-radius:0 0 var(--r) var(--r)}
+.kb-empty{font-size:11.5px;color:var(--ink-3);text-align:center;padding:14px 6px}
+
 pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflow-x:auto;
   font-family:'DM Mono',monospace;line-height:1.5;color:var(--ink-2)}
 </style>
@@ -347,6 +441,9 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
     <button class="sn-item active" data-view="dash" onclick="go('dash')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span>Overview</span></button>
+    <button class="sn-item" data-view="board" onclick="go('board')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="18" rx="1"/><rect x="10" y="3" width="6" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/></svg>
+      <span>Board</span></button>
     <button class="sn-item" data-view="pipeline" onclick="go('pipeline')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></svg>
       <span>Pipeline</span><span class="sn-count" id="c-pipe">0</span></button>
@@ -360,6 +457,13 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
       <span>Supply / BOM</span></button>
 
+    <button class="sn-item" data-view="inbox" onclick="go('inbox')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      <span>Inbox</span><span class="sn-count" id="c-inbox">0</span></button>
+    <button class="sn-item" data-view="work" onclick="go('work')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      <span>Assignments</span><span class="sn-count" id="c-work">0</span></button>
+
     <div class="sn-group">Administration</div>
     <button class="sn-item" data-view="users" onclick="go('users')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
@@ -368,10 +472,9 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       <span>Organisations</span></button>
 
-    <div class="sn-group">Elsewhere</div>
-    <a class="sn-item" href="/index.html">
+    <button class="sn-item" data-view="verify" onclick="go('verify')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-      <span>Verification</span></a>
+      <span>Verification</span><span class="sn-count" id="c-verify">0</span></button>
   </nav>
 
   <main id="main">
@@ -397,6 +500,29 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
           <div class="card-b" id="dash-money"></div></div>
         <div class="card"><div class="card-h"><h2>Why deals died</h2></div>
           <div class="card-b" id="dash-dead"></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-board">
+      <div class="ph"><h1>Board</h1>
+        <p>Every live deal by stage. Drag a card to move it — the gates still apply, so a
+           card that lands somewhere it has not earned bounces back and tells you what is
+           missing.</p></div>
+      <div id="kb-host" class="kb"></div>
+    </section>
+
+    <section class="view" id="v-verify">
+      <div class="ph"><h1>Verification</h1>
+        <p>Third-party feasibility and bankability review, in the same console as everything
+           else. Assign a deal to a reviewer, watch the clock, read the signed opinion.</p></div>
+      <div class="stats" id="verify-stats"></div>
+      <div class="card">
+        <div class="card-h"><h2>Assignments</h2>
+          <div class="chips" id="verify-chips" style="margin-left:auto"></div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Reviewer</th><th>Asked for</th><th>Status</th>
+            <th>Turnaround</th><th>Verdict</th><th></th></tr></thead>
+          <tbody id="verify-rows"></tbody></table></div>
       </div>
     </section>
 
@@ -477,6 +603,52 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       </div>
     </section>
 
+    <section class="view" id="v-inbox">
+      <div class="ph"><h1>Inbox</h1>
+        <p>Deals that already exist in the marketplace, the intake queue and the editor,
+           and are not yet in the portfolio. Adopting links the two records — nothing is
+           copied and nothing moves.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>Adoptable records</h2>
+          <div class="chips" id="inbox-chips" style="margin-left:auto"></div>
+          <button class="btn-x" onclick="loadInbox(true)">Rescan</button>
+          <button class="btn-x" onclick="openImport()">Import a spreadsheet</button></div>
+        <div class="card-b" id="inbox-note" style="padding-bottom:0"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Record</th><th>Source</th><th>Filed by</th><th>Status</th>
+            <th class="num">Size</th><th>Suggested stage</th><th></th></tr></thead>
+          <tbody id="inbox-rows"></tbody></table></div>
+      </div>
+      <div class="card"><div class="card-b">
+        <div class="sec-note" style="margin-top:0">Adoption asks one question the source
+          record cannot answer: <b>who brought it</b>. A marketplace listing knows who
+          <i>filed</i> it, which is often not who <i>referred</i> it — and attribution
+          locks the moment a deal advances, so getting it wrong here is getting it wrong
+          on the whole back catalogue at once.</div>
+      </div></div>
+    </section>
+
+    <section class="view" id="v-work">
+      <div class="ph"><h1>Assignments</h1>
+        <p>Who is carrying what. Assignment is a different axis from stage — a deal in
+           pre-development may have design finished and permitting stalled, and one in
+           permitting may have design not started.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>By person</h2></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Person</th><th class="num">Deals</th><th class="num">Design lead</th>
+            <th class="num">Dev lead</th><th>Next due</th><th class="num">Overdue</th></tr></thead>
+          <tbody id="work-rows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Unassigned past screening</h2>
+          <span class="sub">Deals we are spending on with nobody named</span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Site</th><th>Stage</th><th class="num">Capex</th><th>Age</th></tr></thead>
+          <tbody id="unassigned-rows"></tbody></table></div>
+      </div>
+    </section>
+
     <section class="view" id="v-users">
       <div class="ph"><h1>Users</h1>
         <p id="users-sub">Approve access, set roles, and scope limited administrators to the
@@ -526,9 +698,14 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="/config.js?v=2"></script>
-<script src="/access-data.js?v=1"></script>
-<script src="/portfolio-data.js?v=1"></script>
+<script src="/config.js?v=3"></script>
+<script src="/forms.js?v=1"></script>
+<script src="/access-data.js?v=2"></script>
+<script src="/portfolio-data.js?v=3"></script>
+<!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
+     CDN outage costs you the importer and nothing else. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="/ingest-data.js?v=2"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -538,11 +715,13 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
    surfaces as "the page is broken" rather than as "you can't see that", so
    the client filters to what it is allowed rather than asking for everything.
    ══════════════════════════════════════════════════════════════════════════ */
-var F = Portfolio, A = OmegaAccess;
+var F = Portfolio, A = OmegaAccess, IN = window.Ingest;
 var auth, db, ME = null;
 var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           pipeFilter:'live', userFilter:'pending', supplyFilter:'all',
-          openId:null, tab:'overview', partnerOpen:'' };
+          openId:null, tab:'overview', partnerOpen:'',
+          inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
+          imp:null, verifications:[], verifyFilter:'open' };
 
 function ready(){ var e=document.getElementById('boot');
   if(!e||e.classList.contains('hide'))return; e.classList.add('hide');
@@ -561,6 +740,7 @@ function ready(){ var e=document.getElementById('boot');
       ME = rec;
       if (rec.status !== 'active'){ showGate(rec); return; }
       F.init(db, rec);
+      IN.init(db, rec);
       showApp();
     })['catch'](function(err){
       ready();
@@ -621,11 +801,14 @@ function showApp(){
     A.can('see_all') ? 'Portfolio' : (ME.orgName || ME.orgId) + ' \u00b7 portfolio';
   /* Hide what this role cannot do rather than showing a button that errors. The
      rules refuse it either way; a dead button just wastes somebody's click. */
-  if (!A.can('write_deal')) document.getElementById('btn-new').style.display='none';
+  if (!A.can('write_deal')) {
+    document.getElementById('btn-new').style.display='none';
+    hideNav('inbox');
+  }
   if (!A.can('approve_any') && !A.can('approve_scoped') && !A.can('approve_own_org'))
     hideNav('users');
   if (!A.can('approve_any')) hideNav('orgs');
-  go(location.hash.replace('#/','')||'dash', true);
+  go(location.hash.replace('#/','')||'board', true);
   refresh();
 }
 function hideNav(v){
@@ -668,9 +851,16 @@ function refresh(manual){
     F.loadDeals()['catch'](function(e){ dealErr=e; return []; }),
     A.loadOrgs(),
     (A.can('approve_any')||A.can('approve_scoped')||A.can('approve_own_org'))
-      ? A.loadUsers()['catch'](function(){ return []; }) : Promise.resolve([])
+      ? A.loadUsers()['catch'](function(){ return []; }) : Promise.resolve([]),
+    loadVerifications()
   ]).then(function(r){
-    S.deals=r[0]; S.users=r[2]; S.loaded=true; S.demo=false; render();
+    S.deals=r[0]; S.users=r[2]; S.loaded=true; S.demo=false;
+    if (S.inboxLoaded) S.inbox = IN.annotate(S.inbox, S.deals);
+    render();
+    /* Scan the source collections once, on first load, so the Inbox count is
+       populated before anybody clicks it — an empty portfolio with a silent
+       inbox is exactly the state that looks like the product is broken. */
+    if (!S.inboxLoaded && A.can('write_deal')) loadInbox(false);
   })['finally'](function(){
     if(b){ b.disabled=false; b.textContent='Refresh'; }
     if(manual) toast('Refreshed'); });
@@ -695,7 +885,9 @@ function go(v,silent){
 function render(){
   if(!S.loaded) return;
   renderBanners(); renderDash(); renderPipeline(); renderPartners();
-  renderFunding(); renderSupply(); renderUsers(); renderOrgs(); renderCounts();
+  renderFunding(); renderSupply(); renderInbox(); renderWork();
+  renderBoard(); renderVerify();
+  renderUsers(); renderOrgs(); renderCounts();
   if(S.openId) renderDrawer();
 }
 function esc(s){ return F.esc(s); }
@@ -728,6 +920,13 @@ function renderCounts(){
   var dr=openDraws().length;
   var el=document.getElementById('c-draws'); el.textContent=dr;
   el.classList.toggle('alert', dr>0);
+  var nb=S.inbox.filter(function(c){return !c.linkedDeal && !c.skipByDefault;}).length;
+  var ib=document.getElementById('c-inbox'); ib.textContent=nb; ib.classList.toggle('alert', nb>0);
+  document.getElementById('c-work').textContent =
+    S.deals.filter(function(d){ return d.assignment.designLead||d.assignment.devLead; }).length;
+  var vo=verifyRows('open').length;
+  var ve=document.getElementById('c-verify'); if(ve){ ve.textContent=vo;
+    ve.classList.toggle('alert', verifyRows('blocked').length>0); }
   var pu=A.pendingCount?A.pendingCount():0;
   var ue=document.getElementById('c-users'); ue.textContent=pu; ue.classList.toggle('alert',pu>0);
 }
@@ -1014,6 +1213,537 @@ function renderSupply(){
     : '<tr><td colspan="7"><div class="empty"><b>Nothing specified</b></div></td></tr>';
 }
 
+/* ── Option builders: every dropdown reads from config, never a literal ── */
+function optOrgs(){
+  var seen={}, out=[];
+  Object.keys(A.orgs()).forEach(function(k){ seen[k]=1;
+    out.push({value:k,label:A.orgName(k)+' ('+k+')'}); });
+  /* Orgs that appear on deals or users but were never registered still have to
+     be selectable, or the form blocks work that is already happening. */
+  S.deals.forEach(function(d){ var o=d.origination.partnerOrg;
+    if(o&&!seen[o]){ seen[o]=1; out.push({value:o,label:o}); }});
+  S.users.forEach(function(u){ if(u.orgId&&!seen[u.orgId]){ seen[u.orgId]=1;
+    out.push({value:u.orgId,label:(u.orgName||u.orgId)+' ('+u.orgId+')'}); }});
+  return out.sort(function(a,b){ return a.label.localeCompare(b.label); });
+}
+function optUsers(){
+  return S.users.filter(function(u){ return u.status==='active'; })
+    .map(function(u){ return {value:u.email,label:u.name+' \u00b7 '+(u.orgName||u.orgId)}; });
+}
+function optTypes(){
+  return F.projectTypes().map(function(t){
+    return {value:t.key,label:t.label,hint:t.hint}; });
+}
+function optCategories(){
+  return F.BOM_CATEGORIES ? (window.CLEARSKY_CONFIG.partner.categories||[])
+    .map(function(c){ return {value:c.key,label:c.label}; }) : [];
+}
+function optStages(maxKey){
+  var cap=maxKey?F.stageOf(maxKey).rank:Infinity;
+  return F.STAGES.filter(function(s){ return s.rank<=cap; })
+    .map(function(s){ return {value:s.key,label:s.label,hint:s.hint}; });
+}
+function optFinance(){
+  return F.financePartners().map(function(p){
+    return {value:p.key,label:p.name,hint:p.note}; });
+}
+function optManufacturers(cat){
+  var all=(window.CLEARSKY_CONFIG.portfolio||{}).manufacturers||[];
+  return all.filter(function(m){ return !cat||!m.categories||m.categories.indexOf(cat)>=0; })
+    .map(function(m){ return {value:m.key,label:m.name}; });
+}
+function optDistributors(){
+  return ((window.CLEARSKY_CONFIG.portfolio||{}).distributors||[])
+    .map(function(d){ return {value:d.key,label:d.name,hint:d.note}; });
+}
+
+/* ── Board ────────────────────────────────────────────────────────────── */
+function renderBoard(){
+  var host=document.getElementById('kb-host'); if(!host) return;
+  var live=S.deals.filter(function(d){ return !F.isExit(d.stage); });
+  host.innerHTML = F.STAGES.map(function(st){
+    var inCol=live.filter(function(d){ return d.stage===st.key; });
+    return '<div class="kb-col" data-stage="'+st.key+'">'
+      + '<div class="kb-h"><i style="background:'+st.color+'"></i><b>'+esc(st.label)+'</b>'
+      +   '<span class="n">'+inCol.length+'</span></div>'
+      + '<div class="kb-b">'
+      + (inCol.length ? inCol.map(kbCard).join('')
+          : '<div class="kb-empty">Empty</div>')
+      + '</div></div>'; }).join('');
+
+  if(!A.can('write_deal')) return;
+  host.querySelectorAll('.kb-card').forEach(function(c){
+    c.setAttribute('draggable','true');
+    c.addEventListener('dragstart',function(e){
+      e.dataTransfer.setData('text/plain', c.getAttribute('data-id'));
+      c.classList.add('drag');
+    });
+    c.addEventListener('dragend',function(){ c.classList.remove('drag'); });
+  });
+  host.querySelectorAll('.kb-col').forEach(function(col){
+    col.addEventListener('dragover',function(e){ e.preventDefault(); col.classList.add('over'); });
+    col.addEventListener('dragleave',function(){ col.classList.remove('over'); });
+    col.addEventListener('drop',function(e){
+      e.preventDefault(); col.classList.remove('over');
+      var id=e.dataTransfer.getData('text/plain');
+      var to=col.getAttribute('data-stage');
+      var d=findDeal(id); if(!d||d.stage===to) return;
+      /* Dragging BACKWARDS is not a stage move. Going forwards is a claim the
+         gates check; going backwards is an admission that needs a reason, and
+         silently allowing it would let a deal reverse out of "funded" with no
+         trace. */
+      if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
+        toast('Use the deal panel to move a deal backwards \u2014 it needs a reason',true);
+        return;
+      }
+      moveTo(d,to);
+    });
+  });
+}
+function kbCard(d){
+  var stale=isStale(d), v=d.viability;
+  return '<div class="kb-card" data-id="'+d.id+'" onclick="openDeal(\''+d.id+'\')">'
+    + '<b>'+esc(d.name)+'</b>'
+    + '<div class="m">'+esc(d.origination.partnerName||d.origination.partnerOrg||'unattributed')
+    +   (d.address?' \u00b7 '+esc(d.address):'')+'</div>'
+    + '<div class="f">'
+    +   (d.projectType?'<span>'+esc((F.typeOf(d.projectType)||{}).label||d.projectType)+'</span>':'')
+    +   (d.sizeMw!=null?'<span>'+F.mw(d.sizeMw)+'</span>':'')
+    +   (d.funding.closedUsd?'<span class="money">'+F.money(d.funding.closedUsd,true)+'</span>':'')
+    +   (v.score!=null?'<span class="'+(v.verdict==='pass'?'money':'warn')+'">'+v.score+'</span>':'')
+    +   (stale?'<span class="warn">stalled</span>':'')
+    +   (!d.assignment.designLead&&!d.assignment.devLead
+        &&F.stageOf(d.stage).rank>=F.stageOf('qualified').rank
+        ?'<span class="warn">unassigned</span>':'')
+    + '</div></div>';
+}
+
+function moveTo(d,to){
+  var miss=F.missingFor(d,to);
+  if(miss.length){
+    /* The gate refused. Rather than a dead end, open the form that fixes it \u2014
+       the whole point of naming what is missing is that it is actionable. */
+    toast('Needs: '+miss.map(fieldLabel).join(', '),true);
+    S.openId=d.id; S.tab= to==='qualified'?'score':'overview';
+    document.getElementById('scrim').classList.add('on');
+    document.getElementById('drawer').classList.add('on');
+    renderDrawer();
+    return;
+  }
+  Forms.open({
+    title:'Move to '+F.stageOf(to).label,
+    intro:d.name,
+    fields:[{key:'note',type:'textarea',label:'Note (optional)',rows:2,
+      placeholder:'What changed?'}],
+    submitLabel:'Move'
+  }).then(function(v){
+    if(!v) return;
+    act(F.advance(d,to,v.note),'Moved to '+F.stageOf(to).label);
+  });
+}
+
+/* ── Verification, in this console ─────────────────────────────────────── */
+function loadVerifications(){
+  if(!db) return Promise.resolve([]);
+  return db.collection('verifications').get().then(function(snap){
+    var out=[]; snap.forEach(function(doc){ out.push(PartnerLite(doc.id,doc.data()||{})); });
+    S.verifications=out; return out;
+  })['catch'](function(e){
+    console.warn('[verify] read failed:', e&&e.message); S.verifications=[]; return []; });
+}
+/* A deliberately thin read of the verification document. The verification
+   console owns the full model; this console only needs enough to show the
+   queue, the clock and the verdict. Duplicating partner-data.js here would
+   give two definitions of a verdict and guarantee they diverge. */
+function PartnerLite(id,d){
+  var v=d.verdict||{};
+  return { id:id, partnerOrg:(d.partnerOrg||'').toLowerCase(), partnerName:d.partnerName||'',
+    project:(d.packet||{}).projectName||'Untitled', address:(d.packet||{}).address||'',
+    scope:d.scopeRequested||[], status:d.status||'assigned',
+    assignedAt:d.assignedAt||null, submittedAt:d.submittedAt||null,
+    pausedMs:Number(d.pausedMs)||0, pausedAt:d.pausedAt||null,
+    feasibility:v.feasibility||'', bankability:v.bankability||'',
+    signedAt:v.signedAt||null, sourceId:d.sourceId||'', dealId:d.dealId||'' };
+}
+function verifyRows(k){
+  return (S.verifications||[]).filter(function(v){
+    if(k==='all') return true;
+    if(k==='open') return ['assigned','accepted','in_review','info_requested'].indexOf(v.status)>=0;
+    if(k==='blocked') return v.status==='info_requested';
+    if(k==='signed') return !!v.signedAt;
+    return true; });
+}
+function renderVerify(){
+  var host=document.getElementById('verify-rows'); if(!host) return;
+  var all=S.verifications||[];
+  var open=verifyRows('open').length, signed=verifyRows('signed').length;
+  document.getElementById('verify-stats').innerHTML =
+      stat('Out for review', open, open?'with partners now':'nothing outstanding')
+    + stat('Waiting on us', verifyRows('blocked').length, 'partner asked a question')
+    + stat('Signed', signed, signed?'opinions returned':'none yet')
+    + stat('Deals verified', S.deals.filter(function(d){return d.verification.verdictId;}).length,
+           'linked back to the portfolio');
+
+  var defs=[{k:'open',l:'Open'},{k:'blocked',l:'Waiting on us'},{k:'signed',l:'Signed'},{k:'all',l:'All'}];
+  document.getElementById('verify-chips').innerHTML=defs.map(function(d){
+    return '<button class="chip'+(S.verifyFilter===d.k?' on':'')+'" onclick="setVerify(\''+d.k+'\')">'
+      + d.l+' <span class="mono">'+verifyRows(d.k).length+'</span></button>'; }).join('');
+
+  var rows=verifyRows(S.verifyFilter);
+  host.innerHTML = rows.length ? rows.map(function(v){
+    var el=F.days(v.assignedAt, v.submittedAt||Date.now());
+    return '<tr><td><div class="t-name">'+esc(v.project)+'</div>'
+      + '<div class="t-sub">'+esc(v.address||'\u2014')+'</div></td>'
+      + '<td>'+esc(v.partnerName||A.orgName(v.partnerOrg))+'</td>'
+      + '<td style="font-size:12px;color:var(--ink-2)">'+esc(v.scope.join(' + '))+'</td>'
+      + '<td>'+esc(String(v.status).replace('_',' '))+'</td>'
+      + '<td class="mono" style="font-size:12.5px">'+(el!=null?el+'d':'\u2014')+'</td>'
+      + '<td style="font-size:12px">'+(v.signedAt
+          ? esc(v.feasibility||'\u2014')+' / '+esc(v.bankability||'\u2014')
+          : '<span style="color:var(--ink-3)">pending</span>')+'</td>'
+      + '<td>'+(v.dealId?'<button class="btn-x" onclick="openDeal(\''+v.dealId+'\')">Deal</button>':'')
+      + '</td></tr>'; }).join('')
+    : '<tr><td colspan="7"><div class="empty"><b>Nothing out for review</b>'
+      + 'Send a deal from its panel once it has reached pre-development.</div></td></tr>';
+}
+function setVerify(k){ S.verifyFilter=k; render(); }
+
+/* Sending a deal to a verifier, from the deal itself rather than a second app. */
+function doSendToVerify(){
+  var d=guard(); if(!d) return;
+  var orgs=Object.keys((window.CLEARSKY_CONFIG.partner||{}).orgs||{})
+    .map(function(k){ var o=window.CLEARSKY_CONFIG.partner.orgs[k];
+      return {value:k,label:o.name,hint:o.note}; });
+  if(!orgs.length){ toast('No retained verifiers configured',true); return; }
+  Forms.open({
+    title:'Send for verification',
+    intro:d.name,
+    fields:[
+      {key:'org',type:'radio',label:'Which verifier',required:true,options:orgs},
+      {key:'scopes',type:'multi',label:'What are we asking for',required:true,
+        value:['feasibility'],
+        options:[{value:'feasibility',label:'Feasibility'},
+                 {value:'bankability',label:'Bankability'}],
+        hint:'A verifier not retained for a scope will not see that field.'},
+      {key:'priority',type:'select',label:'Priority',value:'standard',
+        options:[{value:'critical',label:'Critical \u00b7 48h'},
+                 {value:'standard',label:'Standard \u00b7 5 days'},
+                 {value:'low',label:'Low \u00b7 10 days'}]},
+      {key:'briefing',type:'textarea',label:'Briefing',rows:4,
+        hint:'The open question is more useful to them than a summary of what you already know.'}
+    ],
+    submitLabel:'Send',
+    footNote:'The packet is frozen at send. Later edits to the deal do not change it.'
+  }).then(function(v){
+    if(!v) return;
+    var org=window.CLEARSKY_CONFIG.partner.orgs[v.org];
+    var doc={
+      schemaVersion:1, source:'deal', sourceId:d.id, dealId:d.id, round:1,
+      partnerOrg:v.org.toLowerCase(), partnerName:org.name,
+      scopeRequested:v.scopes, priority:v.priority||'standard',
+      orgId:d.clientOrgId||'',
+      packet:{ builtAt:new Date().toISOString(), projectName:d.name, address:d.address,
+        categories:d.categories, sizing:[], stage:F.stageOf(d.stage).label,
+        screen:{verdict:d.viability.verdict||'', mw:d.sizeMw},
+        modelRun:d.viability.score!=null
+          ? { version:d.viability.model, probability:d.viability.score/100,
+              runAt:d.viability.scoredAt,
+              drivers:(d.viability.criteria||[]).map(function(c){
+                return {label:c.label,effect:c.unscored?'!':(c.value>=6?'+':'-')}; }) }
+          : null,
+        files:[], notes:v.briefing||'' },
+      status:'assigned', assignedBy:{name:ME.name,email:ME.email},
+      assignedAt:new Date().toISOString(), dueAt:null, pausedMs:0, pausedAt:null,
+      verdict:null, verdictHistory:[], draft:null, notes:[], documents:[],
+      infoRequests:[], activity:[{ts:new Date().toISOString(),type:'assigned',
+        message:'Assigned to '+org.name+' for '+v.scopes.join(' + ')+'.',actor:ME.name}],
+      updatedAt:new Date().toISOString()
+    };
+    db.collection('verifications').add(doc).then(function(ref){
+      return F.patch(d,{ verificationIds:firebase.firestore.FieldValue.arrayUnion(ref.id) },
+        {type:'verification',message:'Sent to '+org.name+' for '+v.scopes.join(' + ')});
+    }).then(function(){ toast('Sent to '+org.name);
+      return Promise.all([refresh(),loadVerifications()]).then(render); })
+     ['catch'](function(e){ toast((e&&e.message)||'Could not send',true); });
+  });
+}
+
+/* ── Inbox: adopting what already exists ──────────────────────────────── */
+function loadInbox(manual){
+  if(!A.can('write_deal')) return;
+  return IN.loadInbox({ sources:['fin','intake','editor'] }).then(function(r){
+    S.inbox = IN.annotate(r.candidates, S.deals);
+    S.inboxErrors = r.errors; S.inboxLoaded = true;
+    render();
+    if(manual) toast(S.inbox.filter(function(c){return !c.linkedDeal;}).length
+      + ' adoptable record(s) found');
+  })['catch'](function(e){ toast((e&&e.message)||'Scan failed',true); });
+}
+function inboxRows(k){
+  return S.inbox.filter(function(c){
+    if(k==='all') return true;
+    if(k==='new') return !c.linkedDeal && !c.skipByDefault;
+    if(k==='drafts') return c.skipByDefault && !c.linkedDeal;
+    if(k==='linked') return !!c.linkedDeal;
+    if(k==='dupes') return !c.linkedDeal && c.possibleDupes.length;
+    return c.source===k;
+  });
+}
+function setInbox(k){ S.inboxFilter=k; render(); }
+
+function renderInbox(){
+  var host=document.getElementById('inbox-rows'); if(!host) return;
+  var defs=[{k:'new',l:'To adopt'},{k:'dupes',l:'Possible duplicates'},
+            {k:'drafts',l:'Drafts'},{k:'linked',l:'Already linked'},{k:'all',l:'All'}];
+  document.getElementById('inbox-chips').innerHTML = defs.map(function(d){
+    return '<button class="chip'+(S.inboxFilter===d.k?' on':'')+'" onclick="setInbox(\''+d.k+'\')">'
+      + d.l+' <span class="mono">'+inboxRows(d.k).length+'</span></button>'; }).join('');
+
+  var note=document.getElementById('inbox-note'); note.innerHTML='';
+  if(!S.inboxLoaded) note.innerHTML='<div class="banner info">Scanning\u2026</div>';
+  S.inboxErrors.forEach(function(e){
+    note.innerHTML += '<div class="banner warn"><b>'+esc(e.collection)+' could not be read.</b> '
+      + esc(e.message) + ' \u2014 the rest of the inbox is still listed below.</div>';
+  });
+
+  var rows=inboxRows(S.inboxFilter);
+  if(!rows.length){
+    host.innerHTML='<tr><td colspan="7"><div class="empty"><b>Nothing here</b>'
+      + (S.inboxLoaded?'No records match this filter.':'Still scanning.')+'</div></td></tr>';
+    return;
+  }
+  host.innerHTML=rows.map(function(c,i){
+    var st=F.stageOf(c.suggestStage);
+    return '<tr><td><div class="t-name">'+esc(c.name)+'</div>'
+      + '<div class="t-sub">'+esc(c.address||'\u2014')
+      +   (c.possibleDupes.length&&!c.linkedDeal
+          ? ' \u00b7 <span style="color:var(--warn);font-weight:600">looks like '
+            + esc(c.possibleDupes[0].name)+'</span>':'')+'</div></td>'
+      + '<td>'+esc(IN.sourceLabel(c.source))+'</td>'
+      + '<td class="mono" style="font-size:12px">'+esc(c.filedByOrg||'\u2014')+'</td>'
+      + '<td>'+esc(c.status||'\u2014')
+      +   (c.skipByDefault?'<div class="t-sub">draft \u2014 usually not adopted</div>':'')+'</td>'
+      + '<td class="num mono">'+(c.sizeMw!=null?F.mw(c.sizeMw):'\u2014')+'</td>'
+      + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+      +   '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+      + '<td>'+(c.linkedDeal
+          ? '<button class="btn-x" onclick="openDeal(\''+c.linkedDeal.id+'\')">Open deal</button>'
+          : '<button class="btn-x" onclick="doAdopt('+S.inbox.indexOf(c)+')">Adopt\u2026</button>'
+            + (c.possibleDupes.length
+               ? '<button class="btn-x" onclick="doLinkExisting('+S.inbox.indexOf(c)+')">Link to existing</button>':''))
+      + '</td></tr>'; }).join('');
+}
+
+function doAdopt(idx){
+  var c=S.inbox[idx]; if(!c) return;
+  Forms.open({
+    title:'Adopt into the portfolio',
+    intro:c.name+' \u00b7 from '+IN.sourceLabel(c.source),
+    fields:[
+      {type:'static',html:'<b>Who brought it is the one thing the source cannot tell us.</b> '
+        + 'This record knows who <i>filed</i> it ('+Forms.esc(c.filedByOrg||'unknown')
+        + '), which is frequently not who <i>referred</i> it \u2014 and attribution locks as '
+        + 'soon as the deal advances.'},
+      {key:'partnerOrg',type:'org',label:'Who brought it',required:true,options:optOrgs(),
+        value:c.filedByOrg||'',
+        requiredMsg:'Required. Getting this wrong at adoption means getting it wrong on the '
+                  + 'whole back catalogue at once.'},
+      {key:'name',type:'text',label:'Site name',required:true,value:c.name},
+      {key:'address',type:'text',label:'Location',value:c.address},
+      {key:'projectType',type:'select',label:'Project type',options:optTypes()},
+      {key:'stage',type:'select',label:'Adopt at stage',required:true,
+        value:c.suggestStage, options:optStages('marketplace'),
+        hint:'Nothing past In marketplace \u2014 adopting further would put a deal past gates '
+           + 'it never passed.'},
+      {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01',value:c.sizeMw},
+      {key:'capexUsd',type:'money',label:'Capex',value:c.capexUsd}
+    ],
+    submitLabel:'Adopt'
+  }).then(function(v){
+    if(!v) return;
+    IN.adopt(c,{ partnerOrg:v.partnerOrg, partnerName:A.orgName(v.partnerOrg)||v.partnerOrg,
+      stage:v.stage, name:v.name, address:v.address, sizeMw:v.sizeMw, capexUsd:v.capexUsd,
+      categories:(F.typeOf(v.projectType)||{}).categories||c.categories })
+      .then(function(r){
+        if(!r.backReferenced)
+          toast('Adopted, but the source could not be marked \u2014 it will reappear here',true);
+        else if(r.stageIssue) toast('Adopted at Referred \u2014 '+v.stage+' needs more',true);
+        else toast('Adopted');
+        if(v.projectType){
+          return refresh().then(function(){
+            var d=findDeal(r.dealId);
+            if(d) return F.setProjectType(d,v.projectType);
+          });
+        }
+        return refresh();
+      }).then(function(){ return loadInbox(false); })
+       ['catch'](function(e){ toast((e&&e.message)||'Could not adopt',true); });
+  });
+}
+
+function doLinkExisting(idx){
+  var c=S.inbox[idx]; if(!c) return;
+  var opts=(c.possibleDupes.length?c.possibleDupes:S.deals)
+    .map(function(d){ return {value:d.id,label:d.name+' \u2014 '+F.stageOf(d.stage).label}; });
+  if(!opts.length){ toast('No deals to link to',true); return; }
+  Forms.open({ title:'Link to an existing deal', intro:c.name,
+    fields:[{key:'dealId',type:'radio',label:'Which deal',required:true,options:opts.slice(0,12)}],
+    submitLabel:'Link'
+  }).then(function(v){
+    if(!v) return;
+    var d=findDeal(v.dealId); if(!d) return;
+    IN.linkExisting(c,d).then(function(){ toast('Linked');
+      return refresh().then(function(){ return loadInbox(false); }); })
+     ['catch'](function(e){ toast((e&&e.message)||'Could not link',true); });
+  });
+}
+
+/* ── Assignments ──────────────────────────────────────────────────────── */
+function renderWork(){
+  var host=document.getElementById('work-rows'); if(!host) return;
+  var people={};
+  S.deals.forEach(function(d){
+    ['designLead','devLead'].forEach(function(role){
+      var e=d.assignment[role]; if(!e) return;
+      var p=people[e]||(people[e]={email:e,deals:{},design:0,dev:0,due:null,overdue:0});
+      p.deals[d.id]=1;
+      p[role==='designLead'?'design':'dev']++;
+      var due=F.ms(d.assignment.dueAt);
+      if(due){ if(!p.due||due<p.due) p.due=due;
+               if(due<Date.now() && !F.isExit(d.stage)) p.overdue++; }
+    });
+  });
+  var list=Object.keys(people).map(function(k){return people[k];})
+    .sort(function(a,b){ return b.overdue-a.overdue || Object.keys(b.deals).length-Object.keys(a.deals).length; });
+  host.innerHTML = list.length ? list.map(function(p){
+    return '<tr><td class="t-name">'+esc(p.email)+'</td>'
+      + '<td class="num mono">'+Object.keys(p.deals).length+'</td>'
+      + '<td class="num mono">'+p.design+'</td><td class="num mono">'+p.dev+'</td>'
+      + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(p.due))+'</td>'
+      + '<td class="num mono"'+(p.overdue?' style="color:var(--bad);font-weight:600"':'')+'>'
+      +   p.overdue+'</td></tr>'; }).join('')
+    : '<tr><td colspan="6"><div class="empty"><b>Nobody assigned yet</b>'
+      + 'Open a deal and use Assign on the Overview tab.</div></td></tr>';
+
+  /* Deals we are actively spending on with nobody's name against them. */
+  var un=S.deals.filter(function(d){
+    return !F.isExit(d.stage)
+      && F.stageOf(d.stage).rank >= F.stageOf('qualified').rank
+      && !d.assignment.designLead && !d.assignment.devLead; });
+  document.getElementById('unassigned-rows').innerHTML = un.length
+    ? un.map(function(d){ var st=F.stageOf(d.stage);
+        return '<tr class="row" onclick="openDeal(\''+d.id+'\')"><td>'+esc(d.name)+'</td>'
+        + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
+        + '<span class="dot"></span>'+esc(st.label)+'</span></td>'
+        + '<td class="num mono">'+F.money(d.capexUsd,true)+'</td>'
+        + '<td class="mono">'+(F.ageDays(d)!=null?F.ageDays(d)+'d':'\u2014')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="4"><div class="empty"><b>Nothing unassigned</b>'
+      + 'Every deal past qualification has somebody on it.</div></td></tr>';
+}
+
+/* ── Spreadsheet import ───────────────────────────────────────────────── */
+function openImport(){
+  var inp=document.createElement('input');
+  inp.type='file'; inp.accept='.xlsx,.xls,.csv';
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    toast('Reading '+f.name+'\u2026');
+    IN.parseWorkbook(f).then(function(sheets){
+      if(sheets.length===1) return pickSheet(f,sheets[0]);
+      return Forms.open({ title:'Which sheet', intro:f.name,
+        fields:[{key:'i',type:'radio',label:'Sheet',required:true,value:'0',
+          options:sheets.map(function(s,i){
+            return {value:String(i),label:s.name,hint:s.rows.length+' rows'}; })}],
+        submitLabel:'Continue'
+      }).then(function(v){ if(v) pickSheet(f,sheets[Number(v.i)]); });
+    })['catch'](function(e){ toast((e&&e.message)||'Could not read that file',true); });
+  };
+  inp.click();
+}
+
+/* The mapping is shown and editable BEFORE anything is written. An importer
+   that guesses silently is how a hundred deals land with the wrong partner in
+   the attribution column, and attribution locks. */
+function pickSheet(file, sheet){
+  var headers=sheet.rows[0]||[];
+  var guess=IN.suggestMapping(headers);
+  var colOpts=[{value:'',label:'\u2014 not mapped \u2014'}].concat(
+    headers.map(function(hh,i){ return {value:String(i),label:(hh||('Column '+(i+1)))}; }));
+
+  Forms.open({
+    title:'Map the columns',
+    intro:file.name+' \u00b7 '+sheet.name+' \u00b7 '+Math.max(0,sheet.rows.length-1)+' data rows',
+    fields:[{type:'static',html:'Guessed from your headers \u2014 correct anything wrong before '
+      + 'importing. Rows with no originating organisation are refused, and everything lands '
+      + 'at Screening or earlier: a spreadsheet cannot carry the evidence the later gates '
+      + 'require.'}]
+      .concat(IN.FIELDS.map(function(fl){
+        return { key:fl.key, type:'select',
+                 label:fl.label+(fl.required?' *':''),
+                 value: guess[fl.key]!=null?String(guess[fl.key]):'',
+                 options:colOpts, hint:fl.hint }; })),
+    submitLabel:'Preview'
+  }).then(function(v){
+    if(!v) return;
+    var mapping={};
+    IN.FIELDS.forEach(function(fl){ if(v[fl.key]!=='') mapping[fl.key]=Number(v[fl.key]); });
+    var rows=IN.buildRows(sheet,mapping,{headerRow:0});
+    S.imp={ file:file.name, sheet:sheet, headers:headers, mapping:mapping, rows:rows };
+    showImportPreview();
+  });
+}
+
+function showImportPreview(){
+  var m=S.imp; if(!m) return;
+  var good=m.rows.filter(function(r){return r.ok;});
+  var bad=m.rows.filter(function(r){return !r.ok;});
+  var clamped=m.rows.filter(function(r){return r.clampedFrom;}).length;
+
+  if(!good.length){
+    Forms.open({ title:'Nothing importable', intro:m.file,
+      fields:[{type:'static',html:'<b>'+bad.length+' row(s) refused.</b><br>'
+        + bad.slice(0,10).map(function(r){
+            return 'Row '+r.row+': '+Forms.esc(r.problems.join(' ')); }).join('<br>')
+        + (bad.length>10?'<br>\u2026and '+(bad.length-10)+' more':'')}],
+      submitLabel:'Close', cancelLabel:'Close'
+    });
+    return;
+  }
+
+  Forms.open({
+    title:'Import '+good.length+' project'+(good.length===1?'':'s'),
+    intro:m.file,
+    fields:[
+      {type:'static',html:'<b>'+good.length+' importable</b>'
+        + (bad.length?' \u00b7 <b>'+bad.length+' refused</b>':'')
+        + (clamped?' \u00b7 '+clamped+' clamped to Screening':'')
+        + '<br><br>First rows: '
+        + good.slice(0,4).map(function(r){
+            return Forms.esc(r.values.name)+' ('+Forms.esc(r.values.partnerOrg)+')'; }).join(', ')
+        + (good.length>4?'\u2026':'')
+        + (bad.length?'<br><br><b>Refused:</b><br>'
+            + bad.slice(0,5).map(function(r){
+                return 'Row '+r.row+': '+Forms.esc(r.problems.join(' ')); }).join('<br>'):'')},
+      {key:'go',type:'radio',label:'Proceed',required:true,value:'yes',
+        options:[{value:'yes',label:'Import the '+good.length+' good row(s)'},
+                 {value:'no',label:'Cancel and fix the sheet'}]}
+    ],
+    submitLabel:'Import'
+  }).then(function(v){
+    if(!v||v.go!=='yes'){ S.imp=null; return; }
+    var batch=m.file+' \u00b7 '+new Date().toISOString().slice(0,16).replace('T',' ');
+    toast('Importing\u2026');
+    IN.runImport(m.rows,batch,function(done,total){
+      if(done%10===0||done===total) toast('Imported '+done+' of '+total+'\u2026');
+    }).then(function(r){
+      S.imp=null;
+      toast(r.created+' imported'+(r.failed?', '+r.failed+' failed':''), r.failed>0);
+      if(r.errors.length) console.warn('[import] failures:', r.errors);
+      return refresh();
+    })['catch'](function(e){ toast((e&&e.message)||'Import failed',true); });
+  });
+}
+
 /* ── Users ────────────────────────────────────────────────────────────── */
 function userRows(k){
   return S.users.filter(function(u){
@@ -1074,45 +1804,54 @@ function findUser(id){ for(var i=0;i<S.users.length;i++) if(S.users[i].id===id) 
 function approveUser(id){
   var u=findUser(id); if(!u) return;
   var roles=A.grantableRoles();
-  var pick=prompt('Approve '+u.email+' as which role?\n\n'
-    + roles.map(function(r,i){ return (i+1)+') '+r.label+' \u2014 '+r.hint; }).join('\n')
-    + '\n\nEnter a number:', '1');
-  if(!pick) return;
-  var r=roles[parseInt(pick,10)-1];
-  if(!r){ toast('That isn\u2019t one of the options',true); return; }
-  var orgName=prompt('Organisation name for '+u.orgId+':', u.orgName||A.orgName(u.orgId))||u.orgName;
-  var scope=[];
-  if(r.key==='limited_admin'){
-    var s=prompt('Which partner organisations may they administer?\n'
-      + 'Comma-separated domains. Leaving this empty gives them a console that shows nothing.','');
-    scope=(s||'').split(',').map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
-  }
-  act(A.approve(u, r.key, orgName, scope), 'Approved '+u.email);
+  Forms.open({
+    title:'Approve access',
+    intro:u.name+' \u00b7 '+u.email,
+    fields:[
+      {key:'orgName',type:'text',label:'Organisation name',value:u.orgName||A.orgName(u.orgId),
+        hint:'Domain is '+u.orgId+' \u2014 that is what scopes what they can see.'},
+      {key:'role',type:'radio',label:'Role',required:true,value:'member',
+        options:roles.map(function(r){ return {value:r.key,label:r.label,hint:r.hint}; })},
+      {key:'manageOrgs',type:'multi',label:'Organisations they may administer',
+        options:optOrgs(),
+        hint:'Limited administrators only. Leaving this empty gives them a console that '
+           + 'shows nothing.'}
+    ],
+    submitLabel:'Approve'
+  }).then(function(v){
+    if(!v) return;
+    act(A.approve(u,v.role,v.orgName, v.role==='limited_admin'?v.manageOrgs:[]),
+        'Approved '+u.email);
+  });
 }
 function rejectUser(id){ var u=findUser(id); if(!u) return;
-  var why=prompt('Why? The reason is kept on the record.');
-  if(!why) return; act(A.reject(u,why),'Rejected'); }
+  Forms.open({ title:'Reject request', intro:u.email, danger:true,
+    fields:[{key:'why',type:'textarea',label:'Reason',rows:2,required:true,
+      hint:'Kept on the record.'}], submitLabel:'Reject'
+  }).then(function(v){ if(v) act(A.reject(u,v.why),'Rejected'); });
+}
 function suspendUser(id){ var u=findUser(id); if(!u) return;
-  if(!confirm('Suspend '+u.email+'?\n\nThey are signed out on their next read and land on the '
-    +'waiting screen.')) return;
-  act(A.suspend(u, prompt('Reason (optional):')||''),'Suspended'); }
+  Forms.open({ title:'Suspend '+u.email, danger:true,
+    warning:'They are signed out on their next read and land on the waiting screen.',
+    fields:[{key:'why',type:'text',label:'Reason (optional)'}], submitLabel:'Suspend'
+  }).then(function(v){ if(v) act(A.suspend(u,v.why||''),'Suspended'); });
+}
 function restoreUser(id){ var u=findUser(id); if(!u) return; act(A.restore(u),'Restored'); }
 function changeRole(id){
   var u=findUser(id); if(!u) return;
   var roles=A.grantableRoles();
-  var pick=prompt('New role for '+u.email+':\n\n'
-    + roles.map(function(r,i){ return (i+1)+') '+r.label; }).join('\n')+'\n\nEnter a number:');
-  if(!pick) return;
-  var r=roles[parseInt(pick,10)-1];
-  if(!r){ toast('That isn\u2019t one of the options',true); return; }
-  act(A.setRole(u,r.key),'Role updated');
+  Forms.open({ title:'Change role', intro:u.name+' \u00b7 '+u.email,
+    fields:[{key:'role',type:'radio',label:'Role',required:true,value:u.role,
+      options:roles.map(function(r){ return {value:r.key,label:r.label,hint:r.hint}; })}]
+  }).then(function(v){ if(v) act(A.setRole(u,v.role),'Role updated'); });
 }
 function editScope(id){
   var u=findUser(id); if(!u) return;
-  var s=prompt('Organisations '+u.email+' may administer, comma-separated:', u.manageOrgs.join(', '));
-  if(s===null) return;
-  act(A.setManagedOrgs(u, s.split(',').map(function(x){return x.trim().toLowerCase();}).filter(Boolean)),
-      'Scope updated');
+  Forms.open({ title:'Administered organisations', intro:u.email,
+    fields:[{key:'orgs',type:'multi',label:'They may administer',options:optOrgs(),
+      value:u.manageOrgs,
+      hint:'An empty list gives them a console that shows nothing.'}]
+  }).then(function(v){ if(v) act(A.setManagedOrgs(u,v.orgs),'Scope updated'); });
 }
 
 /* ── Organisations ────────────────────────────────────────────────────── */
@@ -1141,43 +1880,150 @@ function renderOrgs(){
 }
 function openOrgEdit(orgId){
   var o=A.orgs()[orgId]||{};
-  var id=orgId||prompt('Organisation domain (this is how people from it sign in):','');
-  if(!id) return;
-  var name=prompt('Display name:', o.name||'')||o.name||id;
-  var kinds=A.ORG_KINDS;
-  var pick=prompt('What kind of partner?\n\n'
-    + kinds.map(function(k,i){ return (i+1)+') '+k.label+' \u2014 '+k.hint; }).join('\n')
-    + '\n\nEnter a number:', '1');
-  var kind=(kinds[parseInt(pick,10)-1]||{}).key||'broker';
-  var basis=prompt('Referral basis (free text \u2014 fee arrangements differ per MSA):', o.referralBasis||'')||'';
-  var agr=prompt('Agreement reference:', o.agreementRef||'')||'';
-  var share=confirm('Is this organisation a ClearSky shareholder?\n\nOK = yes, Cancel = no');
-  act(A.saveOrg(id.toLowerCase(), { name:name, kind:kind, referralBasis:basis,
-    agreementRef:agr, isShareholder:share, active:true }), 'Saved');
+  Forms.open({
+    title: orgId ? 'Edit organisation' : 'Add an organisation',
+    fields:[
+      {key:'orgId',type:'text',label:'Domain',required:true,value:orgId,
+        hint:'This is how people from the organisation sign in, and how their deals '
+           + 'are scoped. Lowercase.'},
+      {key:'name',type:'text',label:'Display name',required:true,value:o.name||''},
+      {key:'kind',type:'radio',label:'What kind of partner',required:true,
+        value:o.kind||'broker',
+        options:A.ORG_KINDS.map(function(k){
+          return {value:k.key,label:k.label,hint:k.hint}; })},
+      {key:'isShareholder',type:'select',label:'ClearSky shareholder',
+        value:o.isShareholder?'yes':'no',
+        options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}]},
+      {key:'referralBasis',type:'text',label:'Referral basis',value:o.referralBasis||'',
+        hint:'Free text, because arrangements differ per MSA and a percentage field would '
+           + 'quietly misstate the ones that do not fit.'},
+      {key:'agreementRef',type:'text',label:'Agreement reference',value:o.agreementRef||''}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    act(A.saveOrg(v.orgId.toLowerCase(),{ name:v.name, kind:v.kind,
+      referralBasis:v.referralBasis, agreementRef:v.agreementRef,
+      isShareholder:v.isShareholder==='yes', active:true }),'Saved');
+  });
 }
 
-/* ── New referral ─────────────────────────────────────────────────────── */
 function openNew(){
-  var name=prompt('Site name:'); if(!name) return;
-  var org=prompt('Which organisation brought this to us? (their domain)\n\n'
-    + 'This is the one field that cannot be filled in later without an owner\u2019s approval \u2014 '
-    + 'attribution assigned after the fact is attribution somebody argued for.\n\n'
-    + 'Leave blank only if it is genuinely our own origination.');
-  if(org===null) return;
-  var orgName = org ? (prompt('Their display name:', A.orgName(org))||A.orgName(org)) : 'ClearSky';
-  if(!org){
-    if(!confirm('No originating partner. This deal will show as Unattributed on every partner '
-      + 'report until somebody with owner rights fixes it.\n\nContinue?')) return;
-    org='clearsky-usa.com'; orgName='ClearSky (own origination)';
-  }
-  var channels=(window.CLEARSKY_CONFIG.portfolio||{}).channels||[];
-  var cp=prompt('Channel:\n\n'+channels.map(function(c,i){return (i+1)+') '+c;}).join('\n')
-    + '\n\nEnter a number:','1');
-  var channel=channels[parseInt(cp,10)-1]||'';
-  var addr=prompt('Location:')||'';
-  var size=prompt('Size in MW (optional):')||'';
-  act(F.create({ name:name, partnerOrg:org, partnerName:orgName, channel:channel,
-    address:addr, sizeMw:size }), 'Referral logged');
+  Forms.open({
+    title:'New project',
+    intro:'Everything the pipeline needs in one pass. Prescreen it straight after.',
+    fields:[
+      {key:'name',type:'text',label:'Site name',required:true,autofocus:true,
+        placeholder:'e.g. Cedar Rapids fleet depot'},
+      {key:'projectType',type:'radio',label:'What are we building',required:true,
+        options:optTypes(),
+        hint:'Sets the technology categories, the BOM lines offered and which '
+           + 'manufacturers appear. Change it later from the deal panel.'},
+      {key:'address',type:'text',label:'Location',placeholder:'City, state'},
+      {key:'state',type:'text',label:'State / region'},
+
+      {type:'divider',label:'Attribution'},
+      {key:'partnerOrg',type:'org',label:'Who brought it',required:true,
+        options:optOrgs(), placeholder:'clearsky-usa.com',
+        requiredMsg:'Required \u2014 this is the one field that cannot be filled in later '
+                  + 'without an owner\u2019s approval.',
+        hint:'Their domain. Locks as soon as the deal advances, so it is worth getting '
+           + 'right now rather than arguing about in eighteen months.'},
+      {key:'channel',type:'select',label:'Channel',
+        options:((window.CLEARSKY_CONFIG.portfolio||{}).channels||[])},
+      {key:'clientOrgId',type:'org',label:'Client',options:optOrgs(),
+        hint:'Whose site it is, if different from who referred it.'},
+
+      {type:'divider',label:'Sizing'},
+      {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01'},
+      {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',
+        hint:'Storage only.'},
+      {key:'capexUsd',type:'money',label:'Estimated capex'},
+      {key:'requestedUsd',type:'money',label:'Capital sought'},
+
+      {type:'divider',label:'Context'},
+      {key:'utility',type:'text',label:'Utility'},
+      {key:'ahj',type:'text',label:'AHJ'},
+      {key:'notes',type:'textarea',label:'Anything worth knowing',rows:3}
+    ],
+    submitLabel:'Create and prescreen',
+    footNote:'Cmd/Ctrl + Enter to save'
+  }).then(function(v){
+    if(!v) return;
+    var t=F.typeOf(v.projectType)||{};
+    F.create({
+      name:v.name, partnerOrg:v.partnerOrg,
+      partnerName:A.orgName(v.partnerOrg)||v.partnerOrg,
+      channel:v.channel, address:v.address, state:v.state,
+      clientOrgId:v.clientOrgId, categories:(t.categories||[]).slice(),
+      sizeMw:v.sizeMw, sizeMwh:v.sizeMwh, capexUsd:v.capexUsd,
+      requestedUsd:v.requestedUsd
+    }).then(function(ref){
+      var extra={ projectType:v.projectType };
+      if(v.utility) extra.utility=v.utility;
+      if(v.ahj) extra.ahj=v.ahj;
+      return db.collection(F.COLLECTION).doc(ref.id).update(extra)
+        .then(function(){ return ref.id; });
+    }).then(function(id){
+      toast('Project created');
+      return refresh().then(function(){
+        var d=findDeal(id);
+        if(d) doPrescreen(d);   /* straight into the prescreen, no second click */
+      });
+    })['catch'](function(e){ toast((e&&e.message)||'Could not create',true); });
+  });
+}
+
+/* ── Prescreen ─────────────────────────────────────────────────────────────
+   The fast look. Four questions and a verdict, before anybody spends an hour
+   on a full viability score. A pass moves the deal to Screening automatically;
+   a fail parks it with the reason attached rather than leaving it to rot in
+   the pipeline pretending to be live. */
+function doPrescreen(deal){
+  var d=deal||guard(); if(!d) return;
+  var pre=d.prescreen||{};
+  Forms.open({
+    title:'Prescreen',
+    intro:d.name+(d.projectType?' \u00b7 '+((F.typeOf(d.projectType)||{}).label||''):''),
+    fields:[
+      {type:'static',html:'The fast look, before anybody spends an hour scoring it. '
+        + 'A pass moves this to Screening; a fail parks it with the reason, which is '
+        + 'better than leaving it in the pipeline pretending to be live.'},
+      {key:'fit',type:'radio',label:'Does it fit what we do',required:true,value:pre.fit,
+        options:[{value:'yes',label:'Yes',hint:'Squarely in our project types.'},
+                 {value:'edge',label:'At the edge',hint:'We could, but it is not our lane.'},
+                 {value:'no',label:'No',hint:'Not something we build.'}]},
+      {key:'size',type:'radio',label:'Is it worth the effort at this size',required:true,value:pre.size,
+        options:[{value:'yes',label:'Yes'},
+                 {value:'marginal',label:'Marginal',hint:'Only if it is easy or strategic.'},
+                 {value:'no',label:'Too small'}]},
+      {key:'offtake',type:'radio',label:'Is there a plausible buyer or revenue',required:true,value:pre.offtake,
+        options:[{value:'yes',label:'Yes'},{value:'unclear',label:'Unclear'},{value:'no',label:'No'}]},
+      {key:'timing',type:'radio',label:'Timing',required:true,value:pre.timing,
+        options:[{value:'now',label:'Now'},
+                 {value:'later',label:'Later',hint:'Real, but not this year.'},
+                 {value:'stale',label:'Stale',hint:'Overtaken by events.'}]},
+      {key:'verdict',type:'radio',label:'Verdict',required:true,value:pre.verdict,
+        options:[{value:'pass',label:'Pass \u2014 worth screening',
+                  hint:'Moves to Screening.'},
+                 {value:'park',label:'Park \u2014 revisit on a trigger',
+                  hint:'Stays in the denominator; comes back when something changes.'},
+                 {value:'fail',label:'Fail \u2014 not for us',
+                  hint:'Marked dead with your reason.'}]},
+      {key:'reason',type:'textarea',label:'Reason',rows:2,required:true,
+        value:pre.reason,
+        hint:'One line. This is what makes the prescreen report worth reading in six months.'}
+    ],
+    submitLabel:'Save prescreen'
+  }).then(function(v){
+    if(!v) return;
+    F.savePrescreen(d,v).then(function(){
+      if(v.verdict==='pass' && d.stage==='referred')
+        return F.advance(d,'screening','Passed prescreen');
+      if(v.verdict==='park') return F.park(d,v.reason);
+      if(v.verdict==='fail') return F.markDead(d,'Other',v.reason);
+    }).then(function(){ toast('Prescreen saved'); return refresh(); })
+     ['catch'](function(e){ toast((e&&e.message)||'Could not save',true); });
+  });
 }
 
 /* ── Deal drawer ──────────────────────────────────────────────────────── */
@@ -1205,14 +2051,16 @@ function renderDrawer(){
     + (d.origination.locked?' <span class="lock">(locked)</span>':'')
     + ' \u00b7 '+(F.ageDays(d)!=null?F.ageDays(d)+' days old':'');
 
-  var tabs=[['overview','Overview'],['money','Funding'],['bom','BOM'],
-            ['people','Participants'],['history','History']];
+  var tabs=[['overview','Overview'],['score','Viability'],['permits','Permitting'],
+            ['money','Funding'],['bom','BOM'],['people','Participants'],['history','History']];
   document.getElementById('dr-tabs').innerHTML=tabs.map(function(t){
     return '<button class="dr-tab'+(S.tab===t[0]?' on':'')+'" onclick="setTab(\''+t[0]+'\')">'
       + t[1]+'</button>'; }).join('');
 
   var h='';
   if(S.tab==='overview') h=tabOverview(d);
+  if(S.tab==='score')    h=tabScore(d);
+  if(S.tab==='permits')  h=tabPermits(d);
   if(S.tab==='money')    h=tabMoney(d);
   if(S.tab==='bom')      h=tabBom(d);
   if(S.tab==='people')   h=tabPeople(d);
@@ -1245,10 +2093,33 @@ function tabOverview(d){
   var h='';
   if(next && miss.length){
     h+='<div class="problems"><b>Not ready for '+esc(next.label)+'</b><ul>'
-      + miss.map(function(m){ return '<li>'+esc(fieldLabel(m))+' is required.</li>'; }).join('')
+      + miss.map(function(m){
+          var sentence = String(m).charAt(0)==='!';
+          return '<li>'+esc(fieldLabel(m))+(sentence?'':' is required.')+'</li>'; }).join('')
       + '</ul>'+(next.why?'<div style="font-size:11.5px;color:#8A1F1F;margin-top:6px">'
       + esc(next.why)+'</div>':'')+'</div>';
   }
+  var pre=d.prescreen;
+  h+='<div class="sec"><div class="sec-h">Prescreen'
+    + (pre?'<span class="r">'+esc(F.fmtDate(pre.at))+'</span>':'')+'</div><div class="sec-b">'
+    + (pre
+      ? '<div class="verdict" style="grid-template-columns:1fr">'
+        + '<div class="ax"><div class="lbl">Verdict</div><div class="val" style="color:'
+        + (pre.verdict==='pass'?'var(--ok)':pre.verdict==='park'?'var(--warn)':'var(--bad)')+'">'
+        + esc(String(pre.verdict||'').toUpperCase())+'</div>'
+        + '<div class="sub">'+esc(pre.reason||'')+'</div></div></div>'
+        + '<dl class="kv" style="margin-top:12px">'
+        + row('Fit', esc(pre.fit||'\u2014')) + row('Size', esc(pre.size||'\u2014'))
+        + row('Offtake', esc(pre.offtake||'\u2014')) + row('Timing', esc(pre.timing||'\u2014'))
+        + row('By', esc(pre.by||'\u2014'))
+        + '</dl>'
+      : '<div style="font-size:12.5px;color:var(--ink-3)">Not prescreened. '
+        + 'The fast look before anybody spends an hour scoring it.</div>')
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doPrescreen()">'
+          + (pre?'Re-run prescreen':'Prescreen it')+'</button></div>':'')
+    + '</div></div>';
+
   h+='<div class="sec"><div class="sec-h">Attribution'
     + (d.origination.locked?'<span class="r">Locked when this deal left Referred</span>':'')
     + '</div><div class="sec-b"><dl class="kv">'
@@ -1279,6 +2150,9 @@ function tabOverview(d){
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Site</div><div class="sec-b"><dl class="kv">'
+    + row('Project type', d.projectType
+        ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
+        : '<span style="color:var(--warn)">not set</span>')
     + row('Location', esc(d.address||'\u2014'))
     + row('Categories', d.categories.length
         ? d.categories.map(function(c){ return '<span class="cat">'+esc(c.toUpperCase())+'</span>'; }).join('')
@@ -1289,6 +2163,28 @@ function tabOverview(d){
     + '</dl>'
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSite()">Edit site details</button></div>':'')
+    + '</div></div>';
+
+  h+='<div class="sec"><div class="sec-h">Assignment'
+    + '<span class="r">A different axis from stage</span></div><div class="sec-b"><dl class="kv">'
+    + row('Design lead', esc(d.assignment.designLead||'\u2014'))
+    + row('Dev lead', esc(d.assignment.devLead||'\u2014'))
+    + row('Due', esc(F.fmtDate(d.assignment.dueAt))
+        + (F.ms(d.assignment.dueAt) && F.ms(d.assignment.dueAt)<Date.now() && !F.isExit(d.stage)
+           ? ' <span style="color:var(--bad);font-weight:600">overdue</span>':''))
+    + row('Editor project', d.projectId
+        ? '<span class="mono">'+esc(d.projectId)+'</span>'
+        : '<span style="color:var(--ink-3)">not linked</span>')
+    + '</dl>'
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button class="btn-x" onclick="doAssign()">Assign\u2026</button>'
+          + (d.projectId ? '' : '<button class="btn-x" onclick="doLinkProject()">Link editor project</button>')
+          + '</div>':'')
+    + '<div class="sec-note">Assignment is deliberately separate from stage: a deal in '
+    + 'pre-development may have design finished and permitting stalled, and one in '
+    + 'permitting may have design not started. Assignees resolve against the staff '
+    + 'roster \u2014 this keeps no second list of who works here.</div>'
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Pre-development</div><div class="sec-b"><dl class="kv">'
@@ -1310,8 +2206,10 @@ function tabOverview(d){
         + row('Bankability', esc(d.verification.bankability||'\u2014'))
         + row('Signed', esc(F.fmtDate(d.verification.signedAt)))
         + '</dl>'
-      : '<div style="font-size:12.5px;color:var(--ink-3)">No signed opinion yet. '
-        + 'Assign one from the verification console.</div>')
+      : '<div style="font-size:12.5px;color:var(--ink-3)">No signed opinion yet.</div>')
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doSendToVerify()">'
+          + 'Send for verification\u2026</button></div>':'')
     + '</div></div>';
 
   var un=F.unmapped(d);
@@ -1321,9 +2219,17 @@ function tabOverview(d){
   return h;
 }
 function row(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
+/* Gate failures come back either as a FIELD PATH (something is missing) or as
+   a '!'-prefixed SENTENCE (a computed condition failed, e.g. the score exists
+   but does not pass). One list, because the caller should have one thing to
+   check; two shapes, because "add a budget" and "the score is 41" are
+   different kinds of problem and flattening them loses the number. */
 function fieldLabel(path){
+  if(String(path).charAt(0)==='!') return String(path).slice(1);
   var m={ 'origination.partnerOrg':'Who brought the deal',
+    'viability.score':'A viability score',
     'preDev.budgetUsd':'A pre-development budget',
+    'permitting.startedAt':'Permitting opened',
     'verification.verdictId':'A signed third-party opinion',
     'sizeMw':'Size in MW', 'capexUsd':'Capex',
     'funding.committedUsd':'Committed amount', 'funding.counterparty':'Counterparty',
@@ -1331,6 +2237,126 @@ function fieldLabel(path){
     'funding.investorOrg':'Investor organisation',
     'build.ntpAt':'Notice-to-proceed date', 'build.codAt':'Commercial operation date' };
   return m[path]||path;
+}
+
+function tabScore(d){
+  var v=d.viability, cs=F.criteriaSet(), th=F.threshold();
+  var h='<div class="sec"><div class="sec-h">Viability'
+    + '<span class="r">The gate into spend</span></div><div class="sec-b">';
+
+  if(v.score!=null){
+    var pass = v.verdict==='pass';
+    h+='<div class="verdict" style="grid-template-columns:1fr 1fr">'
+      + '<div class="ax"><div class="lbl">Score</div>'
+      +   '<div class="val" style="color:'+(pass?'var(--ok)':'var(--bad)')+'">'
+      +   v.score+' / 100</div>'
+      +   '<div class="sub">threshold '+th+' \u00b7 model '+esc(v.model||'\u2014')+'</div></div>'
+      + '<div class="ax"><div class="lbl">Verdict</div>'
+      +   '<div class="val" style="color:'+(pass?'var(--ok)':'var(--bad)')+'">'
+      +   (pass?'Pass':'Below threshold')+'</div>'
+      +   '<div class="sub">'+esc(v.scoredBy||'')+' \u00b7 '+esc(F.fmtDate(v.scoredAt))
+      +   (v.source&&v.source!=='console'?' \u00b7 '+esc(v.source):'')+'</div></div>'
+      + '</div>';
+    if(v.override)
+      h+='<div class="banner warn" style="margin-top:12px"><b>Overridden.</b> '
+        + esc(v.override)+' \u2014 the failing score stays on the record.</div>';
+
+    if((v.criteria||[]).length){
+      h+='<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;'
+        + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+        + 'Breakdown</div><div class="tbl-wrap"><table><thead><tr><th>Criterion</th>'
+        + '<th class="num">Weight</th><th class="num">Score</th><th>Contribution</th>'
+        + '</tr></thead><tbody>'
+        + v.criteria.map(function(c){
+            var w=Math.round((c.weight||0)*(c.value||0));
+            return '<tr><td>'+esc(c.label||c.key)+'</td>'
+              + '<td class="num mono">'+(c.weight!=null?c.weight:'\u2014')+'</td>'
+              + '<td class="num mono">'+(c.unscored?'<span style="color:var(--warn)">unscored</span>'
+                  :(c.value+'/10'))+'</td>'
+              + '<td style="min-width:110px">'+(c.unscored?'':'<div class="mbar"><i class="drawn" '
+                  + 'style="width:'+Math.min(100,(c.value||0)*10)+'%"></i></div>')+'</td></tr>'; }).join('')
+        + '</tbody></table></div>';
+      var uns=v.criteria.filter(function(c){return c.unscored;}).length;
+      if(uns) h+='<div class="sec-note">'+uns+' criterion/criteria unscored. Those drop out '
+        + 'of both sides of the fraction rather than counting as zero \u2014 scoring an unasked '
+        + 'question as nil would quietly turn a weighted model into a random one.</div>';
+      h+='</div>';
+    }
+  } else {
+    h+='<div style="font-size:12.5px;color:var(--ink-3)">Not scored yet. '
+      + 'A deal cannot reach Qualified without a passing score, and Qualified is the '
+      + 'gate between looking at a site and spending on one.</div>';
+  }
+
+  if(A.can('write_deal')&&!d._demo){
+    h+='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn-a" onclick="doScore()">'+(v.score!=null?'Re-score':'Score it')+'</button>'
+      + '<button class="btn-o" onclick="doPostScore()">Enter a score from your tool</button>'
+      + (v.score!=null&&v.verdict!=='pass'
+         ? '<button class="btn-o" onclick="doOverride()">Override\u2026</button>':'')
+      + '</div>';
+  }
+
+  if((d.viabilityHistory||[]).length){
+    h+='<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;'
+      + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+      + 'Previous scores</div>'
+      + d.viabilityHistory.slice().reverse().map(function(o){
+          return '<div class="note"><div class="m">'+esc(F.fmtDate(o.scoredAt))+' \u00b7 '
+            + esc(o.scoredBy||'')+'</div><div class="t">'+o.score+'/100 \u2014 '
+            + esc(o.verdict||'')+'</div></div>'; }).join('')
+      + '<div class="sec-note">Kept because the trajectory is the finding. A site that went '
+      + '41 \u2192 78 after an interconnection study is a different story from one that scored '
+      + '78 first time, and a single current number cannot tell them apart.</div></div>';
+  }
+  return h+'</div></div>';
+}
+
+function tabPermits(d){
+  var pm=d.permitting, apps=pm.applications||[];
+  var h='<div class="sec"><div class="sec-h">Permitting'
+    + '<span class="r">Runs in parallel with everything else</span></div><div class="sec-b">'
+    + '<dl class="kv">'
+    + row('Opened', esc(F.fmtDate(pm.startedAt)))
+    + row('AHJ', esc(pm.ahj||d.ahj||'\u2014'))
+    + row('Utility', esc(pm.utility||'\u2014'))
+    + row('Owner', esc(pm.owner||'\u2014'))
+    + '</dl>';
+
+  if(apps.length){
+    var COL={preparing:'#6B7280',submitted:'#D97706',in_review:'#0070F2',
+             approved:'#16A34A',denied:'#DC2626',withdrawn:'#6B7280'};
+    h+='<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>Application</th>'
+      + '<th>Authority</th><th>Ref</th><th>Submitted</th><th>Status</th><th></th></tr></thead><tbody>'
+      + apps.map(function(a){
+          var days=a.submittedAt&&!a.approvedAt?F.days(a.submittedAt,Date.now()):null;
+          return '<tr><td class="t-name">'+esc(a.type)+'</td>'
+            + '<td>'+esc(a.authority||'\u2014')+'</td>'
+            + '<td class="mono" style="font-size:12px">'+esc(a.ref||'\u2014')+'</td>'
+            + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(a.submittedAt))
+            +   (days!=null?'<div class="t-sub">'+days+'d waiting</div>':'')+'</td>'
+            + '<td><span class="pill" style="background:'+(COL[a.status]||'#6B7280')+'18;color:'
+            +   (COL[a.status]||'#6B7280')+'"><span class="dot"></span>'
+            +   esc(String(a.status||'').replace('_',' '))+'</span></td>'
+            + '<td>'+(A.can('write_deal')&&!d._demo
+                ? '<button class="btn-x" onclick="doAppStatus(\''+esc(a.id)+'\')">Status</button>':'')
+            + '</td></tr>'; }).join('')
+      + '</tbody></table></div>';
+  } else {
+    h+='<div style="font-size:12.5px;color:var(--ink-3);margin-top:12px">'
+      + 'No applications logged.</div>';
+  }
+
+  if(A.can('write_deal')&&!d._demo)
+    h+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+      + (pm.startedAt?'':'<button class="btn-x" onclick="doStartPermits()">Open permitting</button>')
+      + '<button class="btn-x" onclick="doAddApp()">+ Add an application</button></div>';
+
+  h+='<div class="sec-note">Applications are tracked here rather than as a stage because '
+    + 'permitting overlaps pre-development and routinely outlives funding. The stage says how '
+    + 'far the deal got; this says what is actually in flight, and a single '
+    + '"permitting: in progress" flag tells you nothing you can chase.</div>';
+  return h+'</div></div>';
 }
 
 function tabMoney(d){
@@ -1359,6 +2385,33 @@ function tabMoney(d){
     + (A.can('write_funding')&&!d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditFunding()">Edit funding</button></div>':'')
     + '</div></div>';
+
+  var fstages=d.funding.stages||[];
+  h+='<div class="sec"><div class="sec-h">Release schedule'
+    + (d.funding.partnerKey?'<span class="r">'
+        +esc((F.financePartnerOf(d.funding.partnerKey)||{}).name||'')+'</span>':'')
+    + '</div><div class="sec-b">';
+  if(fstages.length){
+    h+='<div class="tbl-wrap"><table><thead><tr><th>Stage</th><th class="num">Share</th>'
+      + '<th class="num">Amount</th><th>Status</th><th></th></tr></thead><tbody>'
+      + fstages.map(function(s){
+          return '<tr><td class="t-name">'+esc(s.label)+'</td>'
+            + '<td class="num mono">'+s.pct+'%</td>'
+            + '<td class="num mono">'+F.money(s.amountUsd)+'</td>'
+            + '<td>'+esc(s.status||'pending')+'</td>'
+            + '<td>'+(A.can('write_funding')&&!d._demo&&s.status==='pending'
+                ? '<button class="btn-x" onclick="doReleaseStage(\''+esc(s.key)+'\')">Request</button>'
+                : '')+'</td></tr>'; }).join('')
+      + '</tbody></table></div>';
+  } else {
+    h+='<div style="font-size:12.5px;color:var(--ink-3)">No schedule applied. '
+      + 'Capital arrives against milestones, not in one payment \u2014 applying the partner\u2019s '
+      + 'schedule is what makes each release trackable.</div>';
+  }
+  if(A.can('write_funding')&&!d._demo)
+    h+='<div style="margin-top:12px"><button class="btn-x" onclick="doApplySchedule()">'
+      + (fstages.length?'Reapply schedule':'Apply release schedule')+'</button></div>';
+  h+='</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Draws<span class="r">Where the money actually went</span>'
     + '</div><div class="sec-b">';
@@ -1480,114 +2533,361 @@ function guard(){ var d=findDeal(S.openId);
   if(d._demo){ toast('Sample deals are read-only',true); return null; }
   return d; }
 
-function doAdvance(key){ var d=guard(); if(!d) return;
-  var note=prompt('Anything to note about moving to '+F.stageOf(key).label+'? (optional)');
-  if(note===null) return;
-  act(F.advance(d,key,note),'Moved to '+F.stageOf(key).label); }
+function doAdvance(key){ var d=guard(); if(!d) return; moveTo(d,key); }
+
 function doPark(){ var d=guard(); if(!d) return;
-  var why=prompt('Why park it? Include the trigger that should bring it back.');
-  if(why===null) return; act(F.park(d,why),'Parked'); }
+  Forms.open({ title:'Park this deal', intro:d.name,
+    fields:[{key:'why',type:'textarea',label:'Why, and what brings it back',rows:3,required:true,
+      hint:'Name the trigger \u2014 a new substation, a rezoning, a tariff change. '
+         + 'A parked deal with no trigger never comes back.'}],
+    submitLabel:'Park'
+  }).then(function(v){ if(v) act(F.park(d,v.why),'Parked'); });
+}
+
 function doDead(){ var d=guard(); if(!d) return;
-  var r=F.DEAD_REASONS;
-  var p=prompt('Why is this dead?\n\n'+r.map(function(x,i){return (i+1)+') '+x;}).join('\n')
-    + '\n\nEnter a number:');
-  if(!p) return;
-  var reason=r[parseInt(p,10)-1];
-  if(!reason){ toast('That isn\u2019t one of the options',true); return; }
-  var note=prompt('Anything more? (optional)')||'';
-  act(F.markDead(d,reason,note),'Marked dead'); }
+  Forms.open({ title:'Mark dead', intro:d.name, danger:true,
+    warning:'The deal stays in every partner denominator, permanently. That is deliberate: '
+      + 'a partner who brought forty sites and funded one is a different partner from one '
+      + 'who brought one and funded one.',
+    fields:[
+      {key:'reason',type:'select',label:'Reason',required:true,
+        options:F.DEAD_REASONS,
+        hint:'From the fixed list, so the reasons aggregate. Twelve sites lost to '
+           + 'interconnection cost is a finding; twelve free-text answers are not.'},
+      {key:'note',type:'textarea',label:'Anything more',rows:2}
+    ],
+    submitLabel:'Mark dead'
+  }).then(function(v){ if(v) act(F.markDead(d,v.reason,v.note),'Marked dead'); });
+}
+
 function doRevive(){ var d=guard(); if(!d) return;
-  act(F.advance(d,'screening','Reopened'),'Reopened'); }
+  Forms.open({ title:'Reopen', intro:d.name,
+    fields:[{key:'why',type:'textarea',label:'What changed',rows:2,required:true}],
+    submitLabel:'Reopen'
+  }).then(function(v){ if(v) act(F.advance(d,'screening',v.why),'Reopened'); });
+}
 
 function doReattribute(){ var d=guard(); if(!d) return;
-  var org=prompt('Correct originating organisation (domain):', d.origination.partnerOrg);
-  if(!org) return;
-  var name=prompt('Display name:', A.orgName(org))||org;
-  var why=prompt('Why is this changing? Kept permanently, and the previous partner stays '
-    + 'in the record.');
-  if(!why) return;
-  act(F.reattribute(d,org,name,why),'Attribution changed'); }
+  Forms.open({ title:'Change attribution', intro:d.name, danger:true,
+    warning:'This decides who gets paid. The previous partner stays in the record '
+      + 'permanently and the change is logged with your name against it.',
+    fields:[
+      {key:'org',type:'org',label:'Correct originating organisation',required:true,
+        options:optOrgs(), value:d.origination.partnerOrg},
+      {key:'why',type:'textarea',label:'Why is this changing',rows:3,required:true,
+        hint:'Kept permanently.'}
+    ],
+    submitLabel:'Change attribution'
+  }).then(function(v){
+    if(!v) return;
+    act(F.reattribute(d,v.org,A.orgName(v.org)||v.org,v.why),'Attribution changed');
+  });
+}
 
 function doEditSite(){ var d=guard(); if(!d) return;
-  var mwv=prompt('Size in MW:', d.sizeMw!=null?d.sizeMw:'');
-  if(mwv===null) return;
-  var cap=prompt('Capex (USD):', d.capexUsd!=null?d.capexUsd:'')||'';
-  var addr=prompt('Location:', d.address)||d.address;
-  act(F.patch(d,{ sizeMw:F.num(mwv), capexUsd:F.num(cap), address:addr },
-    {type:'edit',message:'Site details updated.'}),'Saved'); }
+  Forms.open({ title:'Site details', intro:d.name,
+    fields:[
+      {key:'projectType',type:'select',label:'Project type',value:d.projectType,
+        options:optTypes()},
+      {key:'address',type:'text',label:'Location',value:d.address},
+      {key:'state',type:'text',label:'State / region',value:d.state},
+      {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01',value:d.sizeMw},
+      {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',value:d.sizeMwh},
+      {key:'capexUsd',type:'money',label:'Capex',value:d.capexUsd},
+      {key:'clientOrgId',type:'org',label:'Client',options:optOrgs(),value:d.clientOrgId}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    var f={ address:v.address, state:v.state, sizeMw:v.sizeMw, sizeMwh:v.sizeMwh,
+            capexUsd:v.capexUsd, clientOrgId:v.clientOrgId };
+    var p=F.patch(d,f,{type:'edit',message:'Site details updated.'});
+    if(v.projectType && v.projectType!==d.projectType)
+      p=p.then(function(){ return F.setProjectType(d,v.projectType); });
+    act(p,'Saved');
+  });
+}
 
 function doEditPreDev(){ var d=guard(); if(!d) return;
-  var b=prompt('Pre-development budget (USD):', d.preDev.budgetUsd!=null?d.preDev.budgetUsd:'');
-  if(b===null) return;
-  var s=prompt('Spent to date (USD):', d.preDev.spentUsd!=null?d.preDev.spentUsd:'')||'0';
-  var o=prompt('Who owns it internally:', d.preDev.owner)||d.preDev.owner;
-  act(F.patch(d,{ 'preDev.budgetUsd':F.num(b), 'preDev.spentUsd':F.num(s), 'preDev.owner':o },
-    {type:'predev',message:'Pre-development updated.'}),'Saved'); }
+  Forms.open({ title:'Pre-development', intro:d.name,
+    fields:[
+      {key:'budgetUsd',type:'money',label:'Budget',required:true,value:d.preDev.budgetUsd,
+        hint:'Required to enter pre-development. Spending without one is how a screening '
+           + 'exercise becomes a six-figure line item nobody approved.'},
+      {key:'spentUsd',type:'money',label:'Spent to date',value:d.preDev.spentUsd},
+      {key:'owner',type:'user',label:'Who owns it',options:optUsers(),value:d.preDev.owner}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    act(F.patch(d,{'preDev.budgetUsd':v.budgetUsd,'preDev.spentUsd':v.spentUsd,
+      'preDev.owner':v.owner},{type:'predev',message:'Pre-development updated.'}),'Saved');
+  });
+}
 
 function doEditFunding(){ var d=guard(); if(!d) return;
-  var f={};
-  var r=prompt('Requested (USD):', d.funding.requestedUsd||''); if(r===null) return; f.requestedUsd=r;
-  f.committedUsd=prompt('Committed (USD) \u2014 term sheet signed, not cash:', d.funding.committedUsd||'')||'';
-  f.closedUsd   =prompt('Closed (USD) \u2014 financial close:', d.funding.closedUsd||'')||'';
-  f.counterparty=prompt('Counterparty:', d.funding.counterparty)||'';
-  f.investorOrg =prompt('Investor domain (for their portfolio view):', d.funding.investorOrg)||'';
-  f.structure   =prompt('Structure:', d.funding.structure)||'';
-  if(f.closedUsd && !d.funding.closedAt) f.closedAt=new Date().toISOString();
-  if(f.committedUsd && !d.funding.committedAt) f.committedAt=new Date().toISOString();
-  act(F.setFunding(d,f).then(function(){
-    if(f.closedUsd && d.stage!=='funded')
-      toast('Saved. Note the stage did not move \u2014 declaring close is a separate act.');
-  }),'Funding saved'); }
+  Forms.open({ title:'Funding', intro:d.name,
+    fields:[
+      {type:'static',html:'<b>Five numbers, none of which collapse into another.</b> '
+        + 'Committed is a promise and revocable. Closed is a legal obligation. Drawn is cash '
+        + 'that moved. Merging them hides the two failures that matter: capital promised and '
+        + 'never closed, and capital closed and sitting undrawn while a supplier waits.'},
+      {key:'requestedUsd',type:'money',label:'Requested',value:d.funding.requestedUsd},
+      {key:'partnerKey',type:'select',label:'Capital partner',value:d.funding.partnerKey,
+        options:optFinance(),
+        hint:'Selecting one lets you apply their release schedule below.'},
+      {key:'committedUsd',type:'money',label:'Committed',value:d.funding.committedUsd,
+        hint:'Term sheet signed. Not cash.'},
+      {key:'committedAt',type:'date',label:'Committed on',value:d.funding.committedAt},
+      {key:'closedUsd',type:'money',label:'Closed',value:d.funding.closedUsd,
+        hint:'Financial close. Entering this does not move the stage \u2014 declaring close '
+           + 'is a separate, deliberate act.'},
+      {key:'closedAt',type:'date',label:'Closed on',value:d.funding.closedAt},
+      {key:'investorOrg',type:'org',label:'Investor organisation',options:optOrgs(),
+        value:d.funding.investorOrg},
+      {key:'structure',type:'text',label:'Structure',value:d.funding.structure,
+        placeholder:'Construction + term, tax equity, etc.'}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    var fp=F.financePartnerOf(v.partnerKey);
+    var p=F.setFunding(d,{ requestedUsd:v.requestedUsd, committedUsd:v.committedUsd,
+      closedUsd:v.closedUsd, committedAt:v.committedAt, closedAt:v.closedAt,
+      investorOrg:v.investorOrg, structure:v.structure,
+      counterparty: fp?fp.name:d.funding.counterparty });
+    if(v.partnerKey) p=p.then(function(){
+      return db.collection(F.COLLECTION).doc(d.id).update({'funding.partnerKey':v.partnerKey}); });
+    act(p,'Funding saved');
+  });
+}
+
+/* Applying a capital partner's own release schedule. */
+function doApplySchedule(){ var d=guard(); if(!d) return;
+  var fp=F.financePartnerOf(d.funding.partnerKey);
+  if(!fp){ toast('Pick a capital partner first, on the Funding form',true); return; }
+  Forms.open({
+    title:fp.name+' release schedule',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'<b>'+Forms.esc(fp.name)+'</b> releases in '+fp.stages.length
+        + ' stages: '+fp.stages.map(function(s){return Forms.esc(s.label)+' '+s.pct+'%';}).join(' \u00b7 ')
+        + '. Amounts are computed from the facility below and stored on this deal, so a later '
+        + 'change to their standard schedule cannot rewrite a deal that already closed.'},
+      {key:'facility',type:'money',label:'Facility amount',required:true,
+        value:d.funding.closedUsd||d.funding.committedUsd||d.funding.requestedUsd}
+    ],
+    submitLabel:'Apply schedule'
+  }).then(function(v){
+    if(!v) return;
+    act(F.applyFundingSchedule(d,d.funding.partnerKey,v.facility),'Schedule applied');
+  });
+}
+function doReleaseStage(key){ var d=guard(); if(!d) return;
+  var st=null; (d.funding.stages||[]).forEach(function(s){ if(s.key===key) st=s; });
+  if(!st) return;
+  Forms.confirm({ title:'Request '+st.label, danger:false,
+    intro:F.money(st.amountUsd)+' \u00b7 '+st.pct+'% of the facility',
+    fields:[{type:'static',html:'This creates a draw request, rather than just flipping a '
+      + 'flag \u2014 two records would drift, one record with a stage reference cannot.'}],
+    submitLabel:'Request release'
+  }).then(function(ok){ if(ok) act(F.releaseStage(d,key),'Release requested'); });
+}
 
 function doAddDraw(){ var d=guard(); if(!d) return;
-  var amt=prompt('Draw amount (USD):'); if(!amt) return;
-  var why=prompt('What is it for? Required \u2014 this is the answer to "where did the money go".');
-  if(!why) return;
-  act(F.addDraw(d,{amountUsd:amt,purpose:why}),'Draw requested'); }
+  Forms.open({ title:'Request a draw', intro:d.name,
+    fields:[
+      {key:'amountUsd',type:'money',label:'Amount',required:true},
+      {key:'purpose',type:'text',label:'What is it for',required:true,
+        hint:'Required. "Where did the money go" is the question this section exists to '
+           + 'answer, and it cannot be reconstructed from bank statements later.'},
+      {key:'category',type:'select',label:'Against',options:F.BOM_CATEGORIES.map(function(c){
+        return {value:c.key,label:c.label}; })}
+    ],
+    submitLabel:'Request'
+  }).then(function(v){ if(v) act(F.addDraw(d,v),'Draw requested'); });
+}
 
 function doAddBom(){ var d=guard(); if(!d) return;
-  var cats=F.BOM_CATEGORIES;
-  var cp=prompt('Category:\n\n'+cats.map(function(c,i){return (i+1)+') '+c.label;}).join('\n')
-    + '\n\nEnter a number:');
-  if(!cp) return;
-  var cat=(cats[parseInt(cp,10)-1]||{}).key||'other';
-  var item=prompt('Item:'); if(!item) return;
-  var qty=prompt('Quantity:')||'';
-  var unit=prompt('Unit (ea, rack, lot…):','ea')||'ea';
-  var cost=prompt('Cost per unit (USD):')||'';
-  var sup=prompt('Supplier domain (blank if not a partner):')||'';
-  var supName=sup?(prompt('Supplier display name:',A.orgName(sup))||A.orgName(sup)):'';
-  act(F.addBomLine(d,{category:cat,item:item,qty:qty,unit:unit,unitCostUsd:cost,
-    supplierOrg:sup,supplierName:supName}),'Line added'); }
+  Forms.open({ title:'Add a BOM line', intro:d.name,
+    fields:[
+      {key:'category',type:'select',label:'Category',required:true,
+        options:F.BOM_CATEGORIES.map(function(c){return {value:c.key,label:c.label};})},
+      {key:'item',type:'text',label:'Item',required:true,
+        placeholder:'e.g. 280 Ah LFP rack'},
+      {key:'spec',type:'text',label:'Spec'},
+      {key:'manufacturer',type:'select',label:'Manufacturer',options:optManufacturers(),
+        hint:'If they are also a portal partner, this purchase order rolls into their '
+           + 'portfolio view alongside anything they referred.'},
+      {key:'distributor',type:'select',label:'Ordered through',options:optDistributors(),
+        hint:'The purchase order, lead time and payment terms belong to the distributor; '
+           + 'the warranty belongs to the manufacturer. One field for both loses whichever '
+           + 'you need at the time.'},
+      {key:'qty',type:'number',label:'Quantity',step:'any'},
+      {key:'unit',type:'text',label:'Unit',value:'ea'},
+      {key:'unitCostUsd',type:'money',label:'Cost per unit'},
+      {key:'poRef',type:'text',label:'PO reference'}
+    ],
+    submitLabel:'Add line'
+  }).then(function(v){
+    if(!v) return;
+    var mans=(window.CLEARSKY_CONFIG.portfolio||{}).manufacturers||[];
+    var m=null; mans.forEach(function(x){ if(x.key===v.manufacturer) m=x; });
+    var dists=(window.CLEARSKY_CONFIG.portfolio||{}).distributors||[];
+    var dist=null; dists.forEach(function(x){ if(x.key===v.distributor) dist=x; });
+    act(F.addBomLine(d,{ category:v.category, item:v.item, spec:v.spec,
+      qty:v.qty, unit:v.unit, unitCostUsd:v.unitCostUsd, poRef:v.poRef,
+      supplierOrg:(m&&m.orgId)||(dist&&dist.orgId)||'',
+      supplierName:(m?m.name:'')+(m&&dist?' via ':'')+(dist?dist.name:'') }),'Line added');
+  });
+}
 
 function doBomStatus(id){ var d=guard(); if(!d) return;
-  var l=d.bom.filter(function(x){return x.id===id;})[0]; if(!l) return;
-  var ss=F.BOM_STATUS;
-  var p=prompt('Status for '+l.item+':\n\n'+ss.map(function(x,i){return (i+1)+') '+x.label;}).join('\n')
-    + '\n\nEnter a number:');
-  if(!p) return;
-  var s=ss[parseInt(p,10)-1]; if(!s) return;
-  act(F.setBomStatus(d,l,s.key),'Updated'); }
+  var l=null; d.bom.forEach(function(x){ if(x.id===id) l=x; });
+  if(!l) return;
+  Forms.open({ title:'Line status', intro:l.item,
+    fields:[{key:'status',type:'radio',label:'Status',required:true,value:l.status,
+      options:F.BOM_STATUS.map(function(s){
+        return {value:s.key,label:s.label,
+          hint:s.committed?'Counts as committed spend.':'Not yet committed.'}; })}]
+  }).then(function(v){ if(v) act(F.setBomStatus(d,l,v.status),'Updated'); });
+}
 
 function doAddParticipant(){ var d=guard(); if(!d) return;
-  var org=prompt('Organisation domain:'); if(!org) return;
-  var name=prompt('Display name:', A.orgName(org))||A.orgName(org);
-  var rs=F.PARTICIPANT_ROLES;
-  var p=prompt('Their role:\n\n'+rs.map(function(x,i){return (i+1)+') '+x.label+' \u2014 '+x.hint;}).join('\n')
-    + '\n\nEnter a number:');
-  if(!p) return;
-  var r=rs[parseInt(p,10)-1]; if(!r) return;
-  act(F.addParticipant(d,org,name,r.key),'Added'); }
+  Forms.open({ title:'Add an organisation', intro:d.name,
+    fields:[
+      {key:'orgId',type:'org',label:'Organisation',required:true,options:optOrgs()},
+      {key:'role',type:'radio',label:'Their role',required:true,
+        options:F.PARTICIPANT_ROLES.map(function(r){
+          return {value:r.key,label:r.label,hint:r.hint}; })},
+      {key:'note',type:'text',label:'Note'}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    act(F.addParticipant(d,v.orgId,A.orgName(v.orgId)||v.orgId,v.role,v.note),'Added');
+  });
+}
 
 function doDropParticipant(orgId, role){ var d=guard(); if(!d) return;
-  var p=d.participants.filter(function(x){ return x.orgId===orgId && x.role===role; })[0];
+  var p=null; d.participants.forEach(function(x){ if(x.orgId===orgId&&x.role===role) p=x; });
   if(!p) return;
-  act(F.removeParticipant(d,p),'Removed'); }
+  Forms.confirm({ title:'Remove '+(p.orgName||p.orgId)+'?',
+    intro:F.roleOf(p.role).label+' on '+d.name, submitLabel:'Remove'
+  }).then(function(ok){ if(ok) act(F.removeParticipant(d,p),'Removed'); });
+}
 
 function doAddNote(){ var d=guard(); if(!d) return;
   var el=document.getElementById('deal-note'), t=el?el.value.trim():'';
   if(!t){ toast('Nothing to save',true); return; }
-  act(F.addNote(d,t),'Note saved'); }
+  act(F.addNote(d,t),'Note saved');
+}
+
+/* ── Viability, permitting, assignment ────────────────────────────────── */
+function doScore(){
+  var d=guard(); if(!d) return;
+  var cs=F.criteriaSet();
+  if(!cs.length){ toast('No criteria configured \u2014 see portfolio.viability in config.js',true); return; }
+  var prev={};
+  (d.viability.criteria||[]).forEach(function(c){ prev[c.key]=c.unscored?null:c.value; });
+  Forms.open({
+    title:'Score viability',
+    intro:d.name+' \u00b7 threshold '+F.threshold(),
+    fields:[{type:'static',html:'<b>Blank is not zero.</b> Anything marked <i>cannot tell</i> '
+      + 'drops out of both sides of the calculation rather than counting against the site \u2014 '
+      + 'scoring an unasked question as nil quietly turns a weighted model into a random one.'}]
+      .concat(cs.map(function(c){
+        return {key:c.key,type:'score',label:c.label+' (weight '+c.weight+')',
+                hint:c.hint,value:prev[c.key]}; })),
+    submitLabel:'Save score',
+    footNote:'Previous scores are kept \u2014 the trajectory is the finding'
+  }).then(function(v){
+    if(!v) return;
+    var vals={}; cs.forEach(function(c){ if(v[c.key]!=null) vals[c.key]=v[c.key]; });
+    var computed=F.computeScore(vals);
+    if(computed.score==null){ toast('Nothing scored',true); return; }
+    act(F.saveScore(d,computed),'Scored '+computed.score+'/100');
+  });
+}
+
+function doPostScore(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Score from your own tool', intro:d.name,
+    fields:[
+      {key:'score',type:'number',label:'Score (0-100)',required:true,min:0,max:100},
+      {key:'model',type:'text',label:'Which tool or model',value:'external',
+        hint:'Recorded so a model change can be traced later.'},
+      {key:'threshold',type:'number',label:'Threshold',value:F.threshold()}
+    ]
+  }).then(function(v){ if(v) act(F.postScore(d,v),'Score recorded'); });
+}
+
+function doOverride(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Override the score', intro:d.name, danger:true,
+    warning:'The failing score stays on the record either way. What this adds is why you '
+      + 'went anyway \u2014 a model that can never be overruled is one nobody trusts with real '
+      + 'decisions, but an override with no reason is just a deleted gate.',
+    fields:[{key:'why',type:'textarea',label:'Reason',rows:3,required:true}],
+    submitLabel:'Override'
+  }).then(function(v){ if(v) act(F.overrideViability(d,v.why),'Override recorded'); });
+}
+
+function doStartPermits(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Open permitting', intro:d.name,
+    fields:[
+      {key:'ahj',type:'text',label:'AHJ',value:d.ahj},
+      {key:'utility',type:'text',label:'Utility'},
+      {key:'owner',type:'user',label:'Who owns permitting',options:optUsers()}
+    ]
+  }).then(function(v){ if(v) act(F.startPermitting(d,v),'Permitting opened'); });
+}
+
+function doAddApp(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Add an application', intro:d.name,
+    fields:[
+      {key:'type',type:'select',label:'Application type',required:true,
+        options:(window.CLEARSKY_CONFIG.portfolio||{}).permitTypes||[]},
+      {key:'authority',type:'text',label:'Authority',placeholder:'Who receives it'},
+      {key:'ref',type:'text',label:'Reference number'},
+      {key:'status',type:'select',label:'Status',value:'preparing',
+        options:[{value:'preparing',label:'Preparing'},{value:'submitted',label:'Submitted'},
+                 {value:'in_review',label:'In review'}]},
+      {key:'note',type:'text',label:'Note'}
+    ]
+  }).then(function(v){ if(v) act(F.addApplication(d,v),'Application added'); });
+}
+
+function doAppStatus(id){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Application status',
+    fields:[{key:'status',type:'radio',label:'Status',required:true,
+      options:[{value:'preparing',label:'Preparing'},{value:'submitted',label:'Submitted'},
+               {value:'in_review',label:'In review'},{value:'approved',label:'Approved'},
+               {value:'denied',label:'Denied'},{value:'withdrawn',label:'Withdrawn'}]}]
+  }).then(function(v){ if(v) act(F.setApplicationStatus(d,id,v.status),'Updated'); });
+}
+
+function doAssign(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Assign', intro:d.name,
+    fields:[
+      {type:'static',html:'Assignment is a different axis from stage. A deal in '
+        + 'pre-development may have design finished and permitting stalled.'},
+      {key:'designLead',type:'user',label:'Design lead',options:optUsers(),
+        value:d.assignment.designLead},
+      {key:'devLead',type:'user',label:'Development lead',options:optUsers(),
+        value:d.assignment.devLead},
+      {key:'dueAt',type:'date',label:'Due',value:d.assignment.dueAt},
+      {key:'notes',type:'textarea',label:'Notes',rows:2,value:d.assignment.notes}
+    ]
+  }).then(function(v){ if(v) act(F.assign(d,v),'Assigned'); });
+}
+
+function doLinkProject(){ var d=guard(); if(!d) return;
+  Forms.open({ title:'Link an editor project', intro:d.name,
+    fields:[
+      {type:'static',html:'Create the project in the editor against the <b>client\u2019s</b> org '
+        + 'so the finished drawing lands in their own portal with no export step, then paste '
+        + 'its id here.'},
+      {key:'projectId',type:'text',label:'Project id',required:true},
+      {key:'note',type:'text',label:'Note'}
+    ],
+    submitLabel:'Link'
+  }).then(function(v){ if(v) act(F.attachProject(d,v.projectId,v.note),'Project linked'); });
+}
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 var _tt;

@@ -319,6 +319,29 @@ Firestore.
 
 ### Verification scope survives, separately
 
+### Run check-rules.py before every rules deploy
+
+```
+python3 check-rules.py firestore.rules
+```
+
+**The rules lexer does not nest block comments.** The first `*/` after a `/*`
+ends the comment wherever it appears — so a literal `*/` inside prose (writing a
+glob like `portal` + `*/` + `p*`, for instance) closes the comment early and
+every following line of prose gets parsed as code.
+
+The failure is nasty out of proportion to its cause. The console reports an
+error at the first prose token after the early close, which can be dozens of
+lines from the actual mistake, then buries it under one
+`token recognition error at: '—'` per em-dash in the remainder of the file.
+On a rules file that explains itself as thoroughly as this one, that is
+hundreds of lines of noise hiding a one-character bug.
+
+`check-rules.py` strips comments the way the lexer does and fails if any prose
+character survives, if a literal `*/` sits inside a comment, if braces don't
+balance, or if a top-level function is defined twice. The comments in this file
+are the point of it, so this check is the price of keeping them.
+
 ### Helper names in the merged rules
 
 Every portal helper is prefixed `portal*` / `p*` — `isPortalAdmin()`,
@@ -346,13 +369,15 @@ told plainly why.
 | `index.html` | this repo | Verification console |
 | `portfolio.html` | this repo | Deal pipeline, partners, funding, BOM, users |
 | `access-data.js` | this repo | Identity, roles, approval queue. **Both consoles** |
-| `portfolio-data.js` | this repo | Deals, stages, funding, BOM, partner KPIs |
+| `portfolio-data.js` | this repo | Deals, stages, viability, permitting, assignment, funding, BOM, KPIs |
+| `ingest-data.js` | this repo | Adoption from existing collections + Excel import |
 | `partner-data.js` | this repo | Assignment model, verdicts, SLA, documents |
 | `config.js` | this repo | **The only file to edit** |
 | `firestore.rules` | **complete file** | Your live rules with the four new collections merged in. Deploy as-is |
 | `storage.rules.additions` | **fragment** | One match block to paste into your *existing* storage.rules |
+| `check-rules.py` | dev tool | Run before every rules deploy. See below |
 | `assign-panel.js` | **the ops repo** | Drop-in "Send to partner" for the ops console |
-| `PROCESS.md` / `PORTFOLIO.md` | — | The operating models. Not code |
+| `PROCESS.md` / `PORTFOLIO.md` / `PLATFORM.md` | — | The operating models. Not code |
 | `omega-logo.png` | platform asset | Copy from the ops repo |
 
 `assign-panel.js` is shipped here so both halves of the handoff can be read side
@@ -377,7 +402,7 @@ Nothing else in the ops console changes.
    external person to sign in lands in an approval queue nobody has the standing
    to clear — the setup guard says so on the sign-in screen rather than letting
    it look like a password problem.
-3. **Deploy `firestore.rules`.** It is your live rules file with the four new
+3. **Run `python3 check-rules.py firestore.rules` first, then deploy it.** It is your live rules file with the four new
    collections merged in — every existing collection, helper and clause is
    present and unchanged. Deploying replaces the whole database's rules, so
    deploy this file rather than a fragment. Without it everyone signs in fine
@@ -396,8 +421,8 @@ Nothing else in the ops console changes.
 6. Sign in as the owner first, before inviting anyone. The owner's record is
    created on first sign-in; approving people before it exists means approving
    them as nobody.
-7. Bump the `?v=` on `config.js`, `access-data.js`, `partner-data.js` and
-   `portfolio-data.js` when any of them change, or the browser serves
+7. Bump the `?v=` on `config.js`, `access-data.js`, `partner-data.js`,
+   `portfolio-data.js` and `ingest-data.js` when any of them change, or the browser serves
    yesterday's copy and the new page runs against the old data layer. That fails
    as *the queue is blank*, not as a load error.
 

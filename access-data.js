@@ -423,10 +423,22 @@
       return {};
     });
   }
-  function orgs() { return _orgs; }
+  /* The registry, with config's known organisations underneath it. A written
+     registry entry always wins: editing an organisation in the console has to
+     beat editing a file nobody redeploys, or the console lies. */
+  function orgs() {
+    var known = (acc().knownOrgs) || {}, out = {};
+    for (var k in known) if (known.hasOwnProperty(k)) {
+      out[k] = { orgId:k, name:known[k].name, kind:known[k].kind || 'broker',
+                 note:known[k].note || '', active:true, seeded:true };
+    }
+    for (var j in _orgs) if (_orgs.hasOwnProperty(j)) out[j] = _orgs[j];
+    return out;
+  }
   function orgName(orgId) {
     var k = String(orgId || '').toLowerCase();
-    return (_orgs[k] && _orgs[k].name) || k || '\u2014';
+    var all = orgs();
+    return (all[k] && all[k].name) || k || '\u2014';
   }
   function saveOrg(orgId, fields) {
     if (!_db) return Promise.reject(new Error('Not connected.'));
