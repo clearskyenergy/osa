@@ -732,12 +732,22 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
            incident.</p></div>
       <div class="card">
         <div class="card-h"><h2>Access requests and members</h2>
-          <div class="chips" id="user-chips" style="margin-left:auto"></div></div>
+          <div class="chips" id="user-chips" style="margin-left:auto"></div>
+          <button class="btn-x" onclick="doInvite()">+ Invite someone</button></div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Person</th><th>Organisation</th><th>Role</th><th>Status</th>
             <th>Last seen</th><th>Actions</th></tr></thead>
           <tbody id="user-rows"></tbody></table></div>
       </div>
+      <div class="card" id="invite-card" style="display:none">
+        <div class="card-h"><h2>Invited, not yet signed in</h2>
+          <span class="sub">Their role is decided; the account appears when they arrive</span></div>
+        <div class="card-b" id="invite-note"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Email</th><th>Role</th><th>Organisation</th><th>Invited</th><th></th></tr></thead>
+          <tbody id="invite-rows"></tbody></table></div>
+      </div>
+
       <div class="card" id="staff-card" style="display:none">
         <div class="card-h"><h2>ClearSky staff who have not signed in here</h2>
           <span class="sub">From the ops console roster</span></div>
@@ -800,8 +810,8 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="/config.js?v=4"></script>
 <script src="/forms.js?v=1"></script>
-<script src="/access-data.js?v=5"></script>
-<script src="/portfolio-data.js?v=4"></script>
+<script src="/access-data.js?v=6"></script>
+<script src="/portfolio-data.js?v=5"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -823,7 +833,7 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
           imp:null, verifications:[], verifyFilter:'open', marketNews:[],
           boardQ:'', boardOrg:'', boardPrefs:null, pinned:{}, pendingMove:null,
-          design:[], designLoaded:false, designFilter:'all', designQ:'', staff:[],
+          design:[], designLoaded:false, designFilter:'all', designQ:'', staff:[], invites:[],
           inboxOrg:'', inboxQ:'', inboxSel:{} };
 
 function ready(){ var e=document.getElementById('boot');
@@ -975,6 +985,7 @@ function refresh(manual){
     if (!S.inboxLoaded && A.can('write_deal')) loadInbox(false);
     if (!S.designLoaded) loadDesign(false);
     if (A.can('approve_any') && !S.staff.length) loadStaff();
+    if (A.can('approve_any') && !S.invites.length) loadInvites();
   })['finally'](function(){
     if(b){ b.disabled=false; b.textContent='Refresh'; }
     if(manual) toast('Refreshed'); });
@@ -1001,7 +1012,7 @@ function render(){
   renderBanners(); renderDash(); renderPipeline(); renderPartners();
   renderFunding(); renderSupply(); renderInbox(); renderWork();
   renderBoard(); renderVerify(); renderDesign();
-  renderSettings(); renderStaff();
+  renderSettings(); renderStaff(); renderInvites();
   renderUsers(); renderOrgs(); renderCounts();
   if(S.openId) renderDrawer();
 }
@@ -1125,10 +1136,14 @@ function funnelHtml(funnel, total){
 /* ── Pipeline ─────────────────────────────────────────────────────────── */
 function pipeRows(k){
   return S.deals.filter(function(d){
-    if(k==='all') return true;
+    /* 'All' means every real record. Discarded has its own filter, because a
+       list that quietly includes records excluded from every number is how
+       somebody counts rows and gets a different answer from the dashboard. */
+    if(k==='all') return d.stage!=='discarded';
     if(k==='live') return !F.isExit(d.stage);
     if(k==='dead') return d.stage==='dead';
     if(k==='parked') return d.stage==='parked';
+    if(k==='discarded') return d.stage==='discarded';
     if(k==='stale') return isStale(d);
     if(k==='unattributed') return !d.origination.partnerOrg;
     return d.stage===k;
@@ -1175,6 +1190,13 @@ function doResolveDupes(names){
         + 'the others are marked <i>Superseded by another site</i> rather than deleted, so '
         + 'they stay in the denominator. Deleting them would flatter your conversion by '
         + 'removing deals that really were created.'},
+      {key:'how',type:'radio',label:'What are the others',required:true,value:'discard',
+        options:[
+          {value:'discard',label:'Never real — discard them',
+           hint:'A duplicate created by a bug or a double click. Excluded from every count.'},
+          {value:'dead',label:'Real, but superseded — mark dead',
+           hint:'Two genuine records for one site. Stays in the denominators.'}
+        ]},
       {key:'keep',type:'radio',label:'Keep which one',required:true,value:group[0].id,
         options:group.map(function(d){
           var bits=[];
@@ -1195,11 +1217,15 @@ function doResolveDupes(names){
     var kept=findDeal(v.keep), done=0;
     function step(i){
       if(i>=losers.length){
-        toast(done+' marked superseded');
+        toast(done+(v.how==='discard'?' discarded':' marked superseded'));
         return refresh();
       }
-      return F.markDead(losers[i],'Superseded by another site',
-          (v.note||'')+' \u2014 kept '+(kept?kept.name:v.keep))
+      var p = v.how==='discard'
+        ? F.discard(losers[i],'Duplicate of another deal',
+            (v.note||'')+' \u2014 kept '+(kept?kept.name:v.keep))
+        : F.markDead(losers[i],'Superseded by another site',
+            (v.note||'')+' \u2014 kept '+(kept?kept.name:v.keep));
+      return p
         .then(function(){ done++; })['catch'](function(){})
         .then(function(){ return step(i+1); });
     }
@@ -1209,7 +1235,8 @@ function doResolveDupes(names){
 
 function renderPipeline(){
   var defs=[{k:'live',l:'Live'},{k:'stale',l:'Stalled'},{k:'unattributed',l:'Unattributed'},
-            {k:'dead',l:'Dead'},{k:'parked',l:'Parked'},{k:'all',l:'All'}];
+            {k:'dead',l:'Dead'},{k:'parked',l:'Parked'},
+            {k:'discarded',l:'Discarded'},{k:'all',l:'All'}];
   document.getElementById('pipe-chips').innerHTML = defs.map(function(d){
     return '<button class="chip'+(S.pipeFilter===d.k?' on':'')+'" onclick="setPipe(\''+d.k+'\')">'
       + d.l+' <span class="mono">'+pipeRows(d.k).length+'</span></button>'; }).join('');
@@ -1454,7 +1481,10 @@ function optDistributors(){
    the person's own user document rather than in the browser, so the layout
    survives moving between machines. Defaults are chosen so the board is
    usable before anybody configures anything. */
-var BOARD_DEFAULTS = { hidden:[], collapseEmpty:true };
+/* Discarded is hidden by default: it is excluded from every number, so having
+   it on the board by default would invite exactly the confusion the exclusion
+   exists to prevent. Turn it on from Columns when you are cleaning up. */
+var BOARD_DEFAULTS = { hidden:['discarded'], collapseEmpty:true };
 function boardPrefs(){
   var p=(ME&&ME.boardPrefs)||S.boardPrefs||BOARD_DEFAULTS;
   return { hidden: Array.isArray(p.hidden)?p.hidden:[],
@@ -1483,7 +1513,8 @@ var PHASES = [
   { label:'Development', keys:['pre_dev','permitting','verified'] },
   { label:'Capital',     keys:['marketplace','committed','funded'] },
   { label:'Delivery',    keys:['construction','operating'] },
-  { label:'Closed',      keys:['parked','dead'] }
+  { label:'Closed',      keys:['parked','dead'] },
+  { label:'Excluded',    keys:['discarded'] }
 ];
 
 function boardDeals(){
@@ -1600,6 +1631,8 @@ function wireBoardDnd(host){
       var d=findDeal(id); if(!d||d.stage===to) return;
       if(to==='dead'){ S.openId=d.id; doDead(); return; }
       if(to==='parked'){ S.openId=d.id; doPark(); return; }
+      if(to==='discarded'){ S.openId=d.id; doDiscard(); return; }
+      if(d.stage==='discarded'){ S.openId=d.id; doRestore(); return; }
       if(F.isExit(d.stage)){ S.openId=d.id; doRevive(); return; }
       if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
         toast('Moving a deal backwards needs a reason \u2014 open it and use Reopen',true);
@@ -2571,12 +2604,108 @@ function doResetBoard(){
   });
 }
 
+/* ── Invitations ─────────────────────────────────────────────────────────
+   The honest version of "add a user". You decide the role now; the account is
+   still created by them, on their own first sign-in. Nobody gets enrolled
+   without their own action, and there is no path by which an administrator
+   mints a login and then uses it. */
+function loadInvites(){
+  return A.loadInvites().then(function(v){ S.invites=v; render(); })
+   ['catch'](function(){ S.invites=[]; });
+}
+
+function doInvite(){
+  var roles=A.grantableRoles();
+  Forms.open({
+    title:'Invite someone',
+    intro:'Decide their role now. The account is created when they sign in.',
+    fields:[
+      {type:'static',html:'This does <b>not</b> create an account. It records what role '
+        + 'they get when they arrive \u2014 an account is only ever created by the person '
+        + 'signing in, which is what stops anybody being enrolled without their own action.'},
+      {key:'email',type:'text',label:'Email address',required:true,
+        inputType:'email',placeholder:'name@company.com',
+        validate:function(v){
+          return String(v).indexOf('@')>0 ? null : 'A full email address.'; }},
+      {key:'role',type:'radio',label:'Role on arrival',required:true,value:'member',
+        options:roles.map(function(r){ return {value:r.key,label:r.label,hint:r.hint}; })},
+      {key:'orgId',type:'org',label:'Organisation',options:optOrgs(),
+        validate:function(v){ return v?A.validateDomain(v):null; },
+        hint:'Leave blank to use their email domain. This decides which deals they see.'},
+      {key:'manageOrgs',type:'multi',label:'Organisations they may administer',
+        options:optOrgs(),
+        hint:'Limited administrators only.'},
+      {key:'note',type:'text',label:'Note'}
+    ],
+    submitLabel:'Record the invitation'
+  }).then(function(v){
+    if(!v) return;
+    var org=v.orgId||A.domainOf(v.email);
+    A.invite(v.email,v.role,org,A.orgName(org)||'',v.manageOrgs,v.note)
+      .then(function(){
+        toast('Invited \u2014 send them the link');
+        return loadInvites();
+      })['catch'](function(e){ toast((e&&e.message)||'Could not invite',true); });
+  });
+}
+
+function doRevokeInvite(email){
+  Forms.confirm({ title:'Withdraw the invitation?', intro:email,
+    fields:[{type:'static',html:'They can still request access in the normal way \u2014 it '
+      + 'would just go to the approval queue instead of landing active.'}],
+    submitLabel:'Withdraw'
+  }).then(function(ok){
+    if(!ok) return;
+    A.revokeInvite(email).then(function(){ toast('Withdrawn'); return loadInvites(); })
+     ['catch'](function(e){ toast((e&&e.message)||'Could not withdraw',true); });
+  });
+}
+
+function renderInvites(){
+  var card=document.getElementById('invite-card'); if(!card) return;
+  if(!A.can('approve_any')){ card.style.display='none'; return; }
+  var pending=(S.invites||[]).filter(function(i){ return !i.usedAt; });
+  if(!pending.length){ card.style.display='none'; return; }
+  card.style.display='';
+  document.getElementById('invite-note').innerHTML =
+      '<div class="banner info">Send them <span class="mono">'
+    + esc(location.origin+'/portfolio.html')+'</span>. They sign in with that address and '
+    + 'land active with the role below \u2014 no approval step.</div>';
+  document.getElementById('invite-rows').innerHTML = pending.map(function(i){
+    return '<tr><td class="mono" style="font-size:12.5px">'+esc(i.email)+'</td>'
+      + '<td>'+esc(A.roleOf(i.role).label)+'</td>'
+      + '<td>'+esc(i.orgName||A.orgName(i.orgId)||i.orgId)+'</td>'
+      + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(i.invitedAt))+'</td>'
+      + '<td><button class="btn-x danger" onclick="doRevokeInvite(\''+esc(i.email)+'\')">'
+      + 'Withdraw</button></td></tr>'; }).join('');
+}
+
 /* ── Staff who exist but have not signed in ──────────────────────────────
    Answers "why does Users say nobody" without pretending they have access. */
 function loadStaff(){
   return A.loadStaff().then(function(s){ S.staff=s; render(); })
    ['catch'](function(){ S.staff=[]; });
 }
+/* Pre-fills the invite from the ops roster, so onboarding a colleague is one
+   click rather than retyping their address. */
+function doInviteStaff(email,name){
+  var roles=A.grantableRoles();
+  Forms.open({
+    title:'Invite '+name,
+    intro:email,
+    fields:[
+      {key:'role',type:'radio',label:'Role on arrival',required:true,value:'admin',
+        options:roles.map(function(r){ return {value:r.key,label:r.label,hint:r.hint}; })}
+    ],
+    submitLabel:'Record the invitation'
+  }).then(function(v){
+    if(!v) return;
+    A.invite(email,v.role,A.domainOf(email),'ClearSky','', '')
+      .then(function(){ toast('Invited \u2014 send them the link'); return loadInvites(); })
+      ['catch'](function(e){ toast((e&&e.message)||'Could not invite',true); });
+  });
+}
+
 function renderStaff(){
   var card=document.getElementById('staff-card'); if(!card) return;
   if(!A.can('approve_any')){ card.style.display='none'; return; }
@@ -2595,7 +2724,8 @@ function renderStaff(){
     return '<tr><td><div class="t-name">'+esc(s.name)+'</div>'
       + '<div class="t-sub mono" style="font-size:11.5px">'+esc(s.email)+'</div></td>'
       + '<td>'+esc(s.role)+'</td>'
-      + '<td><span style="color:var(--ink-3);font-size:12px">has not signed in here</span></td>'
+      + '<td><button class="btn-x" onclick="doInviteStaff(\''+esc(s.email)+'\',\''
+      +   esc(s.name)+'\')">Invite\u2026</button></td>'
       + '</tr>'; }).join('');
 }
 
@@ -2740,27 +2870,68 @@ function doMergeOrg(from){
   }).then(function(v){
     if(!v) return;
     var moving=S.deals.filter(function(d){ return d.origination.partnerOrg===from; });
-    var name=A.orgName(v.to)||v.to, done=0, failed=0;
-    toast('Merging\u2026');
+    var name=A.orgName(v.to)||v.to, done=0, failed=0, errors=[];
+    toast('Merging \u2014 0 of '+moving.length+'\u2026');
+
+    /* EVERY step is wrapped. The previous version swallowed each failure with
+       a bare catch and had no catch on the chain itself, so a synchronous
+       throw anywhere killed the loop silently and the "Merging\u2026" toast sat
+       there forever with no error and no result. A background operation that
+       can fail invisibly is worse than one that fails loudly. */
     function step(i){
-      if(i>=moving.length){
-        var after = v.thenDelete==='yes'
-          ? A.deleteOrg(from)['catch'](function(e){
-              /* A seeded org cannot be deleted. Deactivate instead rather than
-                 leaving the person with a half-finished merge. */
-              return A.setOrgActive(from,false)['catch'](function(){}); })
-          : A.setOrgActive(from,false)['catch'](function(){});
-        return after.then(function(){
-          toast(done+' deal'+(done===1?'':'s')+' moved to '+name
-                +(failed?', '+failed+' failed':''), failed>0);
-          return refresh();
+      if(i>=moving.length) return finish();
+      var p;
+      try { p = F.reattribute(moving[i],v.to,name,v.why); }
+      catch(err){ p = Promise.reject(err); }
+      return p.then(function(){ done++; })
+        ['catch'](function(e){
+          failed++;
+          errors.push((moving[i].name||moving[i].id)+': '+((e&&e.message)||e));
+          console.warn('[merge] failed:', moving[i].id, e);
+        })
+        .then(function(){
+          toast('Merging \u2014 '+(done+failed)+' of '+moving.length+'\u2026');
+          return step(i+1);
         });
-      }
-      return F.reattribute(moving[i],v.to,name,v.why)
-        .then(function(){ done++; })['catch'](function(){ failed++; })
-        .then(function(){ return step(i+1); });
     }
-    step(0);
+
+    function finish(){
+      /* Only remove the label once the deals are actually off it. Deleting an
+         organisation that still has deals pointing at it leaves them nameless,
+         which is the thing merge exists to prevent. */
+      var cleanup;
+      if(failed){
+        cleanup = Promise.resolve();   /* leave it in place to retry */
+      } else if(v.thenDelete==='yes'){
+        cleanup = A.deleteOrg(from)['catch'](function(e){
+          console.warn('[merge] delete refused, deactivating instead:', e&&e.message);
+          return A.setOrgActive(from,false)['catch'](function(){}); });
+      } else {
+        cleanup = A.setOrgActive(from,false)['catch'](function(){});
+      }
+      return cleanup.then(function(){
+        return Promise.all([refresh(), A.loadOrgs()]);
+      }).then(function(){
+        render();
+        if(failed){
+          Forms.open({
+            title:'Merge finished with errors',
+            intro:done+' moved, '+failed+' failed',
+            fields:[{type:'static',html:'<b>'+Forms.esc(from)+'</b> was left in place so you '
+              + 'can retry.<br><br>'+errors.slice(0,6).map(Forms.esc).join('<br>')}],
+            submitLabel:'Close', cancelLabel:'Close'
+          });
+        } else {
+          toast(done+' deal'+(done===1?'':'s')+' moved to '+name);
+        }
+      });
+    }
+
+    step(0)['catch'](function(e){
+      /* The chain itself failed. Say so rather than leaving a toast spinning. */
+      console.error('[merge] aborted:', e);
+      toast('Merge stopped: '+((e&&e.message)||e), true);
+    });
   });
 }
 
@@ -2957,10 +3128,18 @@ function renderDrawer(){
              + esc(next.label)+'</button>' : '')
          + '<button class="btn-o" onclick="doPark()">Park</button>'
          + '<div class="spacer"></div>'
+         + '<button class="btn-o" onclick="doDiscard()">Discard\u2026</button>'
          + '<button class="btn-d" onclick="doDead()">Mark dead</button>';
+  } else if(d.stage==='discarded' && A.can('write_deal')){
+    foot='<span style="font-size:12px;color:var(--ink-2);flex:1">Excluded from every count'
+       + (d.discardReason?' \u2014 '+esc(d.discardReason):'')+'</span>'
+       + '<button class="btn-o" onclick="doRestore()">Restore</button>'
+       + (A.isOwner()
+          ? '<button class="btn-d" onclick="doDestroy()">Delete permanently</button>':'');
   } else if(F.isExit(d.stage) && A.can('write_deal')){
     foot='<span style="font-size:12px;color:var(--ink-2);flex:1">'+esc(F.stageOf(d.stage).hint)+'</span>'
-       + '<button class="btn-o" onclick="doRevive()">Reopen</button>';
+       + '<button class="btn-o" onclick="doRevive()">Reopen</button>'
+       + '<button class="btn-d" onclick="doDiscard()">Discard</button>';
   }
   document.getElementById('dr-foot').innerHTML=foot;
 }
@@ -3450,6 +3629,63 @@ function doDead(){ var d=guard(); if(!d) return;
   }).then(function(v){ if(v) act(F.markDead(d,v.reason,v.note),'Marked dead'); });
 }
 
+/* ── Discard, restore, delete ────────────────────────────────────────────
+   Discard is what people usually want: it removes the record from every count
+   and can be undone. Delete is the second step, owner only, for genuine test
+   data you never want to see again. */
+function doDiscard(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Discard this record',
+    intro:d.name,
+    warning:'Only for records that were never real deals. If this deal happened and did '
+      + 'not work out, use Mark dead instead \u2014 that keeps it in the partner denominators, '
+      + 'which is what makes your conversion numbers honest.',
+    fields:[
+      {type:'static',html:'Discarding removes it from <b>every count, funnel and partner '
+        + 'statistic</b>. The record stays readable and this can be undone.'},
+      {key:'reason',type:'radio',label:'Why was this never a deal',required:true,
+        options:F.DISCARD_REASONS.map(function(r){ return {value:r,label:r}; })},
+      {key:'note',type:'text',label:'Note'}
+    ],
+    submitLabel:'Discard'
+  }).then(function(v){ if(v) act(F.discard(d,v.reason,v.note),'Discarded'); });
+}
+
+function doRestore(){
+  var d=guard(); if(!d) return;
+  Forms.open({ title:'Restore', intro:d.name,
+    fields:[{key:'stage',type:'select',label:'Bring it back at',required:true,
+      value:'referred', options:optStages('marketplace')}],
+    submitLabel:'Restore'
+  }).then(function(v){ if(v) act(F.restore(d,v.stage),'Restored'); });
+}
+
+function doDestroy(){
+  var d=guard(); if(!d) return;
+  if(!A.isOwner()){ toast('Only the owner can delete permanently',true); return; }
+  Forms.open({
+    title:'Delete permanently',
+    intro:d.name,
+    danger:true,
+    warning:'This cannot be undone and leaves no record. Discarding already removes it from '
+      + 'every number \u2014 delete only if you never want to see it again.',
+    fields:[
+      {key:'confirm',type:'text',label:'Type the site name to confirm',required:true,
+        placeholder:d.name,
+        validate:function(v){
+          return String(v).trim()===d.name ? null
+            : 'That does not match. Type: '+d.name; }}
+    ],
+    submitLabel:'Delete permanently'
+  }).then(function(v){
+    if(!v) return;
+    F.destroy(d).then(function(){
+      closeDrawer(); toast('Deleted'); return refresh();
+    })['catch'](function(e){ toast((e&&e.message)||'Could not delete',true); });
+  });
+}
+
 function doRevive(){ var d=guard(); if(!d) return;
   Forms.open({ title:'Reopen', intro:d.name,
     fields:[{key:'why',type:'textarea',label:'What changed',rows:2,required:true}],
@@ -3861,6 +4097,21 @@ function renderMarketNews(){
       + ' <button class="btn-x" onclick="openDeal(\''+n.deal.id+'\')">Open the deal</button></div>';
   });
 }
+
+/* ── Nothing fails silently ──────────────────────────────────────────────
+   A background write that throws with no handler used to leave whatever toast
+   was showing on screen indefinitely, which reads as "it is still working".
+   These two handlers turn that into a visible message. They are a safety net,
+   not a substitute for handling errors where they happen. */
+window.addEventListener('unhandledrejection', function(e){
+  var m=(e && e.reason && e.reason.message)||String(e && e.reason||'');
+  console.error('[unhandled]', e && e.reason);
+  if(m) toast('Something failed: '+m, true);
+});
+window.addEventListener('error', function(e){
+  if(!e || !e.message) return;
+  console.error('[error]', e.message);
+});
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 var _tt;

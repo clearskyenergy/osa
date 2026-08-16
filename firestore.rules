@@ -580,6 +580,26 @@ service cloud.firestore {
     function isPortalPartnerAdmin() { return pActive() && pRole() == 'partner_admin'; }
     function canWritePortalDeals()  { return isPortalAdmin() || isPortalLimitedAdmin(); }
 
+    /* ── Invitations ─────────────────────────────────────────────────────
+       An administrator can decide IN ADVANCE what role somebody gets, without
+       being able to create an account for them.
+
+       That distinction is the whole design. omega_users create is pinned to
+       isSelf(), so a person's account is only ever created by that person
+       signing in — nobody can be enrolled without their own action, and there
+       is no path by which an administrator manufactures a login and uses it.
+       An invite only pre-answers the question "what role, when they arrive".
+
+       Doc id is the invited EMAIL, lowercased, so the invitee can read their
+       own invite on first sign-in without being able to enumerate others. */
+    function inviteExists() {
+      return portalSignedIn()
+        && exists(/databases/$(database)/documents/omega_invites/$(callerEmail()));
+    }
+    function inviteDoc() {
+      return get(/databases/$(database)/documents/omega_invites/$(callerEmail())).data;
+    }
+
     match /partnerAllowlist/{email} {
       allow read: if true;
       allow write: if isAdmin();
@@ -1694,6 +1714,16 @@ service cloud.firestore {
                && request.resource.data.get('role', '') in ['admin', 'owner'])
              ||
              (!isAdmin() && request.resource.data.get('status', '') == 'pending')
+             ||
+             /* Invited in advance. Still their own row, still created by them
+                signing in — the invite only decides the role they land on, and
+                every field here is checked against it rather than trusted from
+                the client. An invite for 'viewer' cannot be redeemed as
+                'admin' by a patched browser. */
+             (inviteExists()
+               && request.resource.data.get('status', '') == 'active'
+               && request.resource.data.get('role', '') == inviteDoc().get('role', 'viewer')
+               && request.resource.data.get('orgId', '') == inviteDoc().get('orgId', ''))
            );
 
       /* ── Update ──────────────────────────────────────────────────────
@@ -1747,6 +1777,21 @@ service cloud.firestore {
        renders as a raw domain. Writable by administrators only:
        referralBasis is a term of a commercial agreement.
        ══════════════════════════════════════════════════════════════════ */
+    /* ═════════════════════════════════════════════════════════════════════
+       omega_invites/{emailLower} — a role decided before arrival    ← ADDED
+       ═════════════════════════════════════════════════════════════════════
+       Read: the invitee reads their OWN invite (doc id is their email), and
+       administrators read all. Nobody can list somebody else's.
+
+       Write: administrators only. The invite is a promise about a role, not a
+       grant of one — it does nothing at all until the invited person signs in
+       and creates their own record. */
+    match /omega_invites/{emailLower} {
+      allow read:   if isPortalAdmin()
+                    || (portalSignedIn() && callerEmail() == emailLower);
+      allow create, update, delete: if isPortalAdmin();
+    }
+
     match /omega_partner_orgs/{orgId} {
       allow read:   if pActive();
 
@@ -1840,11 +1885,30 @@ service cloud.firestore {
             && !touchesAttribution() && !touchesFunding());
 
       /* ── Delete ──────────────────────────────────────────────────────
-         Nobody, administrators included. A dead deal is marked dead with a
-         reason and stays in every partner denominator forever — that is the
-         whole basis of the conversion numbers, and deleting one flatters
-         exactly the partner whose deals keep dying. */
-      allow delete: if false;
+         THE LINE THIS DRAWS, because it moved and the reasoning matters.
+
+         Originally: nobody, ever. That was right about REAL deals and wrong
+         about junk. A deal that happened and failed must stay in the
+         denominator forever — deleting it flatters exactly the partner whose
+         deals keep dying. But a test row, a mis-adoption or a duplicate
+         created by a bug was never a deal, and counting it as "referred but
+         never funded" is not honesty; it is a false statement about that
+         partner's conversion that we invented ourselves.
+
+         So the distinction is what the record IS, not who wants it gone:
+
+           dead       it happened and failed. Permanent, never deletable.
+           discarded  it was never a deal. Excluded from every count,
+                      reversible, still readable.
+           deleted    owner only, and only once already discarded.
+
+         TWO CONDITIONS, both enforced here rather than trusted from the
+         client: the caller must be the pinned owner, and the record must
+         ALREADY be discarded. Deletion is therefore a deliberate second act
+         after a reversible first one, and a patched client cannot delete a
+         live deal in a single call — which is the failure this guards. */
+      allow delete: if isPortalOwner()
+        && resource.data.get('stage', '') == 'discarded';
     }
 
     /* ══════════════════════════════════════════════════════════════════

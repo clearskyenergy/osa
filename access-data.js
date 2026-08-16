@@ -44,6 +44,7 @@
   'use strict';
 
   var COLLECTION = 'omega_users';
+  var INVITES    = 'omega_invites';
   var ORGS       = 'omega_partner_orgs';
 
   /* ── Roles ───────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@
 
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  var _db = null, _me = null, _orgs = {}, _users = [];
+  var _db = null, _me = null, _orgs = {}, _users = [], _invites = [];
 
   function stamp() { return new Date().toISOString(); }
 
@@ -167,7 +168,25 @@
         var d = snap.data() || {};
         return finish(normalize(snap.id, d), ref, user);
       }
-      /* First sign-in. Create the request, not the access. */
+      /* First sign-in. Normally this creates a REQUEST, not access. But if an
+         administrator invited this address in advance, the role is already
+         decided and the person lands active instead of waiting.
+
+         Note what this does NOT do: it never creates a record for somebody who
+         has not signed in. The account is still made by them, on their own
+         first visit \u2014 an invite only pre-answers "as what". That is the
+         difference between inviting somebody and manufacturing a login you
+         could then use yourself, and the rules enforce it independently. */
+      return db.collection(INVITES).doc(email).get()
+        ['catch'](function () { return { exists:false }; })
+        .then(function (inv) {
+          return seedUser(db, ref, user, email,
+                          (inv && inv.exists) ? (inv.data() || {}) : null);
+        });
+    });
+  }
+
+  function seedUser(db, ref, user, email, invite) {
       var seed = {
         uid:       user.uid,
         email:     email,
@@ -182,14 +201,35 @@
         manageOrgs:  [],
         lastSeenAt:  stamp()
       };
+      if (invite) {
+        /* Every field comes from the invite, not from anything the client
+           chose. The rules compare role and orgId against the same document,
+           so a patched browser redeeming a 'viewer' invite as 'admin' is
+           refused rather than trusted. */
+        seed.role       = invite.role || 'viewer';
+        seed.status     = 'active';
+        seed.orgId      = String(invite.orgId || seed.orgId).toLowerCase();
+        seed.orgName    = invite.orgName || '';
+        seed.manageOrgs = invite.manageOrgs || [];
+        seed.approvedAt = stamp();
+        seed.approvedBy = invite.invitedBy || 'invitation';
+        seed.viaInvite  = true;
+      }
       if (email === ownerEmail()) {
         seed.role = 'owner'; seed.status = 'active';
         seed.approvedBy = 'config.access.owner';
       }
       return ref.set(seed).then(function () {
+        /* Mark the invite spent. Non-fatal: the account exists either way, and
+           refusing to sign somebody in because a bookkeeping write failed
+           would be the wrong trade. */
+        if (invite) {
+          db.collection(INVITES).doc(email)
+            .set({ usedAt: stamp(), usedByUid: user.uid }, { merge:true })
+            ['catch'](function () {});
+        }
         return finish(normalize(user.uid, seed), ref, user);
       });
-    });
   }
 
   function finish(rec, ref, user) {
@@ -559,6 +599,54 @@
   /* What a pending user is told. It names nothing — no deal, no partner, no
      other user — because a pending account is an unverified stranger and the
      screen they can reach is the one place that has to assume it. */
+  /* ── Invitations ─────────────────────────────────────────────────────────
+     Deciding somebody's role before they arrive. As close to "add a user" as
+     the design allows, and the gap is deliberate. */
+  function loadInvites() {
+    if (!_db || !can('approve_any')) return Promise.resolve([]);
+    return _db.collection(INVITES).get().then(function (snap) {
+      var out = [];
+      snap.forEach(function (d) {
+        var v = d.data() || {};
+        out.push({ email:d.id, role:v.role || 'viewer', orgId:v.orgId || '',
+                   orgName:v.orgName || '', manageOrgs:v.manageOrgs || [],
+                   invitedBy:v.invitedBy || '', invitedAt:v.invitedAt || null,
+                   usedAt:v.usedAt || null, note:v.note || '' });
+      });
+      out.sort(function (a,b) { return (a.usedAt?1:0)-(b.usedAt?1:0); });
+      _invites = out;
+      return out;
+    })['catch'](function (e) {
+      console.warn('[access] invites unreadable:', e && e.message);
+      return [];
+    });
+  }
+  function invites() { return _invites.slice(); }
+
+  function invite(email, role, orgId, orgName, manageOrgs, note) {
+    if (!_db) return Promise.reject(new Error('Not connected.'));
+    if (!can('approve_any')) return Promise.reject(new Error('Administrators only.'));
+    var e = String(email || '').trim().toLowerCase();
+    if (!e || e.indexOf('@') < 1) return Promise.reject(new Error('A full email address.'));
+    var grantable = grantableRoles().map(function (r) { return r.key; });
+    if (grantable.indexOf(role) < 0)
+      return Promise.reject(new Error('You cannot grant the role ' + roleOf(role).label + '.'));
+    var d = String(orgId || '').toLowerCase() || domainOf(e);
+    var bad = validateDomain(d);
+    if (bad) return Promise.reject(new Error('Organisation: ' + bad));
+    return _db.collection(INVITES).doc(e).set({
+      email:e, role:role, orgId:d, orgName:orgName || '',
+      manageOrgs: role === 'limited_admin' ? (manageOrgs || []) : [],
+      note: note || '',
+      invitedBy: _me ? _me.email : '', invitedAt: stamp(), usedAt: null
+    });
+  }
+  function revokeInvite(email) {
+    if (!_db) return Promise.reject(new Error('Not connected.'));
+    if (!can('approve_any')) return Promise.reject(new Error('Administrators only.'));
+    return _db.collection(INVITES).doc(String(email).toLowerCase())['delete']();
+  }
+
   function pendingMessage(rec) {
     return 'Your request to join the ClearSky-OMEGA partner portal is with an administrator. '
          + 'You will be able to sign in as soon as it is approved. Requested '
@@ -584,6 +672,7 @@
     approve:approve, reject:reject, suspend:suspend, restore:restore,
     setRole:setRole, setManagedOrgs:setManagedOrgs, updateSelf:updateSelf,
     loadUsers:loadUsers, users:users, pendingCount:pendingCount, loadStaff:loadStaff,
+    loadInvites:loadInvites, invites:invites, invite:invite, revokeInvite:revokeInvite,
     loadOrgs:loadOrgs, orgs:orgs, orgName:orgName, saveOrg:saveOrg,
     deleteOrg:deleteOrg, setOrgActive:setOrgActive, validateDomain:validateDomain,
     pendingMessage:pendingMessage, blockedMessage:blockedMessage,

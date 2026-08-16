@@ -128,12 +128,51 @@
 
   /* Outside the ladder. Both keep the deal in every partner denominator — that
      is the entire reason they are statuses and not deletions. */
+  /* ── Outside the ladder ──────────────────────────────────────────────────
+     THREE, and the difference between the last two is the whole point.
+
+     `dead` is a deal that HAPPENED and did not work out. It stays in every
+     denominator forever, because a partner who brought forty sites and funded
+     one is a different partner from one who brought one and funded one.
+
+     `discarded` is a record that was NEVER A DEAL: a test row, a
+     mis-adoption, a duplicate created by a bug. Keeping those in the
+     denominator does not make the numbers more honest, it makes them less —
+     a test record counted as "referred but never funded" is a lie about that
+     partner's conversion, told by us.
+
+     So discarded is excluded from every count, every funnel and every partner
+     statistic, and it is reversible. Getting this distinction wrong in either
+     direction is bad: delete real failures and you flatter yourself; keep
+     junk and you libel your partners. */
   var EXITS = [
-    { key:'parked', label:'Parked',  color:'#94A3AF',
+    { key:'parked',    label:'Parked',  color:'#94A3AF',
       hint:'Not now. Revisit on a trigger \u2014 new substation, rezoning, tariff change.' },
-    { key:'dead',   label:'Dead',    color:'#DC2626',
-      hint:'Over. The reason is required and it is what makes the partner report worth reading.' }
+    { key:'dead',      label:'Dead',    color:'#DC2626',
+      hint:'It happened and it did not work out. Stays in every denominator, permanently.' },
+    { key:'discarded', label:'Discarded', color:'#94A3AF', excluded:true,
+      hint:'Never a real deal — a test row, a mis-adoption, a duplicate. Excluded from '
+         + 'every count rather than counted as a failure.' }
   ];
+
+  /* Reasons a record was never a deal. Fixed list, same as DEAD_REASONS, so
+     that "why is my portfolio smaller than I remember" has an answer. */
+  var DISCARD_REASONS = [
+    'Test record',
+    'Adopted in error',
+    'Duplicate of another deal',
+    'Imported in error',
+    'Belongs to another system',
+    'Other'
+  ];
+
+  /* THE FILTER EVERY STATISTIC RUNS THROUGH. Anything counting deals calls
+     this first; anything listing them can choose. One function so the two
+     cannot drift — which is exactly how a discarded record ends up back in
+     a partner report six months later. */
+  function counted(list) {
+    return (list || []).filter(function (d) { return d.stage !== 'discarded'; });
+  }
 
   var DEAD_REASONS = [
     'Interconnection cost or timeline',
@@ -300,6 +339,8 @@
       stage:        d.stage || 'referred',
       stageHistory: Array.isArray(d.stageHistory) ? d.stageHistory : [],
       deadReason:   d.deadReason || '',
+      discardReason:d.discardReason || '',
+      discardedAt:  d.discardedAt || null,
       deadAt:       d.deadAt || null,
 
       /* ── Physical / economic ───────────────────────────────────────────── */
@@ -713,6 +754,46 @@
       stageHistory: firebase.firestore.FieldValue.arrayUnion({
         at:stamp(), from:deal.stage, to:'dead', by:_me?_me.email:'', note:reason })
     }, { type:'stage', message:'Dead \u2014 ' + reason + (note ? ': ' + note : '') });
+  }
+
+  /* Discarding. Reversible, logged, and it does NOT delete — the record stays
+     readable so "where did that go" always has an answer. */
+  function discard(deal, reason, note) {
+    if (!reason) return Promise.reject(new Error(
+      'Say why this was never a real deal. The reason is what stops "discarded" '
+      + 'becoming a bin for anything inconvenient.'));
+    return patch(deal, {
+      stage:'discarded', discardReason:reason, discardedAt:stamp(),
+      discardedBy:_me ? _me.email : '',
+      stageHistory: firebase.firestore.FieldValue.arrayUnion({
+        at:stamp(), from:deal.stage, to:'discarded', by:_me?_me.email:'', note:reason })
+    }, { type:'stage', message:'Discarded \u2014 ' + reason + (note ? ': ' + note : '')
+            + ' (excluded from all counts)' });
+  }
+  function restore(deal, toStage) {
+    return patch(deal, {
+      stage: toStage || 'referred', discardReason:'', discardedAt:null,
+      stageHistory: firebase.firestore.FieldValue.arrayUnion({
+        at:stamp(), from:'discarded', to:toStage||'referred',
+        by:_me?_me.email:'', note:'Restored' })
+    }, { type:'stage', message:'Restored from discarded' });
+  }
+
+  /* ── Permanent deletion ──────────────────────────────────────────────────
+     Owner only, and ONLY on a record already discarded. Two steps on purpose:
+     discarding is the reversible act that removes it from your numbers, and
+     that is what people actually want 95% of the time. Deletion is for the
+     other 5% — genuine test data you never want to see again.
+
+     The rules enforce both halves independently, so a client that skipped the
+     discard step is refused rather than trusted. */
+  function destroy(deal) {
+    if (!_db) return Promise.reject(new Error('Not connected.'));
+    if (deal.stage !== 'discarded')
+      return Promise.reject(new Error(
+        'Discard it first. Deletion is deliberately two steps — discarding already '
+        + 'removes it from every count and can be undone, which is what is usually wanted.'));
+    return _db.collection(COLLECTION).doc(deal.id)['delete']();
   }
 
   function park(deal, note) {
@@ -1222,6 +1303,7 @@
 
   function partnerStats(list, orgId) {
     orgId = String(orgId || '').toLowerCase();
+    list = counted(list);
     var own = list.filter(function (d) { return d.origination.partnerOrg === orgId; });
 
     var s = {
@@ -1293,6 +1375,7 @@
 
   /* Portfolio-wide roll-up. Same shape so one renderer draws both. */
   function portfolio(list) {
+    list = counted(list);
     var s = {
       total: list.length, live:0, dead:0, parked:0,
       reached:{}, funnel:[],
@@ -1331,6 +1414,7 @@
      table. Includes orgs that only ever supplied — they are partners too and
      leaving them off is how a manufacturer's contribution goes unnoticed. */
   function allPartners(list) {
+    list = counted(list);
     var set = {};
     list.forEach(function (d) {
       orgsInvolved(d).forEach(function (o) { if (o) set[o] = 1; });
@@ -1469,7 +1553,8 @@
     'deadReason','deadAt','categories','sizeMw','sizeMwh','capexUsd','preDev','verification',
     'funding','build','bom','notes','activity','orgsInvolved','createdAt','updatedAt','_demo',
     'viability','viabilityHistory','permitting','assignment','finProjectId','adoptedFrom',
-    'adoptedAt','importBatch','externalIds','projectType','prescreen'];
+    'adoptedAt','importBatch','externalIds','projectType','prescreen',
+    'discardReason','discardedAt','discardedBy'];
   function unmapped(deal) {
     var raw = deal._raw || {}, out = {}, n = 0;
     for (var k in raw) { if (!raw.hasOwnProperty(k) || KNOWN.indexOf(k) >= 0) continue; out[k] = raw[k]; n++; }
@@ -1484,6 +1569,8 @@
     drawStatusOf:drawStatusOf, roleOf:roleOf,
     ms:ms, num:num, money:money, mw:mw, pct:pct, fmtDate:fmtDate, days:days, esc:esc, stamp:stamp,
     normalize:normalize, init:init, loadDeals:loadDeals, deals:deals, patch:patch,
+    counted:counted, discard:discard, restore:restore, destroy:destroy,
+    DISCARD_REASONS:DISCARD_REASONS,
     create:create, canAdvance:canAdvance, missingFor:missingFor, advance:advance,
     markDead:markDead, park:park, reattribute:reattribute,
     addParticipant:addParticipant, removeParticipant:removeParticipant,
