@@ -337,44 +337,55 @@ select.ff-i{cursor:pointer}
 @media(max-width:640px){.ff-scrim{padding:0}.ff-modal{max-width:100%;border-radius:0;
   max-height:100vh;height:100vh}.ff-foot{border-radius:0}}
 
-/* ── Kanban ────────────────────────────────────────────────────────────── */
-.fbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.fbar-i{border:1.5px solid #DDE3E9;border-radius:8px;padding:8px 11px;
-  font:400 13px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
-.fbar-i:focus{border-color:var(--accent)}
-#inbox-q{flex:1;min-width:200px}
-.fbar-n{font-size:12px;color:var(--ink-2);font-family:'DM Mono',monospace}
-.bulk{background:var(--accent-soft);border-radius:8px;padding:10px 13px;display:flex;
-  gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.bulk b{font-size:13px;color:var(--accent)}
-.bulk .s{font-size:11.5px;color:var(--ink-2);flex:1;line-height:1.45}
-
-.kb{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
-.kb-col{flex:0 0 268px;background:#F4F6F8;border-radius:var(--r);border:1px solid var(--line)}
-.kb-h{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;
-  gap:8px;position:sticky;top:0;background:#F4F6F8;border-radius:var(--r) var(--r) 0 0;z-index:2}
-.kb-h b{font-size:12px;font-weight:700;color:var(--navy)}
-.kb-h .n{margin-left:auto;font-family:'DM Mono',monospace;font-size:11.5px;color:var(--ink-2);
-  background:#fff;border-radius:9px;padding:1px 8px}
-.kb-h i{display:block;width:8px;height:8px;border-radius:2px}
-.kb-b{padding:9px;display:flex;flex-direction:column;gap:8px;min-height:60px;
-  max-height:calc(100vh - 300px);overflow-y:auto}
-.kb-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 11px;
-  cursor:pointer;box-shadow:var(--shadow)}
-.kb-card:hover{border-color:var(--accent)}
+/* ── Kanban ────────────────────────────────────────────────────────────
+   Sized for reading, not for looking impressive. Eleven stages plus two exits
+   will never fit on one screen, so the job is to make the scroll worth it:
+   narrow columns, dense cards, empty stages collapsed to a strip, and phase
+   bands so you can find the part of the pipeline you meant. */
+.kb-wrap{overflow-x:auto;padding-bottom:14px}
+.kb-phases{display:flex;gap:8px;min-width:min-content;margin-bottom:6px}
+.kb-phase{display:flex;flex-direction:column;gap:5px}
+.kb-plabel{font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-3);padding-left:2px;display:flex;align-items:center;gap:7px}
+.kb-plabel::after{content:'';flex:1;height:1px;background:var(--line)}
+.kb-cols{display:flex;gap:8px;align-items:flex-start}
+.kb-col{flex:0 0 214px;background:#F4F6F8;border-radius:9px;border:1px solid var(--line)}
+.kb-h{padding:8px 10px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line)}
+.kb-h b{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.kb-h .n{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-2);
+  background:#fff;border-radius:8px;padding:0 6px}
+.kb-h i{display:block;width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.kb-sum{padding:5px 10px 0;font-size:10.5px;color:var(--ink-2);font-family:'DM Mono',monospace}
+.kb-b{padding:7px;display:flex;flex-direction:column;gap:6px;min-height:44px;
+  max-height:calc(100vh - 330px);overflow-y:auto}
+.kb-card{background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 9px;
+  cursor:pointer}
+.kb-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
 .kb-card.drag{opacity:.4}
-.kb-card b{display:block;font-size:13px;font-weight:600;color:var(--navy);line-height:1.3}
-.kb-card .m{font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.4}
-.kb-card .f{display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap}
-.kb-card .f span{font-size:10.5px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
-  border-radius:5px;padding:2px 6px}
+.kb-card b{display:block;font-size:12.5px;font-weight:600;color:var(--navy);line-height:1.3}
+.kb-card .m{font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-card .f{display:flex;gap:4px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.kb-card .f span{font-size:10px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
+  border-radius:4px;padding:1px 5px}
 .kb-card .f span.money{background:var(--money-soft);color:var(--money)}
 .kb-card .f span.warn{background:#FEF4E6;color:#7A4A08}
-.kb-col.exit{opacity:.72;background:#EFF1F3}
-.kb-sum{padding:0 12px 8px;font-size:11px;color:var(--ink-2);
-  font-family:'DM Mono',monospace;margin-top:-2px}
-.kb-col.over .kb-b{background:var(--accent-soft);border-radius:0 0 var(--r) var(--r)}
-.kb-empty{font-size:11.5px;color:var(--ink-3);text-align:center;padding:14px 6px}
+.kb-col.over .kb-b{background:var(--accent-soft)}
+.kb-col.exit{opacity:.7;background:#EFF1F3}
+.kb-empty{font-size:11px;color:var(--ink-3);text-align:center;padding:10px 4px}
+
+/* An empty stage still has to be a drop target and still has to be findable,
+   so it collapses to a strip rather than disappearing. Clicking pins it open. */
+.kb-col.slim{flex:0 0 40px;background:#EFF1F3}
+.kb-col.slim .kb-h{flex-direction:column;height:150px;padding:9px 4px;gap:8px;
+  border-bottom:none;cursor:pointer}
+.kb-col.slim .kb-h b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;
+  color:var(--ink-2);max-height:104px}
+.kb-col.slim .kb-h .n{margin-left:0;font-size:10px}
+.kb-col.slim .kb-b,.kb-col.slim .kb-sum{display:none}
+.kb-col.slim.over{flex:0 0 214px;background:var(--accent-soft)}
+.kb-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 
 pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflow-x:auto;
   font-family:'DM Mono',monospace;line-height:1.5;color:var(--ink-2)}
@@ -519,10 +530,18 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 
     <section class="view" id="v-board">
       <div class="ph"><h1>Board</h1>
-        <p>Every live deal by stage. Drag a card to move it — the gates still apply, so a
-           card that lands somewhere it has not earned bounces back and tells you what is
-           missing.</p></div>
-      <div id="kb-host" class="kb"></div>
+        <p>Drag a card to move it; the gates still apply, so a card that lands somewhere it
+           has not earned bounces back and says what is missing. Use <b>Columns</b> to hide
+           stages you do not work.</p></div>
+      <div class="kb-bar">
+        <button class="btn-o" onclick="openBoardColumns()">Columns…</button>
+        <button class="btn-o" id="kb-empties" onclick="toggleEmpties()"></button>
+        <input id="kb-q" class="fbar-i" style="flex:1;min-width:180px"
+          placeholder="Filter cards…" oninput="S.boardQ=this.value;renderBoard()">
+        <select id="kb-org" class="fbar-i" onchange="S.boardOrg=this.value;renderBoard()"></select>
+        <span class="fbar-n" id="kb-count"></span>
+      </div>
+      <div id="kb-host" class="kb-wrap"></div>
     </section>
 
     <section class="view" id="v-verify">
@@ -679,7 +698,9 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       <div class="ph"><h1>Users</h1>
         <p id="users-sub">Approve access, set roles, and scope limited administrators to the
            organisations they manage. Nobody can grant a role above their own, approve
-           themselves, or touch the owner account.</p></div>
+           themselves, or touch the owner account. <b>Accounts are suspended, never deleted</b> —
+           the record of who had access, and when, is the one thing you need after an
+           incident.</p></div>
       <div class="card">
         <div class="card-h"><h2>Access requests and members</h2>
           <div class="chips" id="user-chips" style="margin-left:auto"></div></div>
@@ -697,9 +718,10 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       <div class="card">
         <div class="card-h"><h2>Registry</h2>
           <button class="btn-x" style="margin-left:auto" onclick="openOrgEdit('')">+ Add organisation</button></div>
+        <div class="card-b" id="orgs-note" style="padding-bottom:0"></div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Organisation</th><th>Kind</th><th>Referral basis</th><th>Agreement</th>
-            <th class="num">Deals brought</th><th></th></tr></thead>
+            <th class="num">Brought / touched</th><th></th></tr></thead>
           <tbody id="org-rows"></tbody></table></div>
       </div>
     </section>
@@ -726,12 +748,12 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="/config.js?v=3"></script>
 <script src="/forms.js?v=1"></script>
-<script src="/access-data.js?v=2"></script>
+<script src="/access-data.js?v=4"></script>
 <script src="/portfolio-data.js?v=4"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="/ingest-data.js?v=3"></script>
+<script src="/ingest-data.js?v=4"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -748,6 +770,7 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           openId:null, tab:'overview', partnerOpen:'',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
           imp:null, verifications:[], verifyFilter:'open', marketNews:[],
+          boardQ:'', boardOrg:'', boardPrefs:null, pinned:{}, pendingMove:null,
           inboxOrg:'', inboxQ:'', inboxSel:{} };
 
 function ready(){ var e=document.getElementById('boot');
@@ -941,6 +964,17 @@ function renderBanners(){
       + 'Log the first referral with the button in the top right \u2014 who brought it is the '
       + 'one field that cannot be filled in later without an owner\u2019s approval.'+x+'</div>';
   }
+  var dupes=duplicateGroups();
+  if(dupes.length){
+    el.innerHTML += '<div class="banner warn"><b>'+dupes.length+' possible duplicate'
+      + (dupes.length===1?'':'s')+'.</b> Two records for one site halve that partner\u2019s '
+      + 'numbers without anybody noticing. '
+      + dupes.slice(0,3).map(function(g){
+          return '<button class="btn-x" onclick="doResolveDupes(\''
+            + esc((g[0].name+'|'+(g[0].address||'')).replace(/'/g,''))+'\')">'
+            + esc(g[0].name)+' ('+g.length+')</button>'; }).join('')
+      + (dupes.length>3?' and '+(dupes.length-3)+' more':'')+'</div>';
+  }
   var p=A.pendingCount&&A.pendingCount();
   if(p) el.innerHTML+='<div class="banner warn"><b>'+p+' access request'+(p>1?'s':'')
     +' waiting.</b> <button class="btn-x" onclick="go(\'users\')">Review them</button></div>';
@@ -1049,6 +1083,71 @@ function isStale(d){
   var n=F.days(since, Date.now());
   return n!=null && n>t;
 }
+/* Deals that look like the same site. Surfaced rather than merged, because a
+   portfolio with two of everything quietly halves every partner's numbers and
+   nobody notices until a conversation goes wrong. Name plus location, which
+   catches the real case (adopted twice) without flagging genuinely different
+   phases of one campus. */
+function duplicateGroups(){
+  var by={};
+  S.deals.forEach(function(d){
+    if(F.isExit(d.stage)) return;
+    var k=(d.name+'|'+(d.address||'')).toLowerCase().replace(/[^a-z0-9|]+/g,'');
+    if(k==='|') return;
+    (by[k]=by[k]||[]).push(d);
+  });
+  return Object.keys(by).filter(function(k){ return by[k].length>1; }).map(function(k){ return by[k]; });
+}
+
+/* Resolving one. Deals are never deleted \u2014 the loser is marked dead with
+   "Superseded by another site", which is already in the fixed reason list, so
+   it stays in the denominator where it belongs and the reason aggregates with
+   every other supersession. Deleting it would flatter the conversion numbers
+   by removing a deal that really was created. */
+function doResolveDupes(names){
+  var group=duplicateGroups().filter(function(g){
+    return (g[0].name+'|'+(g[0].address||''))===names; })[0];
+  if(!group) return;
+  Forms.open({
+    title:'Two records for one site',
+    intro:group[0].name,
+    fields:[
+      {type:'static',html:'<b>'+group.length+' deals look like the same site.</b> Keep one; '
+        + 'the others are marked <i>Superseded by another site</i> rather than deleted, so '
+        + 'they stay in the denominator. Deleting them would flatter your conversion by '
+        + 'removing deals that really were created.'},
+      {key:'keep',type:'radio',label:'Keep which one',required:true,value:group[0].id,
+        options:group.map(function(d){
+          var bits=[];
+          if(d.finProjectId) bits.push('listed');
+          if(d.projectId) bits.push('has drawing');
+          if(d.viability.score!=null) bits.push('scored '+d.viability.score);
+          if(d.funding.closedUsd) bits.push(F.money(d.funding.closedUsd,true));
+          return {value:d.id,
+                  label:F.stageOf(d.stage).label+' \u00b7 '+F.fmtDate(d.origination.referredAt),
+                  hint:(bits.join(' \u00b7 ')||'nothing attached yet')
+                     + ' \u00b7 brought by '+(d.origination.partnerName||d.origination.partnerOrg||'?')}; })},
+      {key:'note',type:'text',label:'Note',value:'Duplicate record'}
+    ],
+    submitLabel:'Resolve'
+  }).then(function(v){
+    if(!v) return;
+    var losers=group.filter(function(d){ return d.id!==v.keep; });
+    var kept=findDeal(v.keep), done=0;
+    function step(i){
+      if(i>=losers.length){
+        toast(done+' marked superseded');
+        return refresh();
+      }
+      return F.markDead(losers[i],'Superseded by another site',
+          (v.note||'')+' \u2014 kept '+(kept?kept.name:v.keep))
+        .then(function(){ done++; })['catch'](function(){})
+        .then(function(){ return step(i+1); });
+    }
+    step(0);
+  });
+}
+
 function renderPipeline(){
   var defs=[{k:'live',l:'Live'},{k:'stale',l:'Stalled'},{k:'unattributed',l:'Unattributed'},
             {k:'dead',l:'Dead'},{k:'parked',l:'Parked'},{k:'all',l:'All'}];
@@ -1291,41 +1390,140 @@ function optDistributors(){
 }
 
 /* ── Board ────────────────────────────────────────────────────────────── */
+/* ── Board preferences ───────────────────────────────────────────────────
+   Which columns to show, and whether to collapse the empty ones. Stored on
+   the person's own user document rather than in the browser, so the layout
+   survives moving between machines. Defaults are chosen so the board is
+   usable before anybody configures anything. */
+var BOARD_DEFAULTS = { hidden:[], collapseEmpty:true };
+function boardPrefs(){
+  var p=(ME&&ME.boardPrefs)||S.boardPrefs||BOARD_DEFAULTS;
+  return { hidden: Array.isArray(p.hidden)?p.hidden:[],
+           collapseEmpty: p.collapseEmpty!==false };
+}
+function saveBoardPrefs(next){
+  S.boardPrefs=next; if(ME) ME.boardPrefs=next;
+  renderBoard();
+  A.updateSelf({ boardPrefs: next })['catch'](function(e){
+    /* Not fatal. The layout still applies for this session; it just will not
+       follow them to another machine, and saying so beats silence. */
+    toast('Layout applied, but could not be saved to your account',true);
+    console.warn('[board] prefs not saved:', e&&e.message); });
+}
+function toggleEmpties(){
+  var p=boardPrefs(); p.collapseEmpty=!p.collapseEmpty; saveBoardPrefs(p);
+}
+
+/* ── Phases ──────────────────────────────────────────────────────────────
+   Eleven stages is too many to scan as one row. These bands are purely
+   organisational — they change nothing about the gates or the conversion
+   maths — but they mean you can find the part of the pipeline you meant
+   instead of counting columns. */
+var PHASES = [
+  { label:'Origination', keys:['referred','screening','qualified'] },
+  { label:'Development', keys:['pre_dev','permitting','verified'] },
+  { label:'Capital',     keys:['marketplace','committed','funded'] },
+  { label:'Delivery',    keys:['construction','operating'] },
+  { label:'Closed',      keys:['parked','dead'] }
+];
+
+function boardDeals(){
+  var q=(S.boardQ||'').toLowerCase().trim();
+  return S.deals.filter(function(d){
+    if(S.boardOrg && d.origination.partnerOrg!==S.boardOrg) return false;
+    if(q && (d.name+' '+(d.address||'')+' '+(d.origination.partnerName||''))
+        .toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+}
+
 function renderBoard(){
   var host=document.getElementById('kb-host'); if(!host) return;
-
-  /* THE SAME LADDER AS THE CONVERSION CASCADE, in the same order, plus the two
-     exits. Those matter here: a board that hides dead and parked deals shows a
-     pipeline that only ever grows, and the person looking at it has no idea
-     where anything went. They sit at the end, dimmed, and stay in the count. */
-  var cols=F.STAGES.concat(F.EXITS);
+  var prefs=boardPrefs();
+  var list=boardDeals();
   var byStage={};
-  S.deals.forEach(function(d){ (byStage[d.stage]=byStage[d.stage]||[]).push(d); });
+  list.forEach(function(d){ (byStage[d.stage]=byStage[d.stage]||[]).push(d); });
 
-  host.innerHTML = cols.map(function(st){
-    var inCol=(byStage[st.key]||[]).slice().sort(function(a,b){
-      /* Oldest first inside a column: the thing that has been sitting longest
-         is the thing to look at, and sorting by name hides it. */
-      return (F.ageDays(b)||0)-(F.ageDays(a)||0); });
-    var mw=0, cap=0, closed=0;
-    inCol.forEach(function(d){ mw+=d.sizeMw||0; cap+=d.capexUsd||0;
-      closed+=d.funding.closedUsd||0; });
-    var exit=F.isExit(st.key);
-    return '<div class="kb-col'+(exit?' exit':'')+'" data-stage="'+st.key+'">'
-      + '<div class="kb-h"><i style="background:'+st.color+'"></i><b>'+esc(st.label)+'</b>'
-      +   '<span class="n">'+inCol.length+'</span></div>'
-      + (inCol.length
-          ? '<div class="kb-sum">'+(mw?F.mw(mw):'')
-            + (mw&&(cap||closed)?' \u00b7 ':'')
-            + (closed?F.money(closed,true)+' closed':(cap?F.money(cap,true)+' capex':''))
-            + '</div>'
-          : '')
-      + '<div class="kb-b">'
-      + (inCol.length ? inCol.map(kbCard).join('')
-          : '<div class="kb-empty">'+(exit?'None':'Empty')+'</div>')
-      + '</div></div>'; }).join('');
+  var eb=document.getElementById('kb-empties');
+  if(eb) eb.textContent = prefs.collapseEmpty?'Show empty stages':'Collapse empty stages';
+  var cnt=document.getElementById('kb-count');
+  if(cnt) cnt.textContent = list.length+(list.length===S.deals.length?'':' of '+S.deals.length)+' shown';
+
+  var sel=document.getElementById('kb-org');
+  if(sel && !sel.dataset.built){
+    var orgs={}; S.deals.forEach(function(d){ if(d.origination.partnerOrg)
+      orgs[d.origination.partnerOrg]=(orgs[d.origination.partnerOrg]||0)+1; });
+    sel.innerHTML='<option value="">Brought by \u2014 any</option>'
+      + Object.keys(orgs).sort().map(function(o){
+          return '<option value="'+esc(o)+'"'+(S.boardOrg===o?' selected':'')+'>'
+            + esc(A.orgName(o))+' ('+orgs[o]+')</option>'; }).join('');
+    sel.dataset.built='1';
+  }
+
+  host.innerHTML = '<div class="kb-phases">' + PHASES.map(function(ph){
+    var cols=ph.keys.filter(function(k){ return prefs.hidden.indexOf(k)<0; });
+    if(!cols.length) return '';
+    return '<div class="kb-phase"><div class="kb-plabel">'+esc(ph.label)+'</div>'
+      + '<div class="kb-cols">'
+      + cols.map(function(k){ return kbColumn(k, byStage[k]||[], prefs); }).join('')
+      + '</div></div>'; }).join('') + '</div>';
 
   if(!A.can('write_deal')) return;
+  wireBoardDnd(host);
+}
+
+function kbColumn(key, inCol, prefs){
+  var st=F.stageOf(key), exit=F.isExit(key);
+  /* Slim only when empty AND collapsing is on AND the person has not pinned
+     it open this session. Still a drop target either way. */
+  var slim = prefs.collapseEmpty && !inCol.length && !S.pinned[key];
+  var mw=0, closed=0, cap=0;
+  inCol.forEach(function(d){ mw+=d.sizeMw||0; closed+=d.funding.closedUsd||0;
+    cap+=d.capexUsd||0; });
+
+  inCol=inCol.slice().sort(function(a,b){ return (F.ageDays(b)||0)-(F.ageDays(a)||0); });
+
+  return '<div class="kb-col'+(exit?' exit':'')+(slim?' slim':'')+'" data-stage="'+key+'">'
+    + '<div class="kb-h"'+(slim?' onclick="pinColumn(\''+key+'\')"':'')+'>'
+    +   '<i style="background:'+st.color+'"></i><b>'+esc(st.label)+'</b>'
+    +   '<span class="n">'+inCol.length+'</span></div>'
+    + (!slim&&inCol.length&&(mw||closed||cap)
+        ? '<div class="kb-sum">'+(mw?F.mw(mw):'')
+          +(mw&&(closed||cap)?' \u00b7 ':'')
+          +(closed?F.money(closed,true):(cap?F.money(cap,true):''))+'</div>'
+        : '')
+    + '<div class="kb-b">'
+    + (inCol.length ? inCol.map(kbCard).join('')
+        : '<div class="kb-empty">'+(exit?'None':'Empty')+'</div>')
+    + '</div></div>';
+}
+function pinColumn(k){ S.pinned[k]=1; renderBoard(); }
+
+function kbCard(d){
+  var stale=isStale(d), v=d.viability, exit=F.isExit(d.stage);
+  /* Only flags that mean somebody has to act. A card covered in badges is a
+     card nobody reads, so size and score are dropped unless they are the
+     interesting thing about this deal. */
+  var f='';
+  if(d.sizeMw!=null) f+='<span>'+F.mw(d.sizeMw)+'</span>';
+  if(d.funding.closedUsd) f+='<span class="money">'+F.money(d.funding.closedUsd,true)+'</span>';
+  if(!exit){
+    if(stale) f+='<span class="warn">stalled</span>';
+    if(!d.assignment.designLead&&!d.assignment.devLead
+       && F.stageOf(d.stage).rank>=F.stageOf('qualified').rank) f+='<span class="warn">unassigned</span>';
+    if(d.stage==='marketplace'&&!d.finProjectId) f+='<span class="warn">not listed</span>';
+    if(F.stageOf(d.stage).rank>=F.stageOf('pre_dev').rank&&!d.projectId) f+='<span class="warn">no drawing</span>';
+    if(v.score!=null&&v.verdict!=='pass') f+='<span class="warn">score '+v.score+'</span>';
+  }
+  return '<div class="kb-card" data-id="'+d.id+'" onclick="openDeal(\''+d.id+'\')">'
+    + '<b>'+esc(d.name)+'</b>'
+    + '<div class="m">'+esc(d.origination.partnerName||d.origination.partnerOrg||'unattributed')
+    +   (F.ageDays(d)!=null?' \u00b7 '+F.ageDays(d)+'d':'')+'</div>'
+    + (f?'<div class="f">'+f+'</div>':'')
+    + '</div>';
+}
+
+function wireBoardDnd(host){
   host.querySelectorAll('.kb-card').forEach(function(c){
     c.setAttribute('draggable','true');
     c.addEventListener('dragstart',function(e){
@@ -1341,13 +1539,9 @@ function renderBoard(){
       var id=e.dataTransfer.getData('text/plain');
       var to=col.getAttribute('data-stage');
       var d=findDeal(id); if(!d||d.stage===to) return;
-
       if(to==='dead'){ S.openId=d.id; doDead(); return; }
       if(to==='parked'){ S.openId=d.id; doPark(); return; }
       if(F.isExit(d.stage)){ S.openId=d.id; doRevive(); return; }
-      /* Backwards is not a stage move, it is an admission. Allowing it
-         silently would let a deal reverse out of Funded with no trace of who
-         did it or why. */
       if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
         toast('Moving a deal backwards needs a reason \u2014 open it and use Reopen',true);
         return;
@@ -1357,56 +1551,152 @@ function renderBoard(){
   });
 }
 
-function kbCard(d){
-  var stale=isStale(d), v=d.viability, exit=F.isExit(d.stage);
-  var flags='';
-  if(d.projectType) flags+='<span>'+esc((F.typeOf(d.projectType)||{}).label||d.projectType)+'</span>';
-  if(d.sizeMw!=null) flags+='<span>'+F.mw(d.sizeMw)+'</span>';
-  if(d.funding.closedUsd) flags+='<span class="money">'+F.money(d.funding.closedUsd,true)+'</span>';
-  if(v.score!=null) flags+='<span class="'+(v.verdict==='pass'?'money':'warn')+'">score '+v.score+'</span>';
-  /* Only the flags that mean somebody has to do something. A card covered in
-     badges is a card nobody reads. */
-  if(!exit){
-    if(stale) flags+='<span class="warn">stalled</span>';
-    if(!d.assignment.designLead&&!d.assignment.devLead
-       && F.stageOf(d.stage).rank>=F.stageOf('qualified').rank)
-      flags+='<span class="warn">unassigned</span>';
-    if(d.stage==='marketplace'&&!d.finProjectId)
-      flags+='<span class="warn">not listed</span>';
-    if(F.stageOf(d.stage).rank>=F.stageOf('pre_dev').rank&&!d.projectId)
-      flags+='<span class="warn">no drawing</span>';
-  }
-  if(d.stage==='dead'&&d.deadReason) flags+='<span>'+esc(d.deadReason)+'</span>';
-  return '<div class="kb-card" data-id="'+d.id+'" onclick="openDeal(\''+d.id+'\')">'
-    + '<b>'+esc(d.name)+'</b>'
-    + '<div class="m">'+esc(d.origination.partnerName||d.origination.partnerOrg||'unattributed')
-    +   (d.address?' \u00b7 '+esc(d.address):'')
-    +   (F.ageDays(d)!=null?' \u00b7 '+F.ageDays(d)+'d':'')+'</div>'
-    + (flags?'<div class="f">'+flags+'</div>':'')
-    + '</div>';
+/* Which columns to show. A checklist rather than drag-to-reorder: the ORDER
+   is the pipeline and must not be editable, or the board stops matching the
+   conversion cascade and two people start describing the same deal
+   differently. What you get to choose is what is on screen. */
+function openBoardColumns(){
+  var prefs=boardPrefs();
+  var counts={};
+  S.deals.forEach(function(d){ counts[d.stage]=(counts[d.stage]||0)+1; });
+  Forms.open({
+    title:'Board columns',
+    intro:'Hide the stages you do not work. Nothing is deleted \u2014 deals in a hidden '
+      + 'stage still exist and still count everywhere else.',
+    fields:[
+      {type:'static',html:'The <b>order</b> is the pipeline and is not editable: the board '
+        + 'has to keep matching the conversion cascade, or two people end up describing the '
+        + 'same deal differently.'},
+      {key:'show',type:'multi',label:'Show these stages',
+        value:F.STAGES.concat(F.EXITS).map(function(s){return s.key;})
+          .filter(function(k){ return prefs.hidden.indexOf(k)<0; }),
+        options:F.STAGES.concat(F.EXITS).map(function(s){
+          return {value:s.key,label:s.label+(counts[s.key]?' ('+counts[s.key]+')':'')}; })},
+      {key:'collapseEmpty',type:'select',label:'Empty stages',
+        value:prefs.collapseEmpty?'yes':'no',
+        options:[{value:'yes',label:'Collapse to a strip'},
+                 {value:'no',label:'Show at full width'}],
+        hint:'Collapsed stages are still drop targets \u2014 click one to pin it open.'}
+    ],
+    submitLabel:'Apply'
+  }).then(function(v){
+    if(!v) return;
+    var all=F.STAGES.concat(F.EXITS).map(function(s){return s.key;});
+    var hidden=all.filter(function(k){ return v.show.indexOf(k)<0; });
+    /* A board with everything hidden is a blank page and a support call. */
+    if(hidden.length===all.length){ toast('Keep at least one stage visible',true); return; }
+    S.pinned={};
+    saveBoardPrefs({ hidden:hidden, collapseEmpty:v.collapseEmpty==='yes' });
+    toast(hidden.length?hidden.length+' stage(s) hidden':'All stages shown');
+  });
 }
 
+/* ── Moving a deal ───────────────────────────────────────────────────────
+   A blocked move used to fire a toast and open a tab. That is why "I tried to
+   move it and it didn't work" \u2014 the toast vanishes in three seconds, the tab
+   switch looks like the click missed, and nothing says what to do next.
+
+   Now a blocked move opens a dialog that names the gate, explains why it
+   exists, and puts the fix one button away. A gate that cannot be satisfied
+   from the message that refuses you is a gate people learn to resent. */
 function moveTo(d,to){
+  var st=F.stageOf(to);
   var miss=F.missingFor(d,to);
-  if(miss.length){
-    /* The gate refused. Rather than a dead end, open the form that fixes it \u2014
-       the whole point of naming what is missing is that it is actionable. */
-    toast('Needs: '+miss.map(fieldLabel).join(', '),true);
-    S.openId=d.id; S.tab= to==='qualified'?'score':'overview';
+  if(!miss.length){
+    Forms.open({
+      title:'Move to '+st.label,
+      intro:d.name,
+      fields:[
+        {type:'static',html:Forms.esc(st.hint||'')},
+        {key:'note',type:'textarea',label:'Note (optional)',rows:2,
+          placeholder:'What changed?'}
+      ],
+      submitLabel:'Move to '+st.label
+    }).then(function(v){
+      if(!v) return;
+      act(F.advance(d,to,v.note),'Moved to '+st.label);
+    });
+    return;
+  }
+
+  /* Which form fixes each gate. The point is that the answer to "it did not
+     work" is a button, not a hunt. */
+  var FIX={
+    'viability.score':      {label:'Score it now',        fn:'doScore'},
+    'preDev.budgetUsd':     {label:'Set the budget',      fn:'doEditPreDev'},
+    'permitting.startedAt': {label:'Open permitting',     fn:'doStartPermits'},
+    'verification.verdictId':{label:'Send for verification',fn:'doSendToVerify'},
+    'sizeMw':               {label:'Edit site details',   fn:'doEditSite'},
+    'capexUsd':             {label:'Edit site details',   fn:'doEditSite'},
+    'funding.committedUsd': {label:'Edit funding',        fn:'doEditFunding'},
+    'funding.counterparty': {label:'Edit funding',        fn:'doEditFunding'},
+    'funding.closedUsd':    {label:'Edit funding',        fn:'doEditFunding'},
+    'funding.closedAt':     {label:'Edit funding',        fn:'doEditFunding'},
+    'funding.investorOrg':  {label:'Edit funding',        fn:'doEditFunding'},
+    'origination.partnerOrg':{label:'Set attribution',    fn:'doReattribute'}
+  };
+  var sentence = miss.filter(function(m){ return String(m).charAt(0)==='!'; });
+  var fields   = miss.filter(function(m){ return String(m).charAt(0)!=='!'; });
+
+  /* One fix covers most cases; offer it as the primary action. */
+  var first = fields.length ? FIX[fields[0]] : null;
+  if(!first && sentence.length && d.viability.score!=null) first=FIX['viability.score'];
+
+  S.openId=d.id;
+  Forms.open({
+    title:'Not ready for '+st.label,
+    intro:d.name,
+    fields:[
+      {type:'static',html:'<b>'+(fields.length+sentence.length)+' thing'
+        + ((fields.length+sentence.length)===1?'':'s')+' missing:</b><br>'
+        + miss.map(function(m){ return '\u00b7 '+Forms.esc(fieldLabel(m)); }).join('<br>')},
+      st.why ? {type:'static',html:'<b>Why this gate exists.</b> '+Forms.esc(st.why)} : null,
+      {key:'go',type:'radio',label:'What now',required:true,
+        value: first?'fix':'close',
+        options:[
+          first ? {value:'fix',label:first.label,
+                   hint:'Opens the form that fills this in.'} : null,
+          {value:'open',label:'Open the deal',hint:'Work through it yourself.'},
+          {value:'close',label:'Leave it for now'}
+        ].filter(Boolean)}
+    ].filter(Boolean),
+    submitLabel:'Continue',
+    cancelLabel:'Close'
+  }).then(function(v){
+    if(!v||v.go==='close') return;
+    if(v.go==='fix'&&first){
+      /* Remember where they were headed, so the move can be offered again the
+         moment the gate is satisfied rather than making them find it. */
+      S.pendingMove={dealId:d.id,to:to};
+      window[first.fn]();
+      return;
+    }
+    S.tab = fields.indexOf('viability.score')>=0 ? 'score'
+          : fields.indexOf('permitting.startedAt')>=0 ? 'permits'
+          : String(fields[0]||'').indexOf('funding')===0 ? 'money' : 'overview';
     document.getElementById('scrim').classList.add('on');
     document.getElementById('drawer').classList.add('on');
     renderDrawer();
-    return;
-  }
-  Forms.open({
-    title:'Move to '+F.stageOf(to).label,
-    intro:d.name,
-    fields:[{key:'note',type:'textarea',label:'Note (optional)',rows:2,
-      placeholder:'What changed?'}],
-    submitLabel:'Move'
-  }).then(function(v){
-    if(!v) return;
-    act(F.advance(d,to,v.note),'Moved to '+F.stageOf(to).label);
+  });
+}
+
+/* After any write, if a blocked move is pending and the gate now passes,
+   offer it straight away. Making somebody re-find the move they were already
+   attempting is the small friction that turns into "this is hard to use". */
+function checkPendingMove(){
+  var p=S.pendingMove; if(!p) return;
+  var d=findDeal(p.dealId); if(!d){ S.pendingMove=null; return; }
+  if(F.missingFor(d,p.to).length) return;
+  S.pendingMove=null;
+  var st=F.stageOf(p.to);
+  Forms.confirm({
+    title:'Ready for '+st.label,
+    intro:d.name+' \u2014 that gate now passes.',
+    danger:false,
+    fields:[{type:'static',html:Forms.esc(st.hint||'')}],
+    submitLabel:'Move to '+st.label
+  }).then(function(ok){
+    if(ok) act(F.advance(d,p.to,'Gate satisfied'),'Moved to '+st.label);
   });
 }
 
@@ -1682,8 +1972,10 @@ function doBulkAdopt(){
     fields:[
       {type:'static',html:'<b>One answer, '+sel.length+' deals.</b> Attribution locks as '
         + 'soon as a deal advances, so this is the moment to get it right.'},
-      {key:'partnerOrg',type:'org',label:'Who brought all of these',required:true,
-        options:optOrgs(), value: mixed?'':(sel[0].filedByOrg||'')},
+      {key:'partnerOrg',type:'org',label:'Who brought all of these (email domain)',
+        required:true, options:optOrgs(),
+        value: mixed?'':(sel[0].filedByGuess||''),
+        validate:function(v){ return A.validateDomain(v); }},
       {key:'stage',type:'select',label:'Adopt at stage',required:true,value:'screening',
         options:optStages('marketplace')}
     ],
@@ -1718,13 +2010,22 @@ function doAdopt(idx){
     intro:c.name+' \u00b7 from '+IN.sourceLabel(c.source),
     fields:[
       {type:'static',html:'<b>Who brought it is the one thing the source cannot tell us.</b> '
-        + 'This record knows who <i>filed</i> it ('+Forms.esc(c.filedByOrg||'unknown')
-        + '), which is frequently not who <i>referred</i> it \u2014 and attribution locks as '
+        + 'This record says it was <i>filed</i> by <span class="mono">'
+        + Forms.esc(c.filedByOrg||'unknown')+'</span>'
+        + (c.source==='fin'
+           ? ' \u2014 but that is the marketplace\u2019s organisation <b>key</b>, not an email '
+             + 'domain'+(c.filedByGuess?', which probably means <span class="mono">'
+             + Forms.esc(c.filedByGuess)+'</span>':'')+'.'
+           : '.')
+        + ' Whoever filed it is frequently not who referred it, and attribution locks as '
         + 'soon as the deal advances.'},
-      {key:'partnerOrg',type:'org',label:'Who brought it',required:true,options:optOrgs(),
-        value:c.filedByOrg||'',
+      {key:'partnerOrg',type:'org',label:'Who brought it (email domain)',required:true,
+        options:optOrgs(),
+        value:c.filedByGuess||'',
+        validate:function(v){ return A.validateDomain(v); },
         requiredMsg:'Required. Getting this wrong at adoption means getting it wrong on the '
-                  + 'whole back catalogue at once.'},
+                  + 'whole back catalogue at once.',
+        hint:'Must be a real email domain \u2014 it decides who can sign in and see this deal.'},
       {key:'name',type:'text',label:'Site name',required:true,value:c.name},
       {key:'address',type:'text',label:'Location',value:c.address},
       {key:'projectType',type:'select',label:'Project type',options:optTypes()},
@@ -1754,7 +2055,15 @@ function doAdopt(idx){
         }
         return refresh();
       }).then(function(){ return loadInbox(false); })
-       ['catch'](function(e){ toast((e&&e.message)||'Could not adopt',true); });
+       ['catch'](function(e){
+          if(e&&e.alreadyAdopted){
+            /* Not a mistake the person made \u2014 say where it went and clear the
+               stale row, rather than leaving them wondering. */
+            toast('Already adopted \u2014 opening the existing deal');
+            refresh().then(function(){ loadInbox(false); openDeal(e.alreadyAdopted); });
+            return;
+          }
+          toast((e&&e.message)||'Could not adopt',true); });
   });
 }
 
@@ -2032,38 +2341,85 @@ function editScope(id){
 }
 
 /* ── Organisations ────────────────────────────────────────────────────── */
+function orgDealCount(k){
+  var n=0; S.deals.forEach(function(d){ if(d.origination.partnerOrg===k) n++; });
+  return n;
+}
+/* Every org that touches ANYTHING, not just origination \u2014 a supplier or an
+   investor with no referrals still has a real relationship, and offering to
+   delete their label because they never brought a deal would be wrong. */
+function orgTouchCount(k){
+  var n=0; S.deals.forEach(function(d){ if(F.orgsInvolved(d).indexOf(k)>=0) n++; });
+  return n;
+}
+
 function renderOrgs(){
   var orgs=A.orgs(), keys=Object.keys(orgs);
   var counts={};
-  S.deals.forEach(function(d){ var o=d.origination.partnerOrg;
-    if(o) counts[o]=(counts[o]||0)+1; });
-  /* Show orgs on deals even if nobody has registered them \u2014 an unregistered
-     org is a gap somebody should close, not a row to hide. */
+  S.deals.forEach(function(d){ var o=d.origination.partnerOrg; if(o) counts[o]=(counts[o]||0)+1; });
   Object.keys(counts).forEach(function(o){ if(keys.indexOf(o)<0) keys.push(o); });
+
+  /* Anything that is not a usable email domain. These are the entries that
+     can never be signed in to, and they are worth calling out rather than
+     listing quietly alongside the real ones. */
+  var broken=keys.filter(function(k){ return !!A.validateDomain(k); });
+  var note=document.getElementById('orgs-note');
+  if(note){
+    note.innerHTML = broken.length
+      ? '<div class="banner warn"><b>'+broken.length+' entr'+(broken.length===1?'y is':'ies are')
+        + ' not a valid email domain:</b> '+broken.map(esc).join(', ')
+        + '. Nobody can ever sign in to these, and any deal attributed to one is attributed '
+        + 'to a company that does not exist in the system. Merge each into the real '
+        + 'organisation \u2014 that moves the deals across and keeps the history \u2014 then remove it.</div>'
+      : '';
+  }
 
   var host=document.getElementById('org-rows');
   host.innerHTML = keys.length ? keys.sort().map(function(k){
-    var o=orgs[k];
-    return '<tr><td><div class="t-name">'+esc(o?o.name:k)+'</div>'
-      +   '<div class="t-sub">'+esc(k)+(o?'':' <span style="color:var(--warn)">not registered</span>')+'</div></td>'
+    var o=orgs[k], bad=A.validateDomain(k), brought=counts[k]||0, touch=orgTouchCount(k);
+    var acts='';
+    if(A.can('approve_any')){
+      acts='<button class="btn-x" onclick="openOrgEdit(\''+esc(k)+'\')">Edit</button>';
+      if(brought||touch)
+        acts+='<button class="btn-x" onclick="doMergeOrg(\''+esc(k)+'\')">Merge\u2026</button>';
+      if(o&&o.seeded)
+        acts+='<span class="lock">in config</span>';
+      else if(!touch&&!brought)
+        acts+='<button class="btn-x danger" onclick="doDeleteOrg(\''+esc(k)+'\')">Delete</button>';
+      else if(o)
+        acts+='<button class="btn-x" onclick="doToggleOrg(\''+esc(k)+'\','
+             +(o.active===false?'true':'false')+')">'
+             +(o.active===false?'Reactivate':'Deactivate')+'</button>';
+    }
+    return '<tr'+(o&&o.active===false?' style="opacity:.55"':'')+'>'
+      + '<td><div class="t-name">'+esc(o?o.name:k)+'</div>'
+      +   '<div class="t-sub"><span class="mono">'+esc(k)+'</span>'
+      +   (bad?' <span style="color:var(--bad);font-weight:600">not a domain</span>'
+             :(o?'':' <span style="color:var(--warn)">not registered</span>'))
+      +   (o&&o.active===false?' \u00b7 inactive':'')+'</div></td>'
       + '<td>'+(o?esc(A.orgKindOf(o.kind).label):'\u2014')
       +   (o&&o.isShareholder?' <span class="tag">shareholder</span>':'')+'</td>'
       + '<td style="font-size:12px">'+(o?esc(o.referralBasis||'\u2014'):'\u2014')+'</td>'
       + '<td class="mono" style="font-size:12px">'+(o?esc(o.agreementRef||'\u2014'):'\u2014')+'</td>'
-      + '<td class="num mono">'+(counts[k]||0)+'</td>'
-      + '<td><button class="btn-x" onclick="openOrgEdit(\''+k+'\')">Edit</button></td></tr>'; }).join('')
-    : '<tr><td colspan="6"><div class="empty"><b>No organisations registered</b>'
+      + '<td class="num mono">'+brought+(touch>brought?' <span class="lock">/'+touch+'</span>':'')+'</td>'
+      + '<td>'+acts+'</td></tr>'; }).join('')
+    : '<tr><td colspan="6"><div class="empty"><b>No organisations</b>'
       + 'Add one to record what kind of partner they are and how referrals are paid.</div></td></tr>';
 }
+
 function openOrgEdit(orgId){
   var o=A.orgs()[orgId]||{};
   Forms.open({
     title: orgId ? 'Edit organisation' : 'Add an organisation',
     fields:[
-      {key:'orgId',type:'text',label:'Domain',required:true,value:orgId,
-        hint:'This is how people from the organisation sign in, and how their deals '
-           + 'are scoped. Lowercase.'},
-      {key:'name',type:'text',label:'Display name',required:true,value:o.name||''},
+      {key:'orgId',type:'text',label:'Email domain',required:true,value:orgId,
+        placeholder:'company.com',
+        validate:function(v){ return A.validateDomain(v); },
+        hint:'THE DOMAIN, not the company name. This is how people from the organisation '
+           + 'sign in and how their deals are scoped \u2014 an entry that is not a real domain '
+           + 'creates a company nobody can ever log in to.'},
+      {key:'name',type:'text',label:'Display name',required:true,value:o.name||'',
+        placeholder:'Canadian Solar'},
       {key:'kind',type:'radio',label:'What kind of partner',required:true,
         value:o.kind||'broker',
         options:A.ORG_KINDS.map(function(k){
@@ -2072,16 +2428,106 @@ function openOrgEdit(orgId){
         value:o.isShareholder?'yes':'no',
         options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}]},
       {key:'referralBasis',type:'text',label:'Referral basis',value:o.referralBasis||'',
-        hint:'Free text, because arrangements differ per MSA and a percentage field would '
-           + 'quietly misstate the ones that do not fit.'},
+        hint:'Free text, because arrangements differ per MSA.'},
       {key:'agreementRef',type:'text',label:'Agreement reference',value:o.agreementRef||''}
     ]
   }).then(function(v){
     if(!v) return;
-    act(A.saveOrg(v.orgId.toLowerCase(),{ name:v.name, kind:v.kind,
-      referralBasis:v.referralBasis, agreementRef:v.agreementRef,
-      isShareholder:v.isShareholder==='yes', active:true }),'Saved');
+    act(A.saveOrg(v.orgId,{ name:v.name, kind:v.kind, referralBasis:v.referralBasis,
+      agreementRef:v.agreementRef, isShareholder:v.isShareholder==='yes', active:true }),'Saved');
   });
+}
+
+/* ── Merge ───────────────────────────────────────────────────────────────
+   The actual fix for a mistyped organisation, and the reason Delete is not
+   offered while deals reference one.
+
+   Deleting the registry row would remove the NAME and leave every deal still
+   pointing at the mistyped domain \u2014 so the deal renders as "sunesol" forever,
+   belongs to no organisation anyone can sign in to, and quietly sits outside
+   the real partner's conversion numbers.
+
+   Merging moves the attribution across first, one deal at a time, through the
+   normal reattribution path. That means each move is logged, the previous
+   partner is preserved in originationHistory, and the audit trail says a
+   person did this and why. Then the empty label can go. */
+function doMergeOrg(from){
+  var brought=orgDealCount(from), touch=orgTouchCount(from);
+  var targets=optOrgs().filter(function(o){ return o.value!==from; });
+  Forms.open({
+    title:'Merge '+from,
+    intro:brought+' deal'+(brought===1?'':'s')+' attributed'
+      + (touch>brought?', '+touch+' touched in total':''),
+    warning: touch>brought
+      ? 'This organisation also appears on deals as a participant, supplier or investor. '
+        + 'Merging moves ATTRIBUTION only \u2014 those other references are not rewritten, and '
+        + 'you will need to fix them on the deals themselves.'
+      : '',
+    fields:[
+      {type:'static',html:'Reattributes every deal from <b>'+Forms.esc(from)+'</b> to the '
+        + 'organisation you pick. Each move is logged individually and the previous partner '
+        + 'stays in the record \u2014 this is the same reattribution path as changing one deal '
+        + 'by hand, not a bulk overwrite that hides what happened.'},
+      {key:'to',type:'org',label:'Merge into',required:true,options:targets,
+        validate:function(v){ return A.validateDomain(v); }},
+      {key:'why',type:'textarea',label:'Reason',rows:2,required:true,
+        value:'Merged duplicate organisation '+from,
+        hint:'Written onto every deal that moves.'},
+      {key:'thenDelete',type:'select',label:'Afterwards',value:'yes',
+        options:[{value:'yes',label:'Remove the empty entry'},
+                 {value:'no',label:'Keep it, deactivated'}]}
+    ],
+    submitLabel:'Merge '+(brought||'')
+  }).then(function(v){
+    if(!v) return;
+    var moving=S.deals.filter(function(d){ return d.origination.partnerOrg===from; });
+    var name=A.orgName(v.to)||v.to, done=0, failed=0;
+    toast('Merging\u2026');
+    function step(i){
+      if(i>=moving.length){
+        var after = v.thenDelete==='yes'
+          ? A.deleteOrg(from)['catch'](function(e){
+              /* A seeded org cannot be deleted. Deactivate instead rather than
+                 leaving the person with a half-finished merge. */
+              return A.setOrgActive(from,false)['catch'](function(){}); })
+          : A.setOrgActive(from,false)['catch'](function(){});
+        return after.then(function(){
+          toast(done+' deal'+(done===1?'':'s')+' moved to '+name
+                +(failed?', '+failed+' failed':''), failed>0);
+          return refresh();
+        });
+      }
+      return F.reattribute(moving[i],v.to,name,v.why)
+        .then(function(){ done++; })['catch'](function(){ failed++; })
+        .then(function(){ return step(i+1); });
+    }
+    step(0);
+  });
+}
+
+function doDeleteOrg(k){
+  Forms.confirm({
+    title:'Delete '+k+'?',
+    intro:'Nothing is attributed to it.',
+    fields:[{type:'static',html:'This removes the registry entry \u2014 the name, kind and '
+      + 'referral basis. It is a label, not evidence, so no history is lost. If a deal is '
+      + 'later attributed to this domain it will simply render as the bare domain again.'}],
+    submitLabel:'Delete'
+  }).then(function(ok){ if(ok) act(A.deleteOrg(k),'Deleted'); });
+}
+
+function doToggleOrg(k,on){
+  if(on){ act(A.setOrgActive(k,true),'Reactivated'); return; }
+  Forms.confirm({
+    title:'Deactivate '+k+'?',
+    intro:orgDealCount(k)+' deal(s) reference it',
+    danger:false,
+    fields:[{type:'static',html:'Deals keep rendering with the right name, but the '
+      + 'organisation stops appearing in the pickers where somebody could select it again. '
+      + 'This is the right move when something references it \u2014 deleting would leave those '
+      + 'deals pointing at a nameless domain.'}],
+    submitLabel:'Deactivate'
+  }).then(function(ok){ if(ok) act(A.setOrgActive(k,false),'Deactivated'); });
 }
 
 function openNew(){
@@ -2704,6 +3150,7 @@ function tabHistory(d){
 /* ── Deal actions ─────────────────────────────────────────────────────── */
 function act(p,msg){
   return p.then(function(){ toast(msg); return refresh(); })
+   .then(function(){ checkPendingMove(); })
    ['catch'](function(e){
       if(e && e.missing){
         toast('Missing: '+e.missing.map(fieldLabel).join(', '),true);

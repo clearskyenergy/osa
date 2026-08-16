@@ -77,6 +77,37 @@
   /* ── Reading the sources ────────────────────────────────────────────────
      Each returns a normalised CANDIDATE: enough to decide, not the whole
      record. The full record stays where it lives. */
+  /* ── orgKey is a SLUG, not a domain ──────────────────────────────────────
+     This cost real data before it was caught, so it is worth being explicit.
+
+     The financing portal folds a typed organisation NAME into a stable key:
+     "MNT LLC", "MNT Llc" and "mnt llc." all become `mnt-llc`. That is right
+     over there — it lets colleagues share a workspace however they type the
+     company name, and it deliberately is NOT the email domain, because that
+     would put every gmail.com account into one organisation.
+
+     But a deal's `origination.partnerOrg` IS an email domain: it decides who
+     can sign in and see the deal. Passing the slug straight through created
+     organisations like `clearsky-usa-com` — plausible enough to be missed,
+     and impossible to ever sign in to.
+
+     So: guess, never assume. A slug whose last segment looks like a TLD is
+     probably a domain with the dot lost, and that is offered as a SUGGESTION
+     for a human to confirm. A slug with no TLD (`mnt-llc`) is a company name,
+     and we return nothing rather than inventing `mnt.llc`. */
+  var TLDS = ['com','net','org','io','ai','co','us','ca','uk','de','energy','solar',
+              'tech','dev','app','power','green','eco'];
+  function slugToDomain(slug) {
+    var s = lower(slug).trim();
+    if (!s) return '';
+    if (s.indexOf('.') >= 0) return s;
+    var parts = s.split('-');
+    if (parts.length < 2) return '';
+    var tail = parts[parts.length - 1];
+    if (TLDS.indexOf(tail) < 0) return '';
+    return parts.slice(0, -1).join('-') + '.' + tail;
+  }
+
   function candidateFromFin(id, d) {
     var sizes = [];
     if (d.sizeMw != null)   sizes.push(F().num(d.sizeMw));
@@ -88,7 +119,10 @@
       state:     d.state || '',
       status:    d.status || '',
       /* WHO FILED IT. Deliberately not called partnerOrg \u2014 see the header. */
-      filedByOrg: lower(d.orgKey || ''),
+      /* Raw slug kept so the adoption form can show what the source actually
+         says next to the domain we think it means. */
+      filedByOrg:   lower(d.orgKey || ''),
+      filedByGuess: slugToDomain(d.orgKey || ''),
       filedByUid: d.developerUid || '',
       sizeMw:    sizes.length ? sizes[0] : null,
       capexUsd:  F().num(d.capexUsd != null ? d.capexUsd : d.totalCost),
@@ -114,7 +148,8 @@
       name:      d.projectName || d.siteName || 'Untitled intake',
       address:   d.address || '',
       status:    d.status || '',
-      filedByOrg: lower(d.orgId || (cb.email || '').split('@')[1] || ''),
+      filedByOrg:   lower(d.orgId || (cb.email || '').split('@')[1] || ''),
+      filedByGuess: lower(d.orgId || (cb.email || '').split('@')[1] || ''),
       filedByUid: cb.uid || '',
       contactName: (d.customer || {}).name || cb.name || '',
       sizeMw:    null,
@@ -133,7 +168,8 @@
       name:      d.name || d.projectName || 'Untitled project',
       address:   d.address || d.siteAddress || '',
       status:    d.status || '',
-      filedByOrg: lower(d.orgId || ''),
+      filedByOrg:   lower(d.orgId || ''),
+      filedByGuess: lower(d.orgId || ''),
       filedByUid: d.uid || '',
       sizeMw:    F().num(d.sizeMw),
       capexUsd:  null,
@@ -244,6 +280,20 @@
      field would not write is the wrong way round. It IS reported, because a
      missing back-reference means this record will show up as adoptable again
      tomorrow and somebody will adopt it twice. */
+  /* Has this source record already become a deal? Checked against the
+     DATABASE at the moment of adoption, not the list in memory. The in-memory
+     check catches the normal case; this catches the one that actually bites —
+     a double click, or two people working the inbox at once, either of which
+     silently produces two deals for one site with the money split between
+     them. */
+  function alreadyAdopted(c) {
+    var field = c.source === 'fin' ? 'finProjectId'
+              : c.source === 'intake' ? 'intakeId' : 'projectId';
+    return _db.collection(F().COLLECTION).where(field, '==', c.sourceId).limit(1).get()
+      .then(function (s) { return s.empty ? null : s.docs[0].id; })
+      ['catch'](function () { return null; });
+  }
+
   function adopt(c, choices) {
     choices = choices || {};
     if (!choices.partnerOrg)
@@ -257,6 +307,19 @@
       return Promise.reject(new Error(
         'Adopting straight into ' + F().stageOf(stage).label + ' would put a deal past '
         + 'gates it never passed. Adopt it earlier and advance it, or confirm the override.'));
+
+    return alreadyAdopted(c).then(function (existingId) {
+      if (existingId) {
+        var e = new Error('Already adopted — this record is deal ' + existingId
+          + '. Nothing was created; refresh the inbox to clear it.');
+        e.alreadyAdopted = existingId;
+        throw e;
+      }
+      return adoptWrite(c, choices, stage);
+    });
+  }
+
+  function adoptWrite(c, choices, stage) {
 
     var fields = {
       name:        choices.name || c.name,
@@ -744,6 +807,7 @@
     SOURCES:SOURCES, FIELDS:FIELDS,
     init:init, loadInbox:loadInbox, annotate:annotate,
     adopt:adopt, linkExisting:linkExisting, backReference:backReference,
+    slugToDomain:slugToDomain, alreadyAdopted:alreadyAdopted,
     sourceLabel:sourceLabel,
     createEditorProject:createEditorProject, pushToMarketplace:pushToMarketplace,
     syncMarketplace:syncMarketplace,

@@ -1749,8 +1749,28 @@ service cloud.firestore {
        ══════════════════════════════════════════════════════════════════ */
     match /omega_partner_orgs/{orgId} {
       allow read:   if pActive();
-      allow write:  if isPortalAdmin();
-      allow delete: if false;
+
+      /* SPLIT FROM `write` DELIBERATELY. `allow write` is shorthand for
+         create + update + delete, and separate allow statements OR together — so
+         the previous `allow write: if isPortalAdmin(); allow delete: if false;`
+         did NOT block deletion. It granted it, and the second line was dead
+         code that read like a restriction. Naming the three operations
+         separately means the file says what it does.
+
+         DELETE IS ALLOWED HERE, unlike every other collection in this file,
+         and the difference is what the document holds. A deal, a verification
+         and a user record are evidence: of who was owed a fee, of what an
+         engineer signed, of who had access when. An organisation registry row
+         is a LABEL — a display name, a kind, a referral basis. Deleting it
+         destroys no history, because the deals keep their orgId either way and
+         simply render as the bare domain.
+
+         What deletion does NOT do is fix attribution. Removing a mistyped
+         organisation leaves every deal still pointing at the mistyped domain.
+         The console merges first and deletes second for that reason. */
+      allow create: if isPortalAdmin();
+      allow update: if isPortalAdmin();
+      allow delete: if isPortalAdmin();
     }
 
     /* ══════════════════════════════════════════════════════════════════

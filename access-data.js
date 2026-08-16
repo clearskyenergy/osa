@@ -218,6 +218,7 @@
          and meaningless there — see canApprove(). */
       manageOrgs: (d.manageOrgs || []).map(function (s) { return String(s).toLowerCase(); }),
       title:      d.title || '',
+      boardPrefs: d.boardPrefs || null,
       phone:      d.phone || '',
       requestedAt:d.requestedAt || null,
       approvedAt: d.approvedAt || null,
@@ -354,7 +355,14 @@
      field name is a self-promotion path. */
   function updateSelf(fields) {
     if (!_db || !_me) return Promise.reject(new Error('Not signed in.'));
-    var allowed = ['name', 'title', 'phone', 'orgName'], body = {};
+    /* UI preferences live on the person's own user document, not in browser
+       storage: a board layout that resets when you open the console on a
+       different machine is a setting nobody bothers to configure twice.
+
+       Safe to self-write because the update rule pins the ACCESS fields
+       (role, status, manageOrgs, orgId…) and leaves everything else to the
+       account's owner. Adding a preference key here grants nothing. */
+    var allowed = ['name', 'title', 'phone', 'orgName', 'boardPrefs', 'prefs'], body = {};
     for (var i = 0; i < allowed.length; i++)
       if (fields[allowed[i]] != null) body[allowed[i]] = fields[allowed[i]];
     if (!Object.keys(body).length) return Promise.resolve();
@@ -440,11 +448,70 @@
     var all = orgs();
     return (all[k] && all[k].name) || k || '\u2014';
   }
+  /* ── Domain validation ───────────────────────────────────────────────────
+     The org id IS the email domain. That is not a convention, it is the join:
+     it decides which deals a person sees, which assignments reach them, and
+     which organisation a referral fee belongs to.
+
+     So a value like "Canadian Solar" or "sunesol" is not a cosmetic mistake.
+     It creates an organisation nobody can ever sign in to, silently, and any
+     deal attributed to it is attributed to a company that does not exist in
+     the system. The first version of this form accepted whatever was typed,
+     which is how both got into the registry. */
+  function validateDomain(d) {
+    var s = String(d || '').trim().toLowerCase();
+    if (!s) return 'Required.';
+    if (/\s/.test(s))
+      return 'A domain cannot contain spaces. This is the email domain people sign in '
+           + 'from — "Canadian Solar" is a name, "canadiansolar.com" is a domain.';
+    if (s.indexOf('@') >= 0)
+      return 'Just the domain, not a full email address.';
+    if (s.indexOf('.') < 0)
+      return 'That is missing a dot, so nobody can have an email address at it. '
+           + 'Did you mean ' + s + '.com?';
+    if (!/^[a-z0-9.-]+$/.test(s))
+      return 'Letters, numbers, dots and hyphens only.';
+    if (/^[.-]|[.-]$/.test(s))
+      return 'Cannot start or end with a dot or hyphen.';
+    return null;
+  }
+
   function saveOrg(orgId, fields) {
     if (!_db) return Promise.reject(new Error('Not connected.'));
     if (!can('approve_any')) return Promise.reject(new Error('Administrators only.'));
+    var bad = validateDomain(orgId);
+    if (bad) return Promise.reject(new Error(bad));
     fields.updatedAt = stamp();
-    return _db.collection(ORGS).doc(String(orgId).toLowerCase()).set(fields, { merge:true });
+    return _db.collection(ORGS).doc(String(orgId).toLowerCase().trim()).set(fields, { merge:true });
+  }
+
+  /* Removing a registry entry. Permitted for administrators because this
+     document is a label rather than evidence — see the note in the rules.
+
+     It does NOT touch deals. Anything attributed to this organisation keeps
+     its orgId and simply renders as the bare domain afterwards, which is why
+     the console merges before it deletes. Deleting first would leave you with
+     deals pointing at a company that no longer has a name. */
+  function deleteOrg(orgId) {
+    if (!_db) return Promise.reject(new Error('Not connected.'));
+    if (!can('approve_any')) return Promise.reject(new Error('Administrators only.'));
+    var k = String(orgId || '').toLowerCase();
+    var known = (acc().knownOrgs) || {};
+    if (known[k])
+      return Promise.reject(new Error(
+        k + ' is seeded in config.js, so deleting the registry entry would not remove it — '
+        + 'it would reappear on the next load. Remove it from access.knownOrgs and redeploy.'));
+    return _db.collection(ORGS).doc(k)['delete']();
+  }
+
+  /* Switching an organisation off without losing its name. The right move
+     whenever deals reference it: they keep rendering properly, but it stops
+     appearing in the pickers where somebody could pick it again. */
+  function setOrgActive(orgId, active) {
+    if (!_db) return Promise.reject(new Error('Not connected.'));
+    if (!can('approve_any')) return Promise.reject(new Error('Administrators only.'));
+    return _db.collection(ORGS).doc(String(orgId).toLowerCase())
+      .set({ active: active !== false, updatedAt: stamp() }, { merge:true });
   }
 
   /* What a pending user is told. It names nothing — no deal, no partner, no
@@ -476,6 +543,7 @@
     setRole:setRole, setManagedOrgs:setManagedOrgs, updateSelf:updateSelf,
     loadUsers:loadUsers, users:users, pendingCount:pendingCount,
     loadOrgs:loadOrgs, orgs:orgs, orgName:orgName, saveOrg:saveOrg,
+    deleteOrg:deleteOrg, setOrgActive:setOrgActive, validateDomain:validateDomain,
     pendingMessage:pendingMessage, blockedMessage:blockedMessage,
     COLLECTION:COLLECTION, ORGS:ORGS
   };
