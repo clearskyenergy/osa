@@ -424,6 +424,28 @@
      Permitted because /projects create admits isOmegaStaff() and isAdmin()
      for ANY orgId \u2014 that grant exists precisely so staff can build into a
      tenant's workspace. */
+  /* THE DOCUMENT SHAPE IS THE EDITOR'S, NOT OURS.
+
+     The editor's _loadProject() reads specific field names and its project
+     list filters on `wizMode`. An earlier version of this function wrote
+     sensible-looking names of its own \u2014 siteAddress, projectType, categories \u2014
+     and the result was a project that appears in the list and opens EMPTY,
+     because none of the names matched. Worse, it fails silently: no error,
+     just a blank canvas and a designer wondering what they did wrong.
+
+     So this mirrors the editor's own newProject() exactly, field for field,
+     and adds only the two link fields on top. If the editor's schema changes,
+     this is the function that has to follow it. */
+  var WIZ = {
+    /* BTM = behind the meter, FOM = front of meter. The editor branches on
+       this throughout and its project list tabs filter on it, so guessing
+       wrong is worse than leaving it unset \u2014 an unset mode prompts the
+       designer to choose; a wrong one quietly configures the whole wizard. */
+    solar:'FOM', solar_bess:'FOM', bess:'FOM', powergen:'FOM',
+    compute:'BTM', compute_gen:'BTM', microgrid:'BTM', der:'BTM',
+    dcfc:'EVSE', charging_bess:'EVSE', l2:'L2'
+  };
+
   function createEditorProject(deal, opts) {
     opts = opts || {};
     var orgId = String(opts.orgId || deal.clientOrgId || '').toLowerCase();
@@ -432,35 +454,37 @@
       + 'Set the client on the deal first \u2014 a drawing filed into our own org never '
       + 'reaches the person who asked for it.'));
 
-    var t = F().typeOf(deal.projectType) || {};
+    var addr = opts.address || deal.address || '';
     var doc = {
-      name:      opts.name || deal.name,
-      orgId:     orgId,
-      uid:       _me ? _me.uid : '',
-      createdBy: { uid:_me ? _me.uid : '', email:_me ? _me.email : '',
-                   name:_me ? _me.name : '' },
-      /* Everything the editor can usefully prefill. Deliberately a COPY, not
-         a reference: the drawing is a work product with its own life, and a
-         designer must not find the site dimensions changing under them
-         because somebody edited the deal mid-draw. */
-      address:     deal.address || '',
-      state:       deal.state || '',
-      siteAddress: deal.address || '',
-      projectType: deal.projectType || '',
-      categories:  (deal.categories || []).slice(),
-      sizeMw:      deal.sizeMw,
-      sizeMwh:     deal.sizeMwh,
-      utility:     deal._raw && deal._raw.utility || '',
-      ahj:         deal._raw && deal._raw.ahj || '',
-      /* The back-reference. Without it the drawing is an orphan the moment
-         somebody renames it. */
-      dealId:      deal.id,
-      dealName:    deal.name,
-      source:      'portfolio',
-      status:      'draft',
-      notes:       opts.brief || '',
-      createdAt:   stamp(),
-      updatedAt:   stamp()
+      /* ── the editor's own schema ─────────────────────────────────────── */
+      uid:        _me ? _me.uid : '',
+      orgId:      orgId,
+      name:       opts.name || deal.name,
+      address:    addr,
+      customer:   opts.customer || A().orgName(deal.clientOrgId) || '',
+      wizMode:    opts.wizMode || WIZ[deal.projectType] || null,
+      offtaker:   opts.offtaker || null,
+      /* Empty collections the editor expects to exist. Absent arrays are not
+         the same as empty ones here \u2014 several code paths push straight onto
+         them without checking. */
+      elements:   [],
+      conduits:   [],
+      bessList:   [],
+      wizDone:    [],
+      pxPerFt:    null,
+      unitLabel:  'ft',
+      /* _loadProject reads the address from either place, and the satellite
+         bar prefers mapState. Setting both is what makes the map land on the
+         right roof on first open. */
+      mapState:   { address: addr },
+      createdAt:  stamp(),
+      updatedAt:  stamp(),
+
+      /* ── ours, additive ──────────────────────────────────────────────── */
+      dealId:     deal.id,
+      dealName:   deal.name,
+      source:     'portfolio',
+      brief:      opts.brief || ''
     };
 
     return _db.collection('projects').add(doc).then(function (ref) {
@@ -473,6 +497,49 @@
                                     dueAt:opts.dueAt })
             .then(function () { return ref.id; });
         });
+    });
+  }
+
+  /* Where the editor lives. Configurable because it is frequently a different
+     host from this console, and a hardcoded path that works in development
+     and 404s in production is the kind of thing nobody notices until a
+     designer clicks it. */
+  function editorUrl(projectId) {
+    var base = (cfg().portfolio || {}).editorUrl || '/editor.html';
+    return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'project=' + encodeURIComponent(projectId);
+  }
+
+  /* Every editor project, with its deal if it has one. Backs the Design view:
+     "have access to these projects" means being able to find one without
+     knowing which deal it hangs off, including the ones drawn before any of
+     this existed. */
+  function loadDesignProjects(deals) {
+    if (!_db) return Promise.resolve([]);
+    var byProject = {};
+    (deals || []).forEach(function (d) { if (d.projectId) byProject[d.projectId] = d; });
+    return _db.collection('projects').get().then(function (snap) {
+      var out = [];
+      snap.forEach(function (doc) {
+        var v = doc.data() || {};
+        out.push({
+          id: doc.id,
+          name: v.name || 'Untitled',
+          address: v.address || (v.mapState && v.mapState.address) || '',
+          orgId: lower(v.orgId || ''),
+          wizMode: v.wizMode || '',
+          customer: v.customer || '',
+          updatedAt: v.updatedAt || v.createdAt || null,
+          fromPortfolio: v.source === 'portfolio',
+          elements: (v.elements || []).length,
+          deal: byProject[doc.id] || null,
+          dealId: v.dealId || ''
+        });
+      });
+      out.sort(function (a,b) { return ms(b.updatedAt) - ms(a.updatedAt); });
+      return out;
+    })['catch'](function (e) {
+      console.warn('[design] projects unreadable:', e && e.message);
+      return [];
     });
   }
 
@@ -809,7 +876,9 @@
     adopt:adopt, linkExisting:linkExisting, backReference:backReference,
     slugToDomain:slugToDomain, alreadyAdopted:alreadyAdopted,
     sourceLabel:sourceLabel,
-    createEditorProject:createEditorProject, pushToMarketplace:pushToMarketplace,
+    createEditorProject:createEditorProject, editorUrl:editorUrl,
+    loadDesignProjects:loadDesignProjects, WIZ:WIZ,
+    pushToMarketplace:pushToMarketplace,
     syncMarketplace:syncMarketplace,
     parseWorkbook:parseWorkbook, suggestMapping:suggestMapping,
     buildRows:buildRows, runImport:runImport

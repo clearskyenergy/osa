@@ -485,6 +485,9 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
     <button class="sn-item" data-view="inbox" onclick="go('inbox')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
       <span>Inbox</span><span class="sn-count" id="c-inbox">0</span></button>
+    <button class="sn-item" data-view="design" onclick="go('design')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      <span>Design</span><span class="sn-count" id="c-design">0</span></button>
     <button class="sn-item" data-view="work" onclick="go('work')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       <span>Assignments</span><span class="sn-count" id="c-work">0</span></button>
@@ -673,6 +676,29 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
       </div></div>
     </section>
 
+    <section class="view" id="v-design">
+      <div class="ph"><h1>Design</h1>
+        <p>Every project in the site editor. The ones created from a deal carry it with them;
+           the rest are older drawings you can still open, and link to a deal if they belong
+           to one.</p></div>
+      <div class="card">
+        <div class="card-h"><h2>Editor projects</h2>
+          <div class="chips" id="design-chips" style="margin-left:auto"></div>
+          <button class="btn-x" onclick="loadDesign(true)">Rescan</button></div>
+        <div class="card-b" style="padding-bottom:12px">
+          <div class="fbar">
+            <input id="design-q" class="fbar-i" placeholder="Search project or address\u2026"
+              oninput="S.designQ=this.value;renderDesign()">
+            <span class="fbar-n" id="design-count"></span>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Project</th><th>Client</th><th>Mode</th><th>Deal</th>
+            <th class="num">Elements</th><th>Updated</th><th></th></tr></thead>
+          <tbody id="design-rows"></tbody></table></div>
+      </div>
+    </section>
+
     <section class="view" id="v-work">
       <div class="ph"><h1>Assignments</h1>
         <p>Who is carrying what. Assignment is a different axis from stage — a deal in
@@ -746,14 +772,14 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="/config.js?v=3"></script>
+<script src="/config.js?v=4"></script>
 <script src="/forms.js?v=1"></script>
 <script src="/access-data.js?v=4"></script>
 <script src="/portfolio-data.js?v=4"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="/ingest-data.js?v=4"></script>
+<script src="/ingest-data.js?v=5"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -771,6 +797,7 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
           imp:null, verifications:[], verifyFilter:'open', marketNews:[],
           boardQ:'', boardOrg:'', boardPrefs:null, pinned:{}, pendingMove:null,
+          design:[], designLoaded:false, designFilter:'all', designQ:'',
           inboxOrg:'', inboxQ:'', inboxSel:{} };
 
 function ready(){ var e=document.getElementById('boot');
@@ -917,6 +944,7 @@ function refresh(manual){
        populated before anybody clicks it — an empty portfolio with a silent
        inbox is exactly the state that looks like the product is broken. */
     if (!S.inboxLoaded && A.can('write_deal')) loadInbox(false);
+    if (!S.designLoaded) loadDesign(false);
   })['finally'](function(){
     if(b){ b.disabled=false; b.textContent='Refresh'; }
     if(manual) toast('Refreshed'); });
@@ -942,7 +970,7 @@ function render(){
   if(!S.loaded) return;
   renderBanners(); renderDash(); renderPipeline(); renderPartners();
   renderFunding(); renderSupply(); renderInbox(); renderWork();
-  renderBoard(); renderVerify();
+  renderBoard(); renderVerify(); renderDesign();
   renderUsers(); renderOrgs(); renderCounts();
   if(S.openId) renderDrawer();
 }
@@ -2084,6 +2112,88 @@ function doLinkExisting(idx){
   });
 }
 
+/* ── Design: the editor projects ─────────────────────────────────────────
+   "Have access to these projects" means being able to find one without
+   already knowing which deal it hangs off \u2014 including every drawing made
+   before any of this existed. */
+function loadDesign(manual){
+  return IN.loadDesignProjects(S.deals).then(function(rows){
+    S.design=rows; S.designLoaded=true; render();
+    if(manual) toast(rows.length+' editor project(s)');
+  })['catch'](function(e){ toast((e&&e.message)||'Could not read projects',true); });
+}
+function designRows(k){
+  var q=(S.designQ||'').toLowerCase().trim();
+  return (S.design||[]).filter(function(p){
+    if(k==='linked'&&!p.deal) return false;
+    if(k==='unlinked'&&p.deal) return false;
+    if(k==='mine'&&!p.fromPortfolio) return false;
+    if(q&&(p.name+' '+p.address+' '+p.customer).toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+}
+function setDesign(k){ S.designFilter=k; render(); }
+
+function renderDesign(){
+  var host=document.getElementById('design-rows'); if(!host) return;
+  var defs=[{k:'all',l:'All'},{k:'linked',l:'On a deal'},
+            {k:'unlinked',l:'Not on a deal'},{k:'mine',l:'Made here'}];
+  document.getElementById('design-chips').innerHTML=defs.map(function(d){
+    return '<button class="chip'+(S.designFilter===d.k?' on':'')+'" onclick="setDesign(\''+d.k+'\')">'
+      + d.l+' <span class="mono">'+designRows(d.k).length+'</span></button>'; }).join('');
+
+  var rows=designRows(S.designFilter);
+  document.getElementById('design-count').textContent=rows.length+' shown';
+  var c=document.getElementById('c-design'); if(c) c.textContent=(S.design||[]).length;
+
+  host.innerHTML = rows.length ? rows.slice(0,300).map(function(p){
+    return '<tr><td><div class="t-name">'+esc(p.name)+'</div>'
+      + '<div class="t-sub">'+esc(p.address||'\u2014')+'</div></td>'
+      + '<td>'+esc(p.customer||A.orgName(p.orgId)||'\u2014')
+      +   '<div class="t-sub mono" style="font-size:11px">'+esc(p.orgId||'')+'</div></td>'
+      + '<td>'+(p.wizMode?'<span class="cat">'+esc(p.wizMode)+'</span>':'\u2014')+'</td>'
+      + '<td>'+(p.deal
+          ? '<button class="btn-x" onclick="openDeal(\''+p.deal.id+'\')">'+esc(p.deal.name)+'</button>'
+          : '<button class="btn-x" onclick="doLinkDesign(\''+esc(p.id)+'\')">Link to a deal\u2026</button>')
+      + '</td>'
+      + '<td class="num mono">'+(p.elements||0)+'</td>'
+      + '<td class="mono" style="font-size:12px">'+esc(F.fmtDate(p.updatedAt))+'</td>'
+      + '<td><button class="btn-x" onclick="openEditor(\''+esc(p.id)+'\')">Open editor</button></td>'
+      + '</tr>'; }).join('')
+    : '<tr><td colspan="7"><div class="empty"><b>'
+      + (S.designLoaded?'Nothing here':'Loading\u2026')+'</b>'
+      + (S.designLoaded?'No projects match this filter.':'')+'</div></td></tr>';
+}
+
+/* New tab, deliberately. The editor is a long-running canvas with unsaved
+   state; replacing this console with it would throw away whatever the person
+   was in the middle of here. */
+function openEditor(projectId){
+  window.open(IN.editorUrl(projectId), '_blank', 'noopener');
+}
+
+function doLinkDesign(projectId){
+  var p=(S.design||[]).filter(function(x){ return x.id===projectId; })[0];
+  if(!p) return;
+  var opts=S.deals.filter(function(d){ return !d.projectId; })
+    .map(function(d){ return {value:d.id,label:d.name+' \u2014 '+F.stageOf(d.stage).label}; });
+  if(!opts.length){ toast('Every deal already has a drawing linked',true); return; }
+  Forms.open({
+    title:'Link to a deal', intro:p.name,
+    fields:[{key:'dealId',type:'radio',label:'Which deal',required:true,
+      options:opts.slice(0,15)}],
+    submitLabel:'Link'
+  }).then(function(v){
+    if(!v) return;
+    var d=findDeal(v.dealId); if(!d) return;
+    F.attachProject(d,projectId,'Linked existing drawing')
+      .then(function(){ return db.collection('projects').doc(projectId)
+        .update({ dealId:d.id, dealName:d.name })['catch'](function(){}); })
+      .then(function(){ toast('Linked'); return refresh().then(loadDesign); })
+      ['catch'](function(e){ toast((e&&e.message)||'Could not link',true); });
+  });
+}
+
 /* ── Assignments ──────────────────────────────────────────────────────── */
 function renderWork(){
   var host=document.getElementById('work-rows'); if(!host) return;
@@ -2806,7 +2916,8 @@ function tabOverview(d){
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
           + '<button class="btn-x" onclick="doAssign()">Assign\u2026</button>'
           + (d.projectId
-             ? '<button class="btn-x" onclick="doCreateProject()">Create another</button>'
+             ? '<button class="btn-a" style="padding:6px 12px;font-size:12px" '
+               + 'onclick="openEditor(\''+esc(d.projectId)+'\')">Open in editor</button>'
              : '<button class="btn-x" onclick="doCreateProject()">Create in editor\u2026</button>')
           + (d.finProjectId ? '' : '<button class="btn-x" onclick="doPushMarketplace()">Push to marketplace\u2026</button>')
           + '</div>':'')
@@ -3529,15 +3640,27 @@ function doCreateProject(){
       {key:'devLead',type:'user',label:'Development lead',options:optUsers(),
         value:d.assignment.devLead},
       {key:'dueAt',type:'date',label:'Due',value:d.assignment.dueAt},
+      {key:'wizMode',type:'radio',label:'Editor mode',
+        value:IN.WIZ[d.projectType]||'',
+        options:[
+          {value:'BTM',label:'Behind the meter',hint:'Load-led: compute, microgrid, DER.'},
+          {value:'FOM',label:'Front of meter',hint:'Grid-led: solar, standalone storage.'},
+          {value:'EVSE',label:'DC fast charging'},
+          {value:'L2',label:'Level 2 charging'},
+          {value:'',label:'Let the designer choose',
+           hint:'Safer than guessing — a wrong mode quietly configures the whole wizard.'}
+        ],
+        hint:'Prefilled from the project type. The editor branches on this throughout.'},
       {key:'brief',type:'textarea',label:'Brief for the design team',rows:3,
         hint:'What they need to know that is not on the deal.'}
     ],
-    submitLabel:'Create and assign'
+    submitLabel:'Create and open'
   }).then(function(v){
     if(!v) return;
     IN.createEditorProject(d,v).then(function(id){
-      toast('Project created in '+v.orgId);
-      return refresh();
+      toast('Project created — opening the editor');
+      openEditor(id);
+      return refresh().then(function(){ if(S.designLoaded) return loadDesign(); });
     })['catch'](function(e){ toast((e&&e.message)||'Could not create',true); });
   });
 }

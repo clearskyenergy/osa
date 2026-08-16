@@ -278,6 +278,16 @@ window.CLEARSKY_CONFIG = {
 
     collection: 'deals',
 
+    /* Where the site editor is served from. Frequently a different host from
+       this console, so it is configurable rather than assumed — a hardcoded
+       path that works in development and 404s in production is the kind of
+       thing nobody notices until a designer clicks it.
+
+       The editor takes ?project=<id> and loads from the same `projects`
+       collection this console writes to, which is why "Create in editor"
+       needs no export step and no API. */
+    editorUrl: '/editor.html',
+
     /* Where a referral can come from. Recorded per deal alongside the org,
        because "our shareholder introduced it" and "they submitted the web
        form" are different channels with different economics even when the
