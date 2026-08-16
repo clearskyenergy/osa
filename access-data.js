@@ -400,6 +400,48 @@
     return n;
   }
 
+  /* ── The staff roster, from the ops console ──────────────────────────────
+     WHY THIS IS HERE. The Users page reads `omega_users`, which only gains a
+     row when somebody signs into THIS console. So a company with a full team
+     in the ops console sees an empty user list here and reasonably concludes
+     the page is broken.
+
+     It is not broken — it is telling the truth about a different question.
+     `omega_staff` is who works at ClearSky; `omega_users` is who has been
+     admitted to the partner portal. Those are genuinely different lists, and
+     merging them into one would be worse: it would imply people have portal
+     access they do not have.
+
+     So we read the roster and show the difference explicitly: who has signed
+     in, and who exists but has not. Read-only, and permitted already —
+     omega_staff grants read to isOmegaStaff().
+
+     NOBODY CAN BE PRE-PROVISIONED. The omega_users create rule requires
+     isSelf(): you can only ever create your own row. That is deliberate, and
+     it means the answer to "why is this person not here" is always "send them
+     the link", never "add them for me". */
+  function loadStaff() {
+    if (!_db || !can('approve_any')) return Promise.resolve([]);
+    return _db.collection('omega_staff').get().then(function (snap) {
+      var out = [];
+      snap.forEach(function (d) {
+        var v = d.data() || {};
+        out.push({
+          uid:    d.id,
+          email:  String(v.email || '').toLowerCase(),
+          name:   v.name || String(v.email || '').split('@')[0],
+          role:   v.role || 'none',
+          active: v.active !== false,
+          orgId:  domainOf(v.email || '')
+        });
+      });
+      return out;
+    })['catch'](function (e) {
+      console.warn('[access] staff roster unreadable:', e && e.message);
+      return [];
+    });
+  }
+
   /* ── Partner organisations ───────────────────────────────────────────────
      A registry, not a gate. Sign-in no longer depends on it — approval does.
      What it holds is the commercial fact about an org that a user document
@@ -541,7 +583,7 @@
     canApprove:canApprove, grantableRoles:grantableRoles,
     approve:approve, reject:reject, suspend:suspend, restore:restore,
     setRole:setRole, setManagedOrgs:setManagedOrgs, updateSelf:updateSelf,
-    loadUsers:loadUsers, users:users, pendingCount:pendingCount,
+    loadUsers:loadUsers, users:users, pendingCount:pendingCount, loadStaff:loadStaff,
     loadOrgs:loadOrgs, orgs:orgs, orgName:orgName, saveOrg:saveOrg,
     deleteOrg:deleteOrg, setOrgActive:setOrgActive, validateDomain:validateDomain,
     pendingMessage:pendingMessage, blockedMessage:blockedMessage,

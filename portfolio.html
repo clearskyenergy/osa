@@ -496,6 +496,9 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
     <button class="sn-item" data-view="users" onclick="go('users')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
       <span>Users</span><span class="sn-count" id="c-users">0</span></button>
+    <button class="sn-item" data-view="settings" onclick="go('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span></button>
     <button class="sn-item" data-view="orgs" onclick="go('orgs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       <span>Organisations</span></button>
@@ -735,6 +738,29 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
             <th>Last seen</th><th>Actions</th></tr></thead>
           <tbody id="user-rows"></tbody></table></div>
       </div>
+      <div class="card" id="staff-card" style="display:none">
+        <div class="card-h"><h2>ClearSky staff who have not signed in here</h2>
+          <span class="sub">From the ops console roster</span></div>
+        <div class="card-b" id="staff-note"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Person</th><th>Ops role</th><th>Status</th></tr></thead>
+          <tbody id="staff-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-settings">
+      <div class="ph"><h1>Settings</h1>
+        <p>Your profile and how this console behaves for you. Changes apply everywhere
+           immediately — the Users page, every assignee dropdown, and the name against your
+           activity lines.</p></div>
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h2>Profile</h2></div>
+          <div class="card-b" id="set-profile"></div></div>
+        <div class="card"><div class="card-h"><h2>Access</h2></div>
+          <div class="card-b" id="set-access"></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h2>This console</h2></div>
+        <div class="card-b" id="set-console"></div></div>
     </section>
 
     <section class="view" id="v-orgs">
@@ -774,7 +800,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="/config.js?v=4"></script>
 <script src="/forms.js?v=1"></script>
-<script src="/access-data.js?v=4"></script>
+<script src="/access-data.js?v=5"></script>
 <script src="/portfolio-data.js?v=4"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
@@ -797,7 +823,7 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
           imp:null, verifications:[], verifyFilter:'open', marketNews:[],
           boardQ:'', boardOrg:'', boardPrefs:null, pinned:{}, pendingMove:null,
-          design:[], designLoaded:false, designFilter:'all', designQ:'',
+          design:[], designLoaded:false, designFilter:'all', designQ:'', staff:[],
           inboxOrg:'', inboxQ:'', inboxSel:{} };
 
 function ready(){ var e=document.getElementById('boot');
@@ -885,6 +911,9 @@ function showApp(){
   if (!A.can('approve_any') && !A.can('approve_scoped') && !A.can('approve_own_org'))
     hideNav('users');
   if (!A.can('approve_any')) hideNav('orgs');
+  /* Settings is never hidden. Every role has a name to set and a board to
+     arrange, and a person who cannot find where to fix their own display name
+     asks somebody else to do it — which nobody can. */
   go(location.hash.replace('#/','')||'board', true);
   refresh();
 }
@@ -945,6 +974,7 @@ function refresh(manual){
        inbox is exactly the state that looks like the product is broken. */
     if (!S.inboxLoaded && A.can('write_deal')) loadInbox(false);
     if (!S.designLoaded) loadDesign(false);
+    if (A.can('approve_any') && !S.staff.length) loadStaff();
   })['finally'](function(){
     if(b){ b.disabled=false; b.textContent='Refresh'; }
     if(manual) toast('Refreshed'); });
@@ -971,6 +1001,7 @@ function render(){
   renderBanners(); renderDash(); renderPipeline(); renderPartners();
   renderFunding(); renderSupply(); renderInbox(); renderWork();
   renderBoard(); renderVerify(); renderDesign();
+  renderSettings(); renderStaff();
   renderUsers(); renderOrgs(); renderCounts();
   if(S.openId) renderDrawer();
 }
@@ -2448,6 +2479,124 @@ function editScope(id){
       value:u.manageOrgs,
       hint:'An empty list gives them a console that shows nothing.'}]
   }).then(function(v){ if(v) act(A.setManagedOrgs(u,v.orgs),'Scope updated'); });
+}
+
+/* ── Settings ────────────────────────────────────────────────────────────
+   Split into what you can change, what only somebody else can, and what is
+   just this browser. Merging the three is how people end up clicking a field
+   that silently does nothing. */
+function renderSettings(){
+  var host=document.getElementById('set-profile'); if(!host||!ME) return;
+
+  host.innerHTML =
+      '<dl class="kv">'
+    + row('Display name', esc(ME.name||'\u2014'))
+    + row('Title', esc(ME.title||'\u2014'))
+    + row('Phone', esc(ME.phone||'\u2014'))
+    + row('Organisation', esc(ME.orgName||A.orgName(ME.orgId)))
+    + '</dl>'
+    + '<div style="margin-top:12px"><button class="btn-o" onclick="doEditProfile()">'
+    + 'Edit profile</button></div>'
+    + '<div class="sec-note">Your name appears on every activity line, every verdict you '
+    + 'sign and every assignee dropdown. It is worth being the name colleagues would '
+    + 'recognise rather than the half of your email before the @.</div>';
+
+  var r=A.roleOf(ME.role);
+  document.getElementById('set-access').innerHTML =
+      '<dl class="kv">'
+    + row('Signed in as', '<span class="mono">'+esc(ME.email)+'</span>')
+    + row('Role', esc(r.label))
+    + row('Domain', '<span class="mono">'+esc(ME.orgId)+'</span>')
+    + (ME.role==='limited_admin'
+        ? row('Administers', esc(ME.manageOrgs.join(', ')||'nothing yet')) : '')
+    + row('Approved', ME.approvedAt
+        ? esc(F.fmtDate(ME.approvedAt))+(ME.approvedBy?' by '+esc(ME.approvedBy):'') : '\u2014')
+    + '</dl>'
+    + '<div class="sec-note">'+esc(r.hint||'')
+    + (A.isOwner()
+       ? ' You are the owner: pinned in configuration, and deliberately not removable from '
+       + 'this console \u2014 the account that can restore everyone else\u2019s access must not be '
+       + 'losable by a misclick.'
+       : ' Roles are set by an administrator. Nobody can change their own \u2014 including '
+       + 'administrators, which is what stops a role system from being decorative.')
+    + '</div>';
+
+  var prefs=boardPrefs();
+  document.getElementById('set-console').innerHTML =
+      '<dl class="kv">'
+    + row('Board columns hidden', prefs.hidden.length
+        ? esc(prefs.hidden.map(function(k){ return F.stageOf(k).label; }).join(', '))
+        : 'none')
+    + row('Empty stages', prefs.collapseEmpty?'Collapsed to a strip':'Shown at full width')
+    + '</dl>'
+    + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn-o" onclick="openBoardColumns()">Board columns\u2026</button>'
+    + (prefs.hidden.length||!prefs.collapseEmpty
+       ? '<button class="btn-o" onclick="doResetBoard()">Reset to defaults</button>':'')
+    + '</div>'
+    + '<div class="sec-note">Saved to your account rather than this browser, so the layout '
+    + 'follows you to another machine.</div>';
+}
+
+function doEditProfile(){
+  Forms.open({
+    title:'Your profile',
+    fields:[
+      {key:'name',type:'text',label:'Display name',required:true,value:ME.name,
+        hint:'Shown on activity lines, signed verdicts and assignee lists.'},
+      {key:'title',type:'text',label:'Title',value:ME.title,
+        placeholder:'Head of Development'},
+      {key:'phone',type:'text',label:'Phone',value:ME.phone},
+      {key:'orgName',type:'text',label:'Organisation name',value:ME.orgName,
+        hint:'The display name for '+esc(ME.orgId)+'. Does not change which deals you see \u2014 '
+           + 'that is the domain, and only an administrator can move you.'}
+    ],
+    submitLabel:'Save'
+  }).then(function(v){
+    if(!v) return;
+    A.updateSelf(v).then(function(){
+      ME.name=v.name; ME.title=v.title; ME.phone=v.phone; ME.orgName=v.orgName;
+      document.getElementById('tb-name').textContent=ME.name;
+      toast('Saved'); render();
+    })['catch'](function(e){ toast((e&&e.message)||'Could not save',true); });
+  });
+}
+
+function doResetBoard(){
+  Forms.confirm({ title:'Reset the board layout?', danger:false,
+    intro:'Every stage visible, empty ones collapsed.', submitLabel:'Reset'
+  }).then(function(ok){
+    if(!ok) return;
+    S.pinned={}; saveBoardPrefs({hidden:[],collapseEmpty:true}); toast('Reset');
+  });
+}
+
+/* ── Staff who exist but have not signed in ──────────────────────────────
+   Answers "why does Users say nobody" without pretending they have access. */
+function loadStaff(){
+  return A.loadStaff().then(function(s){ S.staff=s; render(); })
+   ['catch'](function(){ S.staff=[]; });
+}
+function renderStaff(){
+  var card=document.getElementById('staff-card'); if(!card) return;
+  if(!A.can('approve_any')){ card.style.display='none'; return; }
+  var seen={}; S.users.forEach(function(u){ seen[u.email]=1; });
+  var missing=(S.staff||[]).filter(function(s){ return s.email && !seen[s.email]; });
+  if(!missing.length){ card.style.display='none'; return; }
+  card.style.display='';
+  document.getElementById('staff-note').innerHTML =
+      '<div class="banner info">These people are on the ops console roster but have never '
+    + 'opened this one, so they have no portal account yet. <b>They cannot be added for '
+    + 'them</b> \u2014 an account is only ever created by the person signing in, which is what '
+    + 'stops anybody being granted access they did not ask for. Send them '
+    + '<span class="mono">'+esc(location.origin+'/portfolio.html')+'</span> and approve the '
+    + 'request when it appears above.</div>';
+  document.getElementById('staff-rows').innerHTML = missing.map(function(s){
+    return '<tr><td><div class="t-name">'+esc(s.name)+'</div>'
+      + '<div class="t-sub mono" style="font-size:11.5px">'+esc(s.email)+'</div></td>'
+      + '<td>'+esc(s.role)+'</td>'
+      + '<td><span style="color:var(--ink-3);font-size:12px">has not signed in here</span></td>'
+      + '</tr>'; }).join('');
 }
 
 /* ── Organisations ────────────────────────────────────────────────────── */
