@@ -339,6 +339,213 @@
 
 
   /* ═══════════════════════════════════════════════════════════════════════
+     THE THREE HANDOFFS
+     ═══════════════════════════════════════════════════════════════════════
+     A deal leaves this console three times and comes back once. These are the
+     pivotal steps, and until now they were a text box asking you to paste an
+     id — which is not a workflow, it is a note to yourself.
+
+       createEditorProject   deal  \u2192  projects        (design team picks it up)
+       pushToMarketplace     deal  \u2192  fin_projects    (capital sees it)
+       syncMarketplace       fin_projects \u2192 deal       (an offer was accepted)
+
+     All three work under the CURRENT rules for a ClearSky admin. No rules
+     change; see the notes on each. */
+
+  /* ── 1 · Into the editor ─────────────────────────────────────────────────
+     Creates the project stamped with the CLIENT's orgId, not ours. That is
+     the whole point: the design team's finished drawing appears in the
+     client's own portal with no export step, which is the same path the ops
+     console's "Start build" already uses.
+
+     Permitted because /projects create admits isOmegaStaff() and isAdmin()
+     for ANY orgId \u2014 that grant exists precisely so staff can build into a
+     tenant's workspace. */
+  function createEditorProject(deal, opts) {
+    opts = opts || {};
+    var orgId = String(opts.orgId || deal.clientOrgId || '').toLowerCase();
+    if (!orgId) return Promise.reject(new Error(
+      'This deal has no client organisation, so there is nowhere to put the project. '
+      + 'Set the client on the deal first \u2014 a drawing filed into our own org never '
+      + 'reaches the person who asked for it.'));
+
+    var t = F().typeOf(deal.projectType) || {};
+    var doc = {
+      name:      opts.name || deal.name,
+      orgId:     orgId,
+      uid:       _me ? _me.uid : '',
+      createdBy: { uid:_me ? _me.uid : '', email:_me ? _me.email : '',
+                   name:_me ? _me.name : '' },
+      /* Everything the editor can usefully prefill. Deliberately a COPY, not
+         a reference: the drawing is a work product with its own life, and a
+         designer must not find the site dimensions changing under them
+         because somebody edited the deal mid-draw. */
+      address:     deal.address || '',
+      state:       deal.state || '',
+      siteAddress: deal.address || '',
+      projectType: deal.projectType || '',
+      categories:  (deal.categories || []).slice(),
+      sizeMw:      deal.sizeMw,
+      sizeMwh:     deal.sizeMwh,
+      utility:     deal._raw && deal._raw.utility || '',
+      ahj:         deal._raw && deal._raw.ahj || '',
+      /* The back-reference. Without it the drawing is an orphan the moment
+         somebody renames it. */
+      dealId:      deal.id,
+      dealName:    deal.name,
+      source:      'portfolio',
+      status:      'draft',
+      notes:       opts.brief || '',
+      createdAt:   stamp(),
+      updatedAt:   stamp()
+    };
+
+    return _db.collection('projects').add(doc).then(function (ref) {
+      return F().patch(deal, { projectId: ref.id }, { type:'assignment',
+        message:'Editor project created in ' + orgId
+              + (opts.designLead ? ' \u2014 assigned to ' + opts.designLead : '') })
+        .then(function () {
+          if (!opts.designLead && !opts.devLead) return ref.id;
+          return F().assign(deal, { designLead:opts.designLead, devLead:opts.devLead,
+                                    dueAt:opts.dueAt })
+            .then(function () { return ref.id; });
+        });
+    });
+  }
+
+  /* ── 2 · Out to the marketplace ──────────────────────────────────────────
+     Creates the fin_projects listing capital actually browses, and links it
+     both ways.
+
+     THREE THINGS THE RULES FORCE, and each would be a permission-denied with
+     no useful message if missed:
+
+       developerUid MUST be the caller. The marketplace treats that field as
+       the sponsor, so whoever presses the button owns the listing.
+
+       status MUST be one of open / draft / review. 'exclusive' is refused on
+       create by design \u2014 a first-look hold is applied by the operator, never
+       filed into.
+
+       orgKey MUST BE OMITTED unless you know the caller has a fin_profile.
+       The rule reads `!('orgKey' in data) || orgKey == myOrgKey()`, and
+       myOrgKey() is a bare get on fin_profiles that ERRORS when the document
+       is absent. Omitting the field short-circuits the check; including it
+       fails the whole evaluation for anyone who has never used the financing
+       portal. Do not "helpfully" add it back.
+
+     If the intake gate is on and this technology is gated, the listing lands
+     in `review` rather than `open` \u2014 the portal respects the gate you already
+     configured rather than routing around it. */
+  function pushToMarketplace(deal, opts) {
+    opts = opts || {};
+    if (!_me || !_me.uid) return Promise.reject(new Error('Not signed in.'));
+
+    return _db.collection('fin_settings').doc('intake').get()
+      ['catch'](function () { return { exists:false }; })
+      .then(function (snap) {
+        var s = (snap && snap.exists) ? (snap.data() || {}) : {};
+        var gated = s.gateEnabled === true
+                 && (s.gateTechs || ['bess']).some(function (t) {
+                      return (deal.categories || []).indexOf(t) >= 0; });
+        var status = opts.status || (gated ? 'review' : 'open');
+
+        var doc = {
+          name:         opts.name || deal.name,
+          location:     deal.address || '',
+          state:        deal.state || '',
+          status:       status,
+          developerUid: _me.uid,           /* pinned by the rules */
+          awardedTo:    null,              /* pinned by the rules */
+          projectType:  deal.projectType || '',
+          categories:   (deal.categories || []).slice(),
+          sizeMw:       deal.sizeMw,
+          sizeMwh:      deal.sizeMwh,
+          capexUsd:     deal.capexUsd,
+          raiseUsd:     opts.raiseUsd != null ? F().num(opts.raiseUsd)
+                                              : deal.funding.requestedUsd,
+          summary:      opts.summary || '',
+          /* What a capital partner most wants and least often gets: whether
+             anybody independent has looked at it. */
+          verification: deal.verification.verdictId ? {
+            verifier:    deal.verification.verifierOrg,
+            feasibility: deal.verification.feasibility,
+            bankability: deal.verification.bankability,
+            signedAt:    deal.verification.signedAt
+          } : null,
+          viabilityScore: deal.viability.score,
+          dealId:       deal.id,
+          filedAt:      stamp(),
+          createdAt:    stamp()
+          /* orgKey deliberately absent \u2014 see the note above. */
+        };
+
+        return _db.collection('fin_projects').add(doc).then(function (ref) {
+          return F().patch(deal, {
+            finProjectId: ref.id,
+            'funding.listedAt': stamp()
+          }, { type:'marketplace',
+               message:'Listed on the marketplace as ' + status
+                     + (gated ? ' (gated technology \u2014 queued for approval)' : '') })
+            .then(function () {
+              /* Advance if the gates allow. A listing that cannot reach the
+                 marketplace stage is still a real listing \u2014 report, do not
+                 unwind it. */
+              if (deal.stage === 'marketplace') return { id:ref.id, status:status };
+              return F().advance(deal, 'marketplace', 'Listed on the marketplace')
+                .then(function () { return { id:ref.id, status:status }; })
+                ['catch'](function (e) {
+                  return { id:ref.id, status:status, stageIssue:e };
+                });
+            });
+        });
+      });
+  }
+
+  /* ── 3 · Back from the marketplace ───────────────────────────────────────
+     The one inbound handoff. An offer being accepted happens over there, and
+     nothing tells this console about it.
+
+     A POLL, NOT A WEBHOOK, and deliberately so: a webhook needs a server, and
+     everything here runs in the browser against Firestore. Polling on refresh
+     is a few reads and cannot silently lose an event the way a failed webhook
+     does. When there is a backend, replace this and nothing else changes.
+
+     It does NOT auto-advance. `awarded` in the marketplace means an offer was
+     accepted; `committed` here means a term sheet is signed with an amount and
+     a counterparty. Those are adjacent, not identical, and moving the deal
+     automatically would put money in the dashboard that nobody entered. It
+     surfaces the news and lets you act. */
+  function syncMarketplace(deals) {
+    if (!_db) return Promise.resolve([]);
+    var linked = deals.filter(function (d) { return d.finProjectId; });
+    if (!linked.length) return Promise.resolve([]);
+
+    return Promise.all(linked.map(function (d) {
+      return _db.collection('fin_projects').doc(d.finProjectId).get()
+        .then(function (s) {
+          if (!s.exists) return null;
+          var f = s.data() || {};
+          var news = null;
+          if (f.status === 'awarded' && F().stageOf(d.stage).rank < F().stageOf('committed').rank)
+            news = { kind:'awarded', label:'An offer was accepted',
+                     detail:'Marketplace shows this awarded. Record the terms and move it '
+                          + 'to Committed \u2014 not done automatically, because "an offer was '
+                          + 'accepted" and "a term sheet is signed for this amount" are '
+                          + 'adjacent, not identical.' };
+          else if (f.status === 'exclusive' && !d._sawExclusive)
+            news = { kind:'exclusive', label:'On first-look hold',
+                     detail:'Held for a capital partner before the open marketplace.' };
+          else if (f.status === 'review' && d.stage === 'marketplace')
+            news = { kind:'review', label:'Waiting on marketplace approval',
+                     detail:'Gated technology. Not visible to partners until approved.' };
+          return news ? { deal:d, finStatus:f.status, news:news } : null;
+        })['catch'](function () { return null; });
+    })).then(function (r) { return r.filter(Boolean); });
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════════
      EXCEL / CSV IMPORT
      ═══════════════════════════════════════════════════════════════════════
      Parses in the browser with SheetJS, maps columns to deal fields, previews
@@ -538,6 +745,8 @@
     init:init, loadInbox:loadInbox, annotate:annotate,
     adopt:adopt, linkExisting:linkExisting, backReference:backReference,
     sourceLabel:sourceLabel,
+    createEditorProject:createEditorProject, pushToMarketplace:pushToMarketplace,
+    syncMarketplace:syncMarketplace,
     parseWorkbook:parseWorkbook, suggestMapping:suggestMapping,
     buildRows:buildRows, runImport:runImport
   };

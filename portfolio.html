@@ -338,6 +338,17 @@ select.ff-i{cursor:pointer}
   max-height:100vh;height:100vh}.ff-foot{border-radius:0}}
 
 /* ── Kanban ────────────────────────────────────────────────────────────── */
+.fbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.fbar-i{border:1.5px solid #DDE3E9;border-radius:8px;padding:8px 11px;
+  font:400 13px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
+.fbar-i:focus{border-color:var(--accent)}
+#inbox-q{flex:1;min-width:200px}
+.fbar-n{font-size:12px;color:var(--ink-2);font-family:'DM Mono',monospace}
+.bulk{background:var(--accent-soft);border-radius:8px;padding:10px 13px;display:flex;
+  gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bulk b{font-size:13px;color:var(--accent)}
+.bulk .s{font-size:11.5px;color:var(--ink-2);flex:1;line-height:1.45}
+
 .kb{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
 .kb-col{flex:0 0 268px;background:#F4F6F8;border-radius:var(--r);border:1px solid var(--line)}
 .kb-h{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;
@@ -359,6 +370,9 @@ select.ff-i{cursor:pointer}
   border-radius:5px;padding:2px 6px}
 .kb-card .f span.money{background:var(--money-soft);color:var(--money)}
 .kb-card .f span.warn{background:#FEF4E6;color:#7A4A08}
+.kb-col.exit{opacity:.72;background:#EFF1F3}
+.kb-sum{padding:0 12px 8px;font-size:11px;color:var(--ink-2);
+  font-family:'DM Mono',monospace;margin-top:-2px}
 .kb-col.over .kb-b{background:var(--accent-soft);border-radius:0 0 var(--r) var(--r)}
 .kb-empty{font-size:11.5px;color:var(--ink-3);text-align:center;padding:14px 6px}
 
@@ -613,9 +627,21 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
           <div class="chips" id="inbox-chips" style="margin-left:auto"></div>
           <button class="btn-x" onclick="loadInbox(true)">Rescan</button>
           <button class="btn-x" onclick="openImport()">Import a spreadsheet</button></div>
-        <div class="card-b" id="inbox-note" style="padding-bottom:0"></div>
+        <div class="card-b" style="padding-bottom:12px">
+          <div class="fbar">
+            <input id="inbox-q" class="fbar-i" placeholder="Search site name or address…"
+              oninput="S.inboxQ=this.value;renderInbox()">
+            <select id="inbox-org" class="fbar-i" onchange="S.inboxOrg=this.value;renderInbox()">
+            </select>
+            <span class="fbar-n" id="inbox-count"></span>
+          </div>
+          <div id="inbox-note"></div>
+          <div id="inbox-bulk"></div>
+        </div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>Record</th><th>Source</th><th>Filed by</th><th>Status</th>
+          <thead><tr><th style="width:34px"><input type="checkbox" id="inbox-all"
+              onchange="toggleAllInbox(this.checked)"></th>
+            <th>Record</th><th>Source</th><th>Filed by</th><th>Status</th>
             <th class="num">Size</th><th>Suggested stage</th><th></th></tr></thead>
           <tbody id="inbox-rows"></tbody></table></div>
       </div>
@@ -701,11 +727,11 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="/config.js?v=3"></script>
 <script src="/forms.js?v=1"></script>
 <script src="/access-data.js?v=2"></script>
-<script src="/portfolio-data.js?v=3"></script>
+<script src="/portfolio-data.js?v=4"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="/ingest-data.js?v=2"></script>
+<script src="/ingest-data.js?v=3"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -721,7 +747,8 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           pipeFilter:'live', userFilter:'pending', supplyFilter:'all',
           openId:null, tab:'overview', partnerOpen:'',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
-          imp:null, verifications:[], verifyFilter:'open' };
+          imp:null, verifications:[], verifyFilter:'open', marketNews:[],
+          inboxOrg:'', inboxQ:'', inboxSel:{} };
 
 function ready(){ var e=document.getElementById('boot');
   if(!e||e.classList.contains('hide'))return; e.classList.add('hide');
@@ -857,6 +884,12 @@ function refresh(manual){
     S.deals=r[0]; S.users=r[2]; S.loaded=true; S.demo=false;
     if (S.inboxLoaded) S.inbox = IN.annotate(S.inbox, S.deals);
     render();
+    /* Poll the marketplace for offers accepted over there. A few reads on
+       refresh, and it cannot silently lose an event the way a failed webhook
+       does. Replace with a real hook when there is a backend. */
+    IN.syncMarketplace(S.deals).then(function(n){
+      if(n.length){ S.marketNews=n; renderBanners(); renderMarketNews(); }
+    });
     /* Scan the source collections once, on first load, so the Inbox count is
        populated before anybody clicks it — an empty portfolio with a silent
        inbox is exactly the state that looks like the product is broken. */
@@ -1260,15 +1293,36 @@ function optDistributors(){
 /* ── Board ────────────────────────────────────────────────────────────── */
 function renderBoard(){
   var host=document.getElementById('kb-host'); if(!host) return;
-  var live=S.deals.filter(function(d){ return !F.isExit(d.stage); });
-  host.innerHTML = F.STAGES.map(function(st){
-    var inCol=live.filter(function(d){ return d.stage===st.key; });
-    return '<div class="kb-col" data-stage="'+st.key+'">'
+
+  /* THE SAME LADDER AS THE CONVERSION CASCADE, in the same order, plus the two
+     exits. Those matter here: a board that hides dead and parked deals shows a
+     pipeline that only ever grows, and the person looking at it has no idea
+     where anything went. They sit at the end, dimmed, and stay in the count. */
+  var cols=F.STAGES.concat(F.EXITS);
+  var byStage={};
+  S.deals.forEach(function(d){ (byStage[d.stage]=byStage[d.stage]||[]).push(d); });
+
+  host.innerHTML = cols.map(function(st){
+    var inCol=(byStage[st.key]||[]).slice().sort(function(a,b){
+      /* Oldest first inside a column: the thing that has been sitting longest
+         is the thing to look at, and sorting by name hides it. */
+      return (F.ageDays(b)||0)-(F.ageDays(a)||0); });
+    var mw=0, cap=0, closed=0;
+    inCol.forEach(function(d){ mw+=d.sizeMw||0; cap+=d.capexUsd||0;
+      closed+=d.funding.closedUsd||0; });
+    var exit=F.isExit(st.key);
+    return '<div class="kb-col'+(exit?' exit':'')+'" data-stage="'+st.key+'">'
       + '<div class="kb-h"><i style="background:'+st.color+'"></i><b>'+esc(st.label)+'</b>'
       +   '<span class="n">'+inCol.length+'</span></div>'
+      + (inCol.length
+          ? '<div class="kb-sum">'+(mw?F.mw(mw):'')
+            + (mw&&(cap||closed)?' \u00b7 ':'')
+            + (closed?F.money(closed,true)+' closed':(cap?F.money(cap,true)+' capex':''))
+            + '</div>'
+          : '')
       + '<div class="kb-b">'
       + (inCol.length ? inCol.map(kbCard).join('')
-          : '<div class="kb-empty">Empty</div>')
+          : '<div class="kb-empty">'+(exit?'None':'Empty')+'</div>')
       + '</div></div>'; }).join('');
 
   if(!A.can('write_deal')) return;
@@ -1276,8 +1330,7 @@ function renderBoard(){
     c.setAttribute('draggable','true');
     c.addEventListener('dragstart',function(e){
       e.dataTransfer.setData('text/plain', c.getAttribute('data-id'));
-      c.classList.add('drag');
-    });
+      c.classList.add('drag'); });
     c.addEventListener('dragend',function(){ c.classList.remove('drag'); });
   });
   host.querySelectorAll('.kb-col').forEach(function(col){
@@ -1288,34 +1341,49 @@ function renderBoard(){
       var id=e.dataTransfer.getData('text/plain');
       var to=col.getAttribute('data-stage');
       var d=findDeal(id); if(!d||d.stage===to) return;
-      /* Dragging BACKWARDS is not a stage move. Going forwards is a claim the
-         gates check; going backwards is an admission that needs a reason, and
-         silently allowing it would let a deal reverse out of "funded" with no
-         trace. */
+
+      if(to==='dead'){ S.openId=d.id; doDead(); return; }
+      if(to==='parked'){ S.openId=d.id; doPark(); return; }
+      if(F.isExit(d.stage)){ S.openId=d.id; doRevive(); return; }
+      /* Backwards is not a stage move, it is an admission. Allowing it
+         silently would let a deal reverse out of Funded with no trace of who
+         did it or why. */
       if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
-        toast('Use the deal panel to move a deal backwards \u2014 it needs a reason',true);
+        toast('Moving a deal backwards needs a reason \u2014 open it and use Reopen',true);
         return;
       }
       moveTo(d,to);
     });
   });
 }
+
 function kbCard(d){
-  var stale=isStale(d), v=d.viability;
+  var stale=isStale(d), v=d.viability, exit=F.isExit(d.stage);
+  var flags='';
+  if(d.projectType) flags+='<span>'+esc((F.typeOf(d.projectType)||{}).label||d.projectType)+'</span>';
+  if(d.sizeMw!=null) flags+='<span>'+F.mw(d.sizeMw)+'</span>';
+  if(d.funding.closedUsd) flags+='<span class="money">'+F.money(d.funding.closedUsd,true)+'</span>';
+  if(v.score!=null) flags+='<span class="'+(v.verdict==='pass'?'money':'warn')+'">score '+v.score+'</span>';
+  /* Only the flags that mean somebody has to do something. A card covered in
+     badges is a card nobody reads. */
+  if(!exit){
+    if(stale) flags+='<span class="warn">stalled</span>';
+    if(!d.assignment.designLead&&!d.assignment.devLead
+       && F.stageOf(d.stage).rank>=F.stageOf('qualified').rank)
+      flags+='<span class="warn">unassigned</span>';
+    if(d.stage==='marketplace'&&!d.finProjectId)
+      flags+='<span class="warn">not listed</span>';
+    if(F.stageOf(d.stage).rank>=F.stageOf('pre_dev').rank&&!d.projectId)
+      flags+='<span class="warn">no drawing</span>';
+  }
+  if(d.stage==='dead'&&d.deadReason) flags+='<span>'+esc(d.deadReason)+'</span>';
   return '<div class="kb-card" data-id="'+d.id+'" onclick="openDeal(\''+d.id+'\')">'
     + '<b>'+esc(d.name)+'</b>'
     + '<div class="m">'+esc(d.origination.partnerName||d.origination.partnerOrg||'unattributed')
-    +   (d.address?' \u00b7 '+esc(d.address):'')+'</div>'
-    + '<div class="f">'
-    +   (d.projectType?'<span>'+esc((F.typeOf(d.projectType)||{}).label||d.projectType)+'</span>':'')
-    +   (d.sizeMw!=null?'<span>'+F.mw(d.sizeMw)+'</span>':'')
-    +   (d.funding.closedUsd?'<span class="money">'+F.money(d.funding.closedUsd,true)+'</span>':'')
-    +   (v.score!=null?'<span class="'+(v.verdict==='pass'?'money':'warn')+'">'+v.score+'</span>':'')
-    +   (stale?'<span class="warn">stalled</span>':'')
-    +   (!d.assignment.designLead&&!d.assignment.devLead
-        &&F.stageOf(d.stage).rank>=F.stageOf('qualified').rank
-        ?'<span class="warn">unassigned</span>':'')
-    + '</div></div>';
+    +   (d.address?' \u00b7 '+esc(d.address):'')
+    +   (F.ageDays(d)!=null?' \u00b7 '+F.ageDays(d)+'d':'')+'</div>'
+    + (flags?'<div class="f">'+flags+'</div>':'')
+    + '</div>';
 }
 
 function moveTo(d,to){
@@ -1479,7 +1547,11 @@ function loadInbox(manual){
       + ' adoptable record(s) found');
   })['catch'](function(e){ toast((e&&e.message)||'Scan failed',true); });
 }
-function inboxRows(k){
+/* ── Inbox filtering ─────────────────────────────────────────────────────
+   161 records with one filter is a list you scroll past, not a queue you
+   work. Three axes, because the questions people actually ask are "what is
+   left", "what came from this partner" and "where is that one site". */
+function inboxBase(k){
   return S.inbox.filter(function(c){
     if(k==='all') return true;
     if(k==='new') return !c.linkedDeal && !c.skipByDefault;
@@ -1489,7 +1561,27 @@ function inboxRows(k){
     return c.source===k;
   });
 }
-function setInbox(k){ S.inboxFilter=k; render(); }
+function inboxRows(k){
+  var q=(S.inboxQ||'').toLowerCase().trim();
+  return inboxBase(k).filter(function(c){
+    if(S.inboxOrg && c.filedByOrg!==S.inboxOrg) return false;
+    if(q && (String(c.name||'')+' '+String(c.address||'')).toLowerCase().indexOf(q)<0)
+      return false;
+    return true;
+  });
+}
+function setInbox(k){ S.inboxFilter=k; S.inboxSel={}; render(); }
+function inboxKey(c){ return c.source+':'+c.sourceId; }
+function toggleInboxOne(key,on){ if(on) S.inboxSel[key]=1; else delete S.inboxSel[key]; renderInbox(); }
+function toggleAllInbox(on){
+  S.inboxSel={};
+  if(on) inboxRows(S.inboxFilter).forEach(function(c){
+    if(!c.linkedDeal) S.inboxSel[inboxKey(c)]=1; });
+  renderInbox();
+}
+function selectedInbox(){
+  return S.inbox.filter(function(c){ return S.inboxSel[inboxKey(c)]; });
+}
 
 function renderInbox(){
   var host=document.getElementById('inbox-rows'); if(!host) return;
@@ -1497,41 +1589,126 @@ function renderInbox(){
             {k:'drafts',l:'Drafts'},{k:'linked',l:'Already linked'},{k:'all',l:'All'}];
   document.getElementById('inbox-chips').innerHTML = defs.map(function(d){
     return '<button class="chip'+(S.inboxFilter===d.k?' on':'')+'" onclick="setInbox(\''+d.k+'\')">'
-      + d.l+' <span class="mono">'+inboxRows(d.k).length+'</span></button>'; }).join('');
+      + d.l+' <span class="mono">'+inboxBase(d.k).length+'</span></button>'; }).join('');
+
+  /* Who filed it. This is the filter you asked for, and it is worth being
+     precise about the label: these are the orgs that FILED the source
+     records, not who referred the deals. Calling it "brought by" here would
+     teach exactly the wrong habit at exactly the wrong moment. */
+  var counts={};
+  inboxBase(S.inboxFilter).forEach(function(c){
+    var o=c.filedByOrg||'(none)'; counts[o]=(counts[o]||0)+1; });
+  var sel=document.getElementById('inbox-org');
+  if(sel){
+    var keys=Object.keys(counts).sort();
+    sel.innerHTML='<option value="">Filed by \u2014 any ('+inboxBase(S.inboxFilter).length+')</option>'
+      + keys.map(function(o){
+          return '<option value="'+esc(o==='(none)'?'':o)+'"'
+            + (S.inboxOrg===o?' selected':'')+'>'
+            + esc(A.orgName(o)!==o?A.orgName(o)+' \u00b7 '+o:o)
+            + ' ('+counts[o]+')</option>'; }).join('');
+  }
 
   var note=document.getElementById('inbox-note'); note.innerHTML='';
   if(!S.inboxLoaded) note.innerHTML='<div class="banner info">Scanning\u2026</div>';
   S.inboxErrors.forEach(function(e){
     note.innerHTML += '<div class="banner warn"><b>'+esc(e.collection)+' could not be read.</b> '
-      + esc(e.message) + ' \u2014 the rest of the inbox is still listed below.</div>';
-  });
+      + esc(e.message)+' \u2014 the rest of the inbox is still listed.</div>'; });
 
   var rows=inboxRows(S.inboxFilter);
+  document.getElementById('inbox-count').textContent =
+    rows.length+' of '+inboxBase(S.inboxFilter).length+' shown';
+
+  /* Bulk adopt. With 161 records, adopting one at a time is the difference
+     between doing this and never doing it. The attribution question is still
+     asked ONCE for the batch \u2014 it is not skipped, because a hundred deals
+     with the wrong originator is precisely the failure adoption exists to
+     avoid. Only ever offered on a filtered set for that reason. */
+  var selN=selectedInbox().length;
+  document.getElementById('inbox-bulk').innerHTML = selN
+    ? '<div class="bulk"><b>'+selN+' selected</b>'
+      + '<span class="s">Adopting together asks who brought them once, for all '+selN
+      + '. Only do that when the selection genuinely shares an originator \u2014 filter by '
+      + '<i>filed by</i> first if you are not sure.</span>'
+      + '<button class="btn-a" onclick="doBulkAdopt()">Adopt '+selN+'\u2026</button>'
+      + '<button class="btn-o" onclick="S.inboxSel={};renderInbox()">Clear</button></div>'
+    : '';
+
   if(!rows.length){
-    host.innerHTML='<tr><td colspan="7"><div class="empty"><b>Nothing here</b>'
-      + (S.inboxLoaded?'No records match this filter.':'Still scanning.')+'</div></td></tr>';
+    host.innerHTML='<tr><td colspan="8"><div class="empty"><b>Nothing here</b>'
+      + (S.inboxLoaded?'No records match these filters.':'Still scanning.')+'</div></td></tr>';
     return;
   }
-  host.innerHTML=rows.map(function(c,i){
-    var st=F.stageOf(c.suggestStage);
-    return '<tr><td><div class="t-name">'+esc(c.name)+'</div>'
-      + '<div class="t-sub">'+esc(c.address||'\u2014')
+  host.innerHTML=rows.map(function(c){
+    var st=F.stageOf(c.suggestStage), k=inboxKey(c), i=S.inbox.indexOf(c);
+    return '<tr><td>'+(c.linkedDeal?'':'<input type="checkbox" '
+        + (S.inboxSel[k]?'checked ':'')
+        + 'onchange="toggleInboxOne(\''+esc(k)+'\',this.checked)">')+'</td>'
+      + '<td><div class="t-name">'+esc(c.name)+'</div>'
+      +   '<div class="t-sub">'+esc(c.address||'\u2014')
       +   (c.possibleDupes.length&&!c.linkedDeal
           ? ' \u00b7 <span style="color:var(--warn);font-weight:600">looks like '
             + esc(c.possibleDupes[0].name)+'</span>':'')+'</div></td>'
       + '<td>'+esc(IN.sourceLabel(c.source))+'</td>'
       + '<td class="mono" style="font-size:12px">'+esc(c.filedByOrg||'\u2014')+'</td>'
       + '<td>'+esc(c.status||'\u2014')
-      +   (c.skipByDefault?'<div class="t-sub">draft \u2014 usually not adopted</div>':'')+'</td>'
+      +   (c.skipByDefault?'<div class="t-sub">draft</div>':'')+'</td>'
       + '<td class="num mono">'+(c.sizeMw!=null?F.mw(c.sizeMw):'\u2014')+'</td>'
       + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
       +   '<span class="dot"></span>'+esc(st.label)+'</span></td>'
       + '<td>'+(c.linkedDeal
           ? '<button class="btn-x" onclick="openDeal(\''+c.linkedDeal.id+'\')">Open deal</button>'
-          : '<button class="btn-x" onclick="doAdopt('+S.inbox.indexOf(c)+')">Adopt\u2026</button>'
+          : '<button class="btn-x" onclick="doAdopt('+i+')">Adopt\u2026</button>'
             + (c.possibleDupes.length
-               ? '<button class="btn-x" onclick="doLinkExisting('+S.inbox.indexOf(c)+')">Link to existing</button>':''))
+               ? '<button class="btn-x" onclick="doLinkExisting('+i+')">Link</button>':''))
       + '</td></tr>'; }).join('');
+}
+
+/* Bulk adoption. One attribution answer for the whole batch, applied to every
+   record in it, with the count stated plainly on the form so nobody adopts a
+   hundred deals under the wrong partner without having been told. */
+function doBulkAdopt(){
+  var sel=selectedInbox(); if(!sel.length) return;
+  var orgs={}; sel.forEach(function(c){ orgs[c.filedByOrg||'(none)']=1; });
+  var mixed=Object.keys(orgs).length>1;
+  Forms.open({
+    title:'Adopt '+sel.length+' records',
+    intro:sel.length+' selected \u00b7 filed by '+Object.keys(orgs).join(', '),
+    warning: mixed
+      ? 'These were filed by ' + Object.keys(orgs).length + ' different organisations. '
+        + 'One originator will be applied to all of them. If they did not all come from '
+        + 'the same partner, cancel and filter by "filed by" first \u2014 attribution locks.'
+      : '',
+    fields:[
+      {type:'static',html:'<b>One answer, '+sel.length+' deals.</b> Attribution locks as '
+        + 'soon as a deal advances, so this is the moment to get it right.'},
+      {key:'partnerOrg',type:'org',label:'Who brought all of these',required:true,
+        options:optOrgs(), value: mixed?'':(sel[0].filedByOrg||'')},
+      {key:'stage',type:'select',label:'Adopt at stage',required:true,value:'screening',
+        options:optStages('marketplace')}
+    ],
+    submitLabel:'Adopt '+sel.length
+  }).then(function(v){
+    if(!v) return;
+    var name=A.orgName(v.partnerOrg)||v.partnerOrg, done=0, failed=0;
+    toast('Adopting\u2026');
+    /* Sequential. A hundred parallel writes trips rate limits and leaves you
+       unable to say which ones landed \u2014 the only question that matters when a
+       batch half-fails. */
+    function step(i){
+      if(i>=sel.length){
+        toast(done+' adopted'+(failed?', '+failed+' failed':''), failed>0);
+        S.inboxSel={};
+        return refresh().then(function(){ return loadInbox(false); });
+      }
+      return IN.adopt(sel[i],{partnerOrg:v.partnerOrg,partnerName:name,stage:v.stage})
+        .then(function(){ done++; })['catch'](function(){ failed++; })
+        .then(function(){
+          if(i%5===0) toast('Adopted '+done+' of '+sel.length+'\u2026');
+          return step(i+1); });
+    }
+    step(0);
+  });
 }
 
 function doAdopt(idx){
@@ -2174,12 +2351,18 @@ function tabOverview(d){
            ? ' <span style="color:var(--bad);font-weight:600">overdue</span>':''))
     + row('Editor project', d.projectId
         ? '<span class="mono">'+esc(d.projectId)+'</span>'
-        : '<span style="color:var(--ink-3)">not linked</span>')
+        : '<span style="color:var(--ink-3)">not created</span>')
+    + row('Marketplace', d.finProjectId
+        ? '<span class="mono">'+esc(d.finProjectId)+'</span>'
+        : '<span style="color:var(--ink-3)">not listed</span>')
     + '</dl>'
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
           + '<button class="btn-x" onclick="doAssign()">Assign\u2026</button>'
-          + (d.projectId ? '' : '<button class="btn-x" onclick="doLinkProject()">Link editor project</button>')
+          + (d.projectId
+             ? '<button class="btn-x" onclick="doCreateProject()">Create another</button>'
+             : '<button class="btn-x" onclick="doCreateProject()">Create in editor\u2026</button>')
+          + (d.finProjectId ? '' : '<button class="btn-x" onclick="doPushMarketplace()">Push to marketplace\u2026</button>')
           + '</div>':'')
     + '<div class="sec-note">Assignment is deliberately separate from stage: a deal in '
     + 'pre-development may have design finished and permitting stalled, and one in '
@@ -2876,17 +3059,88 @@ function doAssign(){ var d=guard(); if(!d) return;
   }).then(function(v){ if(v) act(F.assign(d,v),'Assigned'); });
 }
 
-function doLinkProject(){ var d=guard(); if(!d) return;
-  Forms.open({ title:'Link an editor project', intro:d.name,
+/* ── The three handoffs ──────────────────────────────────────────────────
+   Real actions, not a box asking you to paste an id. */
+
+function doCreateProject(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Create in the editor',
+    intro:d.name,
     fields:[
-      {type:'static',html:'Create the project in the editor against the <b>client\u2019s</b> org '
-        + 'so the finished drawing lands in their own portal with no export step, then paste '
-        + 'its id here.'},
-      {key:'projectId',type:'text',label:'Project id',required:true},
-      {key:'note',type:'text',label:'Note'}
+      {type:'static',html:'Creates the project in the <b>client\u2019s</b> workspace, not ours, '
+        + 'so the finished drawing appears in their own portal with no export step. '
+        + 'The site details are copied across, not linked \u2014 a designer should not find '
+        + 'dimensions changing under them because somebody edited the deal mid-draw.'},
+      {key:'orgId',type:'org',label:'Whose workspace',required:true,options:optOrgs(),
+        value:d.clientOrgId||'',
+        requiredMsg:'Required \u2014 a drawing filed into our own org never reaches the person '
+                  + 'who asked for it.'},
+      {key:'name',type:'text',label:'Project name',required:true,value:d.name},
+      {key:'designLead',type:'user',label:'Design lead',options:optUsers(),
+        value:d.assignment.designLead},
+      {key:'devLead',type:'user',label:'Development lead',options:optUsers(),
+        value:d.assignment.devLead},
+      {key:'dueAt',type:'date',label:'Due',value:d.assignment.dueAt},
+      {key:'brief',type:'textarea',label:'Brief for the design team',rows:3,
+        hint:'What they need to know that is not on the deal.'}
     ],
-    submitLabel:'Link'
-  }).then(function(v){ if(v) act(F.attachProject(d,v.projectId,v.note),'Project linked'); });
+    submitLabel:'Create and assign'
+  }).then(function(v){
+    if(!v) return;
+    IN.createEditorProject(d,v).then(function(id){
+      toast('Project created in '+v.orgId);
+      return refresh();
+    })['catch'](function(e){ toast((e&&e.message)||'Could not create',true); });
+  });
+}
+
+function doPushMarketplace(){
+  var d=guard(); if(!d) return;
+  var warn=[];
+  if(!d.verification.verdictId) warn.push('no signed third-party opinion');
+  if(d.capexUsd==null) warn.push('no capex');
+  if(d.sizeMw==null) warn.push('no size');
+  Forms.open({
+    title:'Push to the marketplace',
+    intro:d.name,
+    warning: warn.length
+      ? 'Listing with ' + warn.join(', ') + '. Capital partners see this exactly as it '
+        + 'stands, and a thin listing wastes their first look \u2014 which is the only one '
+        + 'you reliably get.'
+      : '',
+    fields:[
+      {type:'static',html:'Creates the listing capital browses, links it both ways, and '
+        + 'moves this deal to <b>In marketplace</b>. If the intake gate is on and this is a '
+        + 'gated technology, it queues for approval instead of going live \u2014 the portal '
+        + 'respects the gate rather than routing around it.'},
+      {key:'name',type:'text',label:'Listing name',required:true,value:d.name},
+      {key:'raiseUsd',type:'money',label:'Capital sought',
+        value:d.funding.requestedUsd!=null?d.funding.requestedUsd:d.capexUsd},
+      {key:'summary',type:'textarea',label:'Summary for capital',rows:4,
+        hint:'What makes this financeable. The score and any signed opinion go over '
+           + 'automatically \u2014 this is the part only you can write.'}
+    ],
+    submitLabel:'List it'
+  }).then(function(v){
+    if(!v) return;
+    IN.pushToMarketplace(d,v).then(function(r){
+      if(r.stageIssue) toast('Listed, but the stage did not move \u2014 open the deal',true);
+      else if(r.status==='review') toast('Queued for marketplace approval (gated technology)');
+      else toast('Listed on the marketplace');
+      return refresh();
+    })['catch'](function(e){ toast((e&&e.message)||'Could not list',true); });
+  });
+}
+
+/* News from the marketplace, checked on every refresh. */
+function renderMarketNews(){
+  var el=document.getElementById('banners'); if(!el||!S.marketNews) return;
+  S.marketNews.forEach(function(n){
+    el.innerHTML += '<div class="banner warn"><b>'+esc(n.deal.name)+' \u00b7 '
+      + esc(n.news.label)+'.</b> '+esc(n.news.detail)
+      + ' <button class="btn-x" onclick="openDeal(\''+n.deal.id+'\')">Open the deal</button></div>';
+  });
 }
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
