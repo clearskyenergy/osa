@@ -89,6 +89,8 @@ button{font-family:inherit}
 .tb-portal{font-size:13px;color:rgba(255,255,255,.9)}
 .tb-badge{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
   background:var(--accent);color:#fff;padding:3px 8px;border-radius:5px}
+.tb-build{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.42);
+  letter-spacing:.3px;cursor:help}
 .tb-spacer{flex:1}
 .tb-user{display:flex;align-items:center;gap:9px}
 .tb-name{font-size:12.5px;color:rgba(255,255,255,.82);max-width:180px;overflow:hidden;
@@ -328,6 +330,16 @@ select.ff-i{cursor:pointer}
 .ff-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:9px;
   align-items:center;flex-shrink:0;background:#FBFCFD;border-radius:0 0 14px 14px}
 .ff-foot-note{flex:1;font-size:11.5px;color:var(--ink-3);line-height:1.45}
+.ff-foot-note.warn{color:var(--warn);font-weight:600}
+/* A visible acknowledgement that the click landed. Without it a scrim click
+   that does nothing reads as an unresponsive page rather than a deliberate
+   guard. */
+@keyframes ffnudge{
+  0%{transform:scale(1)} 30%{transform:scale(1.012)} 60%{transform:scale(.997)}
+  100%{transform:scale(1)} }
+.ff-modal.ff-nudge{animation:ffnudge .22s ease}
+@media (prefers-reduced-motion:reduce){.ff-modal.ff-nudge{animation:none;
+  outline:2px solid var(--accent);outline-offset:3px}}
 .ff-btn{border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;
   padding:9px 16px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
 .ff-btn:hover{border-color:#C4CCD5}
@@ -354,11 +366,12 @@ select.ff-i{cursor:pointer}
   color:var(--ink-3);padding-left:2px;display:flex;align-items:center;gap:7px;
   white-space:nowrap;overflow:hidden}
 .kb-plabel::after{content:'';flex:1;height:1px;background:var(--line);min-width:8px}
-.kb-cols{display:flex;gap:8px;align-items:flex-start;flex-wrap:nowrap;flex:0 0 auto}
+.kb-cols{display:flex;gap:8px;align-items:flex-start;flex-wrap:nowrap;flex:0 0 auto;
+  width:max-content}
 .kb-col{flex:0 0 214px;background:#F4F6F8;border-radius:9px;border:1px solid var(--line)}
 .kb-h{padding:8px 10px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line)}
 .kb-h b{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+  overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
 .kb-h .n{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-2);
   background:#fff;border-radius:8px;padding:0 6px}
 .kb-h i{display:block;width:7px;height:7px;border-radius:2px;flex-shrink:0}
@@ -384,15 +397,19 @@ select.ff-i{cursor:pointer}
 
 /* An empty stage still has to be a drop target and still has to be findable,
    so it collapses to a strip rather than disappearing. Clicking pins it open. */
-.kb-col.slim{flex:0 0 42px;background:#EFF1F3;overflow:hidden}
+.kb-col.slim{flex:0 0 42px;width:42px;max-width:42px;background:#EFF1F3;overflow:hidden}
 .kb-col.slim .kb-h{flex-direction:column;height:168px;padding:9px 3px;gap:8px;
   border-bottom:none;cursor:pointer;overflow:hidden}
 /* Short labels here, not full ones. "In marketplace" rotated vertically
    overran the strip and collided with the next column; every stage already
    carries a `short` for exactly this kind of tight space. */
+/* The vertical label is taken OUT of the flex flow entirely. Rotated text has
+   an intrinsic width the browser reports oddly, and inherited flex sizing from
+   the shared .kb-h b rule let it push past the 42px strip and collide with the
+   next column. Fixed width, fixed height, clipped: it cannot escape. */
 .kb-col.slim .kb-h b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;
-  color:var(--ink-2);max-height:122px;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;letter-spacing:.2px}
+  color:var(--ink-2);flex:0 0 auto;width:14px;max-width:14px;height:118px;max-height:118px;
+  overflow:hidden;white-space:nowrap;letter-spacing:.2px;text-align:left}
 .kb-col.slim .kb-h i{margin-bottom:2px}
 .kb-col.slim .kb-h .n{margin-left:0;font-size:10px;padding:0 4px}
 .kb-col.slim .kb-b,.kb-col.slim .kb-sum{display:none}
@@ -463,6 +480,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0036</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
@@ -803,7 +821,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 </div>
 </div>
 
-<div id="scrim" onclick="closeDrawer()"></div>
+<div id="scrim" onclick="scrimClose()"></div>
 <aside id="drawer" role="dialog" aria-modal="true">
   <div class="dr-h">
     <div class="top"><div style="flex:1;min-width:0">
@@ -821,7 +839,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="/config.js?v=4"></script>
-<script src="/forms.js?v=1"></script>
+<script src="/forms.js?v=2"></script>
 <script src="/access-data.js?v=6"></script>
 <script src="/portfolio-data.js?v=6"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
@@ -3101,6 +3119,17 @@ function openDeal(id){
   document.getElementById('scrim').classList.add('on');
   document.getElementById('drawer').classList.add('on');
   renderDrawer();
+}
+/* Same reasoning as the form engine: a stray click beside the drawer must not
+   throw away a note somebody has typed. Everything else in the drawer saves as
+   it goes, so an empty note box means there is nothing to lose. */
+function scrimClose(){
+  var el=document.getElementById('deal-note');
+  if(el && el.value.trim()){
+    toast('You have an unsaved note \u2014 save it or clear it first',true);
+    return;
+  }
+  closeDrawer();
 }
 function closeDrawer(){ S.openId=null;
   document.getElementById('scrim').classList.remove('on');

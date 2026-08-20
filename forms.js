@@ -309,7 +309,65 @@
         done(r.values);
       }
       function done(v) { cleanup(); resolve(v); }
-      function cancel() { cleanup(); resolve(null); }
+
+      /* ── LOSING TYPED WORK IS NOT AN ACCEPTABLE OUTCOME ──────────────────
+         The first version closed on a scrim click, which meant a stray click
+         beside a long form threw the whole thing away with no warning and no
+         undo. On the New project form that is a dozen fields.
+
+         So the rules are now:
+
+           scrim click  never closes. It nudges, so the click is visibly
+                        registered rather than seeming ignored.
+           Escape       closes immediately if nothing has been typed;
+                        otherwise needs a second press, with the footer
+                        saying so.
+           Cancel / ×   explicit intent, so they work — but if anything has
+                        been typed they ask once first.
+
+         The asymmetry is deliberate. Clicking the background is ambiguous;
+         pressing Cancel is not. */
+      function isDirty() {
+        try { return JSON.stringify(collect().values) !== baseline; }
+        catch (e) { return true; }   /* if in doubt, protect the work */
+      }
+      function nudge() {
+        var m = wrap.querySelector('.ff-modal');
+        if (!m) return;
+        m.classList.remove('ff-nudge');
+        void m.offsetWidth;                 /* restart the animation */
+        m.classList.add('ff-nudge');
+        hint('Close with Cancel or \u00d7 \u2014 clicking outside will not discard this.');
+      }
+      var _hintT;
+      function hint(msg) {
+        var el = wrap.querySelector('.ff-foot-note');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('warn');
+        clearTimeout(_hintT);
+        _hintT = setTimeout(function () {
+          el.textContent = spec.footNote || '';
+          el.classList.remove('warn');
+        }, 4000);
+      }
+
+      var armed = false, _armT;
+      function cancel(force) {
+        if (!force && isDirty() && !armed) {
+          armed = true;
+          var btn = wrap.querySelector('.ff-cancel');
+          if (btn) btn.textContent = 'Discard changes?';
+          hint('Press again to discard what you have typed.');
+          clearTimeout(_armT);
+          _armT = setTimeout(function () {
+            armed = false;
+            if (btn) btn.textContent = spec.cancelLabel || 'Cancel';
+          }, 4000);
+          return;
+        }
+        cleanup(); resolve(null);
+      }
       function cleanup() {
         document.removeEventListener('keydown', key);
         if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
@@ -323,11 +381,18 @@
       }
 
       wrap.querySelector('.ff-go').addEventListener('click', submit);
-      wrap.querySelector('.ff-cancel').addEventListener('click', cancel);
-      wrap.querySelector('.ff-x').addEventListener('click', cancel);
-      wrap.addEventListener('click', function (e) { if (e.target === wrap) cancel(); });
+      wrap.querySelector('.ff-cancel').addEventListener('click', function () { cancel(); });
+      wrap.querySelector('.ff-x').addEventListener('click', function () { cancel(); });
+      /* Scrim: nudge, never close. See the note on cancel(). */
+      wrap.addEventListener('click', function (e) { if (e.target === wrap) nudge(); });
       document.addEventListener('keydown', key);
       _open = { cleanup: cleanup };
+
+      /* Snapshot AFTER render, so the comparison is against what the form was
+         opened with rather than against empty — otherwise every edit form
+         with prefilled values would look dirty the moment it appeared. */
+      var baseline = '';
+      try { baseline = JSON.stringify(collect().values); } catch (e) { baseline = ''; }
 
       var focus = wrap.querySelector('.ff-i, .ff-card input, .ff-chip');
       if (focus && focus.focus) setTimeout(function () { focus.focus(); }, 40);
