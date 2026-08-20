@@ -526,7 +526,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0043</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0045</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
@@ -3361,18 +3361,44 @@ function tabOverview(d){
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditPreDev()">Edit</button></div>':'')
     + '</div></div>';
 
-  var nlinks=(d.links||[]).length;
-  h+='<div class="sec"><div class="sec-h">Documents'
-    + '<span class="r">'+(nlinks?nlinks+' linked':'nothing linked yet')+'</span></div>'
+  /* The actual documents, on the Overview, not a count that sends you to
+     another tab. Counting things somebody has to click through to read is the
+     kind of summary that looks tidy and costs a click every single time. */
+  var links=(d.links||[]).slice().sort(function(a,b){ return F.ms(b.addedAt)-F.ms(a.addedAt); });
+  h+='<div class="sec"><div class="sec-h">Files and links'
+    + '<span class="r">'+(links.length?links.length+' item'+(links.length===1?'':'s')
+        :'nothing yet')+'</span></div>'
     + '<div class="sec-b">'
-    + (nlinks
-        ? '<dl class="kv">'+F.linkKinds().map(function(k){
-            var n=(d.links||[]).filter(function(l){ return (l.kind||'other')===k.key; }).length;
-            return n?row(k.label,n+' link'+(n===1?'':'s')):''; }).join('')+'</dl>'
-        : '<div style="font-size:12.5px;color:var(--ink-3)">Energy reports, schematics, '
-          + 'drawings, site photos \u2014 anything somebody will want to find later.</div>')
-    + '<div style="margin-top:12px"><button class="btn-x" onclick="setTab(\'files\')">'
-    + (nlinks?'Open Files':'Add the first link')+'</button></div>'
+    + (links.length
+        ? links.slice(0,6).map(function(l){
+            return '<div style="display:flex;gap:9px;align-items:baseline;padding:6px 0;'
+              + 'border-bottom:1px solid #F4F6F8">'
+              + '<span class="cat" style="flex-shrink:0">'
+              +   esc(F.linkKindOf(l.kind).label)+'</span>'
+              + '<a href="'+esc(l.url)+'" target="_blank" rel="noopener" '
+              +   'style="flex:1;min-width:0;font-size:13px;color:var(--accent);'
+              +   'text-decoration:none;overflow:hidden;text-overflow:ellipsis;'
+              +   'white-space:nowrap">'+esc(l.label)+' \u2197</a>'
+              + (l.stored?'<span class="t-sub" style="flex-shrink:0">PDF \u00b7 '
+                  + F.fmtBytes(l.size)+'</span>':'')
+              + '</div>'; }).join('')
+          + (links.length>6
+             ? '<div class="t-sub" style="margin-top:8px">and '+(links.length-6)+' more</div>'
+             : '')
+        : '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6">'
+          + 'Energy reports, schematics, drawings, site photos \u2014 anything somebody will '
+          + 'want to find later. Paste a Drive link, or upload the final PDF.</div>')
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button class="btn-x" onclick="doUploadDoc()">Upload a PDF</button>'
+          + '<button class="btn-x" onclick="doAddLink()">Paste a Drive link</button>'
+          + (links.length?'<button class="btn-x" onclick="setTab(\'files\')">'
+              + 'All '+links.length+' \u2192</button>':'')
+          + '</div>'
+          + '<input type="file" id="deal-upload-ov" style="display:none" '
+          +   'accept="application/pdf,image/*" onchange="handleUpload(this)">'
+          + '<div class="prog" id="deal-prog-ov"><i></i></div>'
+        : '')
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Verification</div><div class="sec-b">'
@@ -4108,10 +4134,23 @@ function doAddNote(){ var d=guard(); if(!d) return;
 }
 
 /* ── Documents ────────────────────────────────────────────────────────── */
+/* The file input and the progress bar exist on BOTH the Overview and the
+   Files tab, so these resolve whichever one is currently in the DOM rather
+   than assuming a single id. Hardcoding one meant the button silently did
+   nothing from the other tab. */
+function uploadEl(){
+  return document.getElementById('deal-upload')
+      || document.getElementById('deal-upload-ov');
+}
+function progEl(){
+  return document.getElementById('deal-prog')
+      || document.getElementById('deal-prog-ov');
+}
 function doUploadDoc(){
   var d=guard(); if(!d) return;
-  var el=document.getElementById('deal-upload');
-  if(el){ el.value=''; el.click(); }
+  var el=uploadEl();
+  if(!el){ toast('Reload the page and try again',true); return; }
+  el.value=''; el.click();
 }
 
 function handleUpload(input){
@@ -4140,7 +4179,7 @@ function handleUpload(input){
   }).then(function(v){
     input.value='';
     if(!v) return;
-    var bar=document.getElementById('deal-prog');
+    var bar=progEl();
     if(bar){ bar.style.display='block'; bar.firstChild.style.width='0'; }
     toast('Uploading\u2026');
     F.uploadDoc(d,file,v,function(frac){
