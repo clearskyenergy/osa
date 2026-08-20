@@ -342,17 +342,23 @@ select.ff-i{cursor:pointer}
    will never fit on one screen, so the job is to make the scroll worth it:
    narrow columns, dense cards, empty stages collapsed to a strip, and phase
    bands so you can find the part of the pipeline you meant. */
-.kb-wrap{overflow-x:auto;padding-bottom:14px}
-.kb-phases{display:flex;gap:8px;min-width:min-content;margin-bottom:6px}
-.kb-phase{display:flex;flex-direction:column;gap:5px}
+.kb-wrap{overflow-x:auto;overflow-y:visible;padding-bottom:14px;width:100%}
+.kb-phases{display:flex;gap:14px;min-width:min-content;margin-bottom:6px;align-items:flex-start}
+/* flex:0 0 auto MATTERS. Without it a flex child defaults to shrink:1, so each
+   phase group squeezed below the combined width of its own columns and they
+   overlapped — Qualified ended up rendered underneath Pre-development, with
+   only the edge of its count badge poking out. min-content stops the group
+   collapsing narrower than the columns it contains. */
+.kb-phase{display:flex;flex-direction:column;gap:5px;flex:0 0 auto;min-width:min-content}
 .kb-plabel{font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
-  color:var(--ink-3);padding-left:2px;display:flex;align-items:center;gap:7px}
-.kb-plabel::after{content:'';flex:1;height:1px;background:var(--line)}
-.kb-cols{display:flex;gap:8px;align-items:flex-start}
+  color:var(--ink-3);padding-left:2px;display:flex;align-items:center;gap:7px;
+  white-space:nowrap;overflow:hidden}
+.kb-plabel::after{content:'';flex:1;height:1px;background:var(--line);min-width:8px}
+.kb-cols{display:flex;gap:8px;align-items:flex-start;flex-wrap:nowrap;flex:0 0 auto}
 .kb-col{flex:0 0 214px;background:#F4F6F8;border-radius:9px;border:1px solid var(--line)}
 .kb-h{padding:8px 10px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line)}
 .kb-h b{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
+  overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .kb-h .n{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-2);
   background:#fff;border-radius:8px;padding:0 6px}
 .kb-h i{display:block;width:7px;height:7px;border-radius:2px;flex-shrink:0}
@@ -360,7 +366,8 @@ select.ff-i{cursor:pointer}
 .kb-b{padding:7px;display:flex;flex-direction:column;gap:6px;min-height:44px;
   max-height:calc(100vh - 330px);overflow-y:auto}
 .kb-card{background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 9px;
-  cursor:pointer}
+  cursor:pointer;min-width:0;overflow:hidden}
+.kb-card b{overflow-wrap:anywhere}
 .kb-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
 .kb-card.drag{opacity:.4}
 .kb-card b{display:block;font-size:12.5px;font-weight:600;color:var(--navy);line-height:1.3}
@@ -377,12 +384,17 @@ select.ff-i{cursor:pointer}
 
 /* An empty stage still has to be a drop target and still has to be findable,
    so it collapses to a strip rather than disappearing. Clicking pins it open. */
-.kb-col.slim{flex:0 0 40px;background:#EFF1F3}
-.kb-col.slim .kb-h{flex-direction:column;height:150px;padding:9px 4px;gap:8px;
-  border-bottom:none;cursor:pointer}
+.kb-col.slim{flex:0 0 42px;background:#EFF1F3;overflow:hidden}
+.kb-col.slim .kb-h{flex-direction:column;height:168px;padding:9px 3px;gap:8px;
+  border-bottom:none;cursor:pointer;overflow:hidden}
+/* Short labels here, not full ones. "In marketplace" rotated vertically
+   overran the strip and collided with the next column; every stage already
+   carries a `short` for exactly this kind of tight space. */
 .kb-col.slim .kb-h b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;
-  color:var(--ink-2);max-height:104px}
-.kb-col.slim .kb-h .n{margin-left:0;font-size:10px}
+  color:var(--ink-2);max-height:122px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;letter-spacing:.2px}
+.kb-col.slim .kb-h i{margin-bottom:2px}
+.kb-col.slim .kb-h .n{margin-left:0;font-size:10px;padding:0 4px}
 .kb-col.slim .kb-b,.kb-col.slim .kb-sum{display:none}
 .kb-col.slim.over{flex:0 0 214px;background:var(--accent-soft)}
 .kb-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
@@ -811,7 +823,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="/config.js?v=4"></script>
 <script src="/forms.js?v=1"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=5"></script>
+<script src="/portfolio-data.js?v=6"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1573,9 +1585,11 @@ function kbColumn(key, inCol, prefs){
 
   inCol=inCol.slice().sort(function(a,b){ return (F.ageDays(b)||0)-(F.ageDays(a)||0); });
 
-  return '<div class="kb-col'+(exit?' exit':'')+(slim?' slim':'')+'" data-stage="'+key+'">'
+  return '<div class="kb-col'+(exit?' exit':'')+(slim?' slim':'')+'" data-stage="'+key+'"'
+    + (slim?' title="'+esc(st.label)+' \u2014 click to open"':'')+'>'
     + '<div class="kb-h"'+(slim?' onclick="pinColumn(\''+key+'\')"':'')+'>'
-    +   '<i style="background:'+st.color+'"></i><b>'+esc(st.label)+'</b>'
+    +   '<i style="background:'+st.color+'"></i>'
+    +   '<b>'+esc(slim?(st.short||st.label):st.label)+'</b>'
     +   '<span class="n">'+inCol.length+'</span></div>'
     + (!slim&&inCol.length&&(mw||closed||cap)
         ? '<div class="kb-sum">'+(mw?F.mw(mw):'')

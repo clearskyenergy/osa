@@ -146,11 +146,11 @@
      direction is bad: delete real failures and you flatter yourself; keep
      junk and you libel your partners. */
   var EXITS = [
-    { key:'parked',    label:'Parked',  color:'#94A3AF',
+    { key:'parked',    label:'Parked',  short:'Parked', color:'#94A3AF',
       hint:'Not now. Revisit on a trigger \u2014 new substation, rezoning, tariff change.' },
-    { key:'dead',      label:'Dead',    color:'#DC2626',
+    { key:'dead',      label:'Dead',    short:'Dead',   color:'#DC2626',
       hint:'It happened and it did not work out. Stays in every denominator, permanently.' },
-    { key:'discarded', label:'Discarded', color:'#94A3AF', excluded:true,
+    { key:'discarded', label:'Discarded', short:'Disc.', color:'#94A3AF', excluded:true,
       hint:'Never a real deal — a test row, a mis-adoption, a duplicate. Excluded from '
          + 'every count rather than counted as a failure.' }
   ];
