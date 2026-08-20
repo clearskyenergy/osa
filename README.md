@@ -394,9 +394,40 @@ Nothing else in the ops console changes.
 
 ---
 
+## vercel.json — why one blunt rule
+
+```json
+{ "source": "/(.*)", "headers": [ ... "Cache-Control": "no-cache, must-revalidate" ] }
+```
+
+**Every script tag carries a `?v=`, but nothing busts the HTML that references
+them.** A browser holding a cached `portfolio.html` keeps requesting the *old*
+`?v=` values and keeps the old inline CSS — so JS changes land and CSS changes
+never do. That produced a genuinely confusing failure: new stage labels appeared
+while the layout fix shipped in the same deploy did not, and the board still
+overlapped.
+
+`no-cache` does not mean "don't cache" — it means "revalidate before using".
+The browser sends a conditional request and gets a `304 Not Modified` when
+nothing changed, so the cost is one round trip per file, not a re-download.
+On a handful of files that is the right trade against a whole class of ghost bug.
+
+**It is one rule covering everything rather than separate rules per file type,
+deliberately.** An earlier version had four rules with `"//"` keys as inline
+comments — and `vercel.json` is JSON, which has no comments, validated against
+a strict schema that rejects unknown properties. The deploy failed with
+`headers[1] should NOT have additional property '//'`. Notes about
+configuration belong in documentation, not smuggled into the configuration.
+
+Any explanation you want to keep goes here. Nothing goes in the JSON.
+
+---
+
 ## Deploying
 
 1. Copy `omega-logo.png` from the ops repo. There is no logo in here.
+   Also copy `vercel.json` — without it the browser caches the HTML and half
+   your deploys land silently half-applied.
 2. Set `access.owner` in `config.js` **and** `portalOwnerEmail()` in
    `firestore.rules` to the same address. With no owner, the first
    external person to sign in lands in an approval queue nobody has the standing

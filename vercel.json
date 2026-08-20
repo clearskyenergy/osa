@@ -5,28 +5,8 @@
       "source": "/(.*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    },
-    {
-      "//": "THE HTML MUST NOT BE CACHED. Every script tag carries a ?v= so the JS files bust their own cache, but nothing busts the HTML that references them. A browser holding a cached portfolio.html therefore keeps requesting the OLD ?v= values, and any change to CSS or markup never lands at all. That produced a genuinely confusing failure: new JS behaviour appeared (short stage labels) while the CSS fix shipped in the same deploy did not, so the board still overlapped. must-revalidate means the browser asks every time and gets a 304 when nothing changed, which costs one round trip and removes a whole class of ghost bug.",
-      "source": "/(.*)\\.html",
-      "headers": [
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    },
-    {
-      "//": "Same for the bare paths, because cleanUrls serves /portfolio without the extension.",
-      "source": "/((?!.*\\.).*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    },
-    {
-      "//": "The versioned assets are the opposite case: their ?v= makes each URL unique, so they can be cached hard and a bump fetches a genuinely new URL.",
-      "source": "/(.*)\\.(js|png|svg|ico)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
       ]
     }
   ]
