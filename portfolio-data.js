@@ -457,6 +457,9 @@
       },
 
       bom:       Array.isArray(d.bom) ? d.bom : [],
+      /* Links to where the real files live — see config.js § linkKinds for
+         why these are links rather than uploads. */
+      links:     Array.isArray(d.links) ? d.links : [],
       /* Prescreen: the fast, pre-scoring look. Separate from `viability`
          because they answer different questions — prescreen asks "is this
          worth an hour of somebody's time", scoring asks "is this worth
@@ -1273,6 +1276,157 @@
                + ((ver.verdict && ver.verdict.bankability) || 'no bankability') });
   }
 
+  /* ── Documents ───────────────────────────────────────────────────────────
+     A link, a kind, and a label. The label matters more than it looks: a
+     Drive URL is opaque, so a list of bare links is unusable within a month
+     and the person who pasted them is the only one who knows what they are. */
+  function linkKinds() { return (cfg().portfolio || {}).linkKinds || []; }
+  function linkKindOf(k) {
+    var l = linkKinds();
+    for (var i=0;i<l.length;i++) if (l[i].key === k) return l[i];
+    return { key:k, label:k || 'Other' };
+  }
+
+  /* Rejects anything that is not a URL, because a half-pasted link fails
+     silently later — somebody clicks it on a call and nothing happens. */
+  function normalizeUrl(u) {
+    var s = String(u || '').trim();
+    if (!s) return null;
+    if (!/^https?:\/\//i.test(s)) {
+      if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s)) s = 'https://' + s;
+      else return null;
+    }
+    return s;
+  }
+
+  function addLink(deal, l) {
+    var url = normalizeUrl(l.url);
+    if (!url) return Promise.reject(new Error(
+      'That does not look like a link. Paste the full address, starting https://'));
+    if (!l.label) return Promise.reject(new Error(
+      'Give it a name. A list of bare Drive URLs is unreadable within a month, '
+      + 'and the person who pasted them is the only one who knows what they are.'));
+    var rec = {
+      id:'lk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6),
+      url:url, label:l.label, kind:l.kind || 'other', note:l.note || '',
+      addedBy:_me ? _me.email : '', addedByName:_me ? _me.name : '', addedAt:stamp()
+    };
+    return patch(deal, { links: firebase.firestore.FieldValue.arrayUnion(rec) },
+      { type:'link', message:'Link added: ' + rec.label
+            + ' (' + linkKindOf(rec.kind).label + ')' });
+  }
+
+  function updateLink(deal, id, fields) {
+    var next = (deal.links || []).map(function (x) {
+      if (!x || x.id !== id) return x;
+      var c = {}; for (var k in x) c[k] = x[k];
+      if (fields.url != null)   { var u = normalizeUrl(fields.url); if (u) c.url = u; }
+      if (fields.label != null) c.label = fields.label;
+      if (fields.kind != null)  c.kind = fields.kind;
+      if (fields.note != null)  c.note = fields.note;
+      c.updatedAt = stamp();
+      return c;
+    });
+    return patch(deal, { links: next }, { type:'link', message:'Link updated.' });
+  }
+
+  /* ── Uploading ───────────────────────────────────────────────────────────
+     Uploads land in the SAME `links` array as pasted links, flagged with
+     stored:true. One list, because the person looking for the energy report
+     does not care which mechanism put it there \u2014 splitting them into two
+     panels would make them hunt twice.
+
+     PDF and images only, deliberately. A DWG or an XLSX is a working file
+     that belongs in Drive where it can still be edited; uploading one here
+     creates a second copy that goes stale silently. PDF is the archival
+     format \u2014 the version somebody signed, which will never change again. */
+  function storage() {
+    if (!global.firebase || !firebase.storage)
+      throw new Error('The file uploader did not load. Reload the page and try again.');
+    return firebase.storage();
+  }
+  function maxUploadMb() { return (cfg().portfolio || {}).maxUploadMb || 50; }
+
+  function uploadDoc(deal, file, meta, onProgress) {
+    meta = meta || {};
+    if (!file) return Promise.reject(new Error('No file selected.'));
+
+    var ct = file.type || '';
+    if (!/^application\/pdf$/.test(ct) && !/^image\//.test(ct))
+      return Promise.reject(new Error(
+        'PDF and images only. A spreadsheet or a CAD file is a working document \u2014 keep it '
+        + 'in Drive and paste the link, or it becomes a second copy that goes stale the '
+        + 'moment somebody edits the original.'));
+
+    var mb = maxUploadMb();
+    if (file.size > mb * 1048576)
+      return Promise.reject(new Error('That file is ' + Math.round(file.size/1048576)
+        + ' MB. The limit is ' + mb + ' MB \u2014 link it from Drive instead.'));
+
+    var id = 'lk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
+    var clean = String(file.name || 'document').replace(/[^\w.\- ]+/g, '_').slice(0, 120);
+    var path = 'deals/' + deal.id + '/' + id + '_' + clean;
+    var task = storage().ref(path).put(file, { contentType: ct });
+
+    return new Promise(function (resolve, reject) {
+      task.on('state_changed',
+        function (s) { if (onProgress && s.totalBytes) onProgress(s.bytesTransferred / s.totalBytes); },
+        reject,
+        function () {
+          task.snapshot.ref.getDownloadURL().then(function (url) {
+            var rec = {
+              id:id, url:url, label:meta.label || file.name,
+              kind:meta.kind || 'other', note:meta.note || '',
+              stored:true, path:path, size:file.size, contentType:ct,
+              fileName:file.name,
+              addedBy:_me ? _me.email : '', addedByName:_me ? _me.name : '',
+              addedAt:stamp()
+            };
+            return patch(deal, { links: firebase.firestore.FieldValue.arrayUnion(rec) },
+              { type:'link', message:'Uploaded ' + rec.label
+                    + ' (' + linkKindOf(rec.kind).label + ')' })
+              .then(function () { resolve(rec); });
+          })['catch'](reject);
+        });
+    });
+  }
+
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+
+  function removeLink(deal, link) {
+    /* An uploaded file is deleted from Storage too \u2014 leaving the object behind
+       would mean a document nobody can find in the console but which is still
+       reachable by anyone holding the old URL. Failure is non-fatal: the
+       record goes either way, and a stranded object is a cleanup job rather
+       than a reason to refuse. */
+    if (link && link.stored && link.path) {
+      try {
+        storage().ref(link.path)['delete']()['catch'](function (e) {
+          console.warn('[storage] object not removed:', link.path, e && e.message);
+        });
+      } catch (e) { /* SDK absent \u2014 remove the record anyway */ }
+    }
+    return patch(deal, { links: firebase.firestore.FieldValue.arrayRemove(link) },
+      { type:'link', message:'Link removed: ' + (link.label || link.url) });
+  }
+
+  /* Renaming a deal. Its own function rather than a field on the site-details
+     patch because the name appears on the marketplace listing, the editor
+     project and every activity line — so the rename is logged with the old
+     value, and somebody asking "what was this called before" has an answer. */
+  function rename(deal, name) {
+    var n = String(name || '').trim();
+    if (!n) return Promise.reject(new Error('A name is required.'));
+    if (n === deal.name) return Promise.resolve();
+    return patch(deal, { name:n },
+      { type:'edit', message:'Renamed from \u201c' + deal.name + '\u201d to \u201c' + n + '\u201d' });
+  }
+
   function addNote(deal, text) {
     if (!text) return Promise.reject(new Error('Nothing to save.'));
     var n = { ts:stamp(), author:_me?(_me.name||_me.email):'', text:text };
@@ -1554,7 +1708,7 @@
     'funding','build','bom','notes','activity','orgsInvolved','createdAt','updatedAt','_demo',
     'viability','viabilityHistory','permitting','assignment','finProjectId','adoptedFrom',
     'adoptedAt','importBatch','externalIds','projectType','prescreen',
-    'discardReason','discardedAt','discardedBy'];
+    'discardReason','discardedAt','discardedBy','links'];
   function unmapped(deal) {
     var raw = deal._raw || {}, out = {}, n = 0;
     for (var k in raw) { if (!raw.hasOwnProperty(k) || KNOWN.indexOf(k) >= 0) continue; out[k] = raw[k]; n++; }
@@ -1577,6 +1731,9 @@
     setFunding:setFunding, addDraw:addDraw, setDrawStatus:setDrawStatus,
     addBomLine:addBomLine, setBomStatus:setBomStatus, removeBomLine:removeBomLine,
     addNote:addNote, attachVerification:attachVerification,
+    linkKinds:linkKinds, linkKindOf:linkKindOf, normalizeUrl:normalizeUrl,
+    addLink:addLink, updateLink:updateLink, removeLink:removeLink, rename:rename,
+    uploadDoc:uploadDoc, fmtBytes:fmtBytes, maxUploadMb:maxUploadMb,
     projectTypes:projectTypes, typeOf:typeOf, setProjectType:setProjectType,
     savePrescreen:savePrescreen, financePartners:financePartners,
     financePartnerOf:financePartnerOf, applyFundingSchedule:applyFundingSchedule,

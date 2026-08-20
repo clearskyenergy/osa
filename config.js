@@ -408,6 +408,49 @@ window.CLEARSKY_CONFIG = {
         ] }
     ],
 
+    /* ── Document kinds ────────────────────────────────────────────────────
+       What a link on a deal is. Categorised rather than a flat list because
+       "show me the interconnection correspondence" is a question somebody
+       asks eighteen months later, and scrolling forty untitled Drive links
+       is not an answer.
+
+       LINKS, NOT UPLOADS, and that is a deliberate trade:
+
+         · your team already works in Drive and Dropbox. A second copy in
+           Firebase Storage would go stale the moment somebody edits the
+           original, and nobody would know which one was current
+         · permissions stay where the file is. The portal never becomes the
+           thing standing between an engineer and a drawing
+         · it costs nothing to store and nothing to serve
+
+       THE COST, stated plainly: the portal cannot guarantee anybody can
+       actually open what you link. A partner clicking a Drive link they have
+       not been shared on gets "request access", not the file. So share the
+       folder in Drive as well as pasting the link here — the console says so
+       on the form rather than letting people discover it on a call.
+
+       The signed verification opinion is the one exception and is uploaded
+       properly, because that document has to be the artifact a lender
+       receives rather than a link that might rot. */
+    /* Upload ceiling. Stamped drawing sets get large; past this, link it from
+       Drive rather than making somebody wait on a 60 MB upload over hotel
+       wifi. */
+    maxUploadMb: 50,
+
+    linkKinds: [
+      { key:'folder',      label:'Project folder',        hint:'The whole Drive or Dropbox folder for this site.' },
+      { key:'energy',      label:'Energy report / model', hint:'Production estimates, load studies, savings analysis.' },
+      { key:'schematic',   label:'Schematic / one-line',  hint:'Electrical drawings, one-lines, panel schedules.' },
+      { key:'drawing',     label:'Site drawing / layout', hint:'Site plan, civil, layout, editor exports.' },
+      { key:'survey',      label:'Survey / photos',       hint:'Site visit photos, drone, measurements.' },
+      { key:'utility',     label:'Utility correspondence',hint:'Interconnection applications, studies, responses.' },
+      { key:'permit',      label:'Permitting',            hint:'Applications, approvals, AHJ correspondence.' },
+      { key:'financial',   label:'Financial model',       hint:'Pro forma, capex build-up, sensitivity.' },
+      { key:'contract',    label:'Contract / agreement',  hint:'Lease, offtake, EPC, MSA.' },
+      { key:'proposal',    label:'Proposal / deck',       hint:'Anything client-facing.' },
+      { key:'other',       label:'Other',                 hint:'' }
+    ],
+
     /* ── Viability scoring ─────────────────────────────────────────────────
        The gate into spend. Edit the criteria and weights freely; the weights
        are relative, not percentages, so adding a criterion does not require

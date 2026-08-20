@@ -349,6 +349,52 @@ select.ff-i{cursor:pointer}
 @media(max-width:640px){.ff-scrim{padding:0}.ff-modal{max-width:100%;border-radius:0;
   max-height:100vh;height:100vh}.ff-foot{border-radius:0}}
 
+/* ── Verdict card and document rows ────────────────────────────────────
+   ALSO RESTORED, same cause as the filter bars below: swallowed by an
+   anchored replacement of the Kanban block. These style the prescreen verdict
+   and the viability score readout — both were rendering as unstyled text,
+   which is why the score never looked like the instrument it is meant to be.
+
+   The verdict card is the one loud element in the drawer, deliberately: the
+   ops console typesets response time this way because response time is its
+   product, and here the product is the judgement. */
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
+  border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.verdict .ax{background:#fff;padding:15px 16px}
+.verdict .ax .lbl{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-3)}
+.verdict .ax .val{font-family:'DM Mono',ui-monospace,monospace;font-size:19px;font-weight:500;
+  margin-top:7px;letter-spacing:-.4px;line-height:1.25;color:var(--navy)}
+.verdict .ax .sub{font-size:11.5px;color:var(--ink-2);margin-top:5px;line-height:1.5}
+@media(max-width:560px){.verdict{grid-template-columns:1fr}}
+.doc{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid #F0F3F5}
+.doc:last-child{border-bottom:none}
+
+/* ── Filter bars and progress ──────────────────────────────────────────
+   RESTORED. These were collateral damage from a rewrite of the Kanban CSS
+   block: the replacement was anchored on the start of that block and took the
+   filter-bar rules sitting immediately above it with it. Nothing threw, so it
+   went unnoticed — the inputs on Inbox, Design and the Board just quietly
+   rendered as unstyled browser defaults.
+
+   Worth the note: an anchored block replacement that swallows its neighbours
+   is invisible in a syntax check and invisible in a screenshot of a page you
+   were not looking at. */
+.fbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.fbar-i{border:1.5px solid #DDE3E9;border-radius:8px;padding:8px 11px;
+  font:400 13px 'DM Sans',sans-serif;color:var(--ink);background:#fff;outline:none}
+.fbar-i:focus{border-color:var(--accent)}
+#inbox-q,#design-q{flex:1;min-width:200px}
+.fbar-n{font-size:12px;color:var(--ink-2);font-family:'DM Mono',monospace}
+.bulk{background:var(--accent-soft);border-radius:8px;padding:10px 13px;display:flex;
+  gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bulk b{font-size:13px;color:var(--accent)}
+.bulk .s{font-size:11.5px;color:var(--ink-2);flex:1;line-height:1.45}
+/* Upload progress. Without this the bar is an invisible div and an upload in
+   flight looks like nothing happening. */
+.prog{height:3px;background:#E9EDF1;border-radius:2px;margin-top:10px;overflow:hidden;display:none}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .18s}
+
 /* ── Kanban ────────────────────────────────────────────────────────────
    Sized for reading, not for looking impressive. Eleven stages plus two exits
    will never fit on one screen, so the job is to make the scroll worth it:
@@ -480,7 +526,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0036</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0043</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
@@ -838,10 +884,13 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="/config.js?v=4"></script>
+<!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
+     it the upload button throws rather than failing gracefully. -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="/config.js?v=6"></script>
 <script src="/forms.js?v=2"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=6"></script>
+<script src="/portfolio-data.js?v=8"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -3147,14 +3196,16 @@ function renderDrawer(){
     + (d.origination.locked?' <span class="lock">(locked)</span>':'')
     + ' \u00b7 '+(F.ageDays(d)!=null?F.ageDays(d)+' days old':'');
 
-  var tabs=[['overview','Overview'],['score','Viability'],['permits','Permitting'],
-            ['money','Funding'],['bom','BOM'],['people','Participants'],['history','History']];
+  var tabs=[['overview','Overview'],['files','Files'],['score','Viability'],
+            ['permits','Permitting'],['money','Funding'],['bom','BOM'],
+            ['people','Participants'],['history','History']];
   document.getElementById('dr-tabs').innerHTML=tabs.map(function(t){
     return '<button class="dr-tab'+(S.tab===t[0]?' on':'')+'" onclick="setTab(\''+t[0]+'\')">'
       + t[1]+'</button>'; }).join('');
 
   var h='';
   if(S.tab==='overview') h=tabOverview(d);
+  if(S.tab==='files')    h=tabFiles(d);
   if(S.tab==='score')    h=tabScore(d);
   if(S.tab==='permits')  h=tabPermits(d);
   if(S.tab==='money')    h=tabMoney(d);
@@ -3266,7 +3317,8 @@ function tabOverview(d){
     + row('Client', esc(A.orgName(d.clientOrgId)||'\u2014'))
     + '</dl>'
     + (A.can('write_deal')&&!d._demo
-        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSite()">Edit site details</button></div>':'')
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSite()">'
+          + 'Edit project details</button></div>':'')
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Assignment'
@@ -3309,6 +3361,20 @@ function tabOverview(d){
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditPreDev()">Edit</button></div>':'')
     + '</div></div>';
 
+  var nlinks=(d.links||[]).length;
+  h+='<div class="sec"><div class="sec-h">Documents'
+    + '<span class="r">'+(nlinks?nlinks+' linked':'nothing linked yet')+'</span></div>'
+    + '<div class="sec-b">'
+    + (nlinks
+        ? '<dl class="kv">'+F.linkKinds().map(function(k){
+            var n=(d.links||[]).filter(function(l){ return (l.kind||'other')===k.key; }).length;
+            return n?row(k.label,n+' link'+(n===1?'':'s')):''; }).join('')+'</dl>'
+        : '<div style="font-size:12.5px;color:var(--ink-3)">Energy reports, schematics, '
+          + 'drawings, site photos \u2014 anything somebody will want to find later.</div>')
+    + '<div style="margin-top:12px"><button class="btn-x" onclick="setTab(\'files\')">'
+    + (nlinks?'Open Files':'Add the first link')+'</button></div>'
+    + '</div></div>';
+
   h+='<div class="sec"><div class="sec-h">Verification</div><div class="sec-b">'
     + (d.verification.verdictId
       ? '<dl class="kv">'
@@ -3348,6 +3414,93 @@ function fieldLabel(path){
     'funding.investorOrg':'Investor organisation',
     'build.ntpAt':'Notice-to-proceed date', 'build.codAt':'Commercial operation date' };
   return m[path]||path;
+}
+
+function tabFiles(d){
+  var links=d.links||[], kinds=F.linkKinds();
+  var h='<div class="sec"><div class="sec-h">Documents'
+    + '<span class="r">'+links.length+' link'+(links.length===1?'':'s')+'</span></div>'
+    + '<div class="sec-b">';
+
+  if(!links.length){
+    h+='<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6">'
+      + 'Nothing linked yet. Paste the Drive or Dropbox link for the energy report, the '
+      + 'schematics, the site photos \u2014 anything somebody will want to find later.</div>';
+  } else {
+    /* Grouped by kind, and only kinds that have something. A list of eleven
+       empty headings is worse than no headings. */
+    var by={};
+    links.forEach(function(l){ (by[l.kind||'other']=by[l.kind||'other']||[]).push(l); });
+    kinds.forEach(function(k){
+      var set=by[k.key]; if(!set) return;
+      h+='<div style="margin-bottom:14px">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;'
+        + 'text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+        + esc(k.label)+'</div>'
+        + set.map(linkRow).join('')+'</div>';
+      delete by[k.key];
+    });
+    /* Anything whose kind is no longer in config still has to show. */
+    Object.keys(by).forEach(function(k){
+      h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;'
+        + 'letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">'
+        + esc(k)+'</div>'+by[k].map(linkRow).join('')+'</div>';
+    });
+  }
+
+  if(A.can('write_deal')&&!d._demo)
+    h+='<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<button class="btn-a" onclick="doUploadDoc()">Upload a PDF</button>'
+      + '<button class="btn-o" onclick="doAddLink()">Paste a link</button>'
+      + '<input type="file" id="deal-upload" style="display:none" '
+      +   'accept="application/pdf,image/*" onchange="handleUpload(this)">'
+      + '</div>'
+      + '<div class="prog" id="deal-prog"><i></i></div>';
+
+  h+='<div class="sec-note"><b>Upload the final version; link the working one.</b> '
+    + 'A signed report or a stamped drawing will never change again, so a copy here is safe '
+    + 'and always openable. A live spreadsheet or CAD file is not \u2014 upload it and you have '
+    + 'a second copy that goes stale the moment somebody edits the original, with no way to '
+    + 'tell which is current. Those stay in Drive and get linked.<br><br>'
+    + '<b>Two things worth knowing.</b> A pasted Drive link does not grant access \u2014 a partner '
+    + 'clicking one they have not been shared on gets \u201crequest access\u201d, so share it in '
+    + 'Drive too. And an uploaded file is reachable by any approved portal user holding its '
+    + 'link, which is weaker than the deal record itself; anything that would be damaging in '
+    + 'those hands should be a Drive link, where the permission is real.</div>';
+  h+='</div></div>';
+
+  if(d.projectId||d.finProjectId){
+    h+='<div class="sec"><div class="sec-h">Elsewhere</div><div class="sec-b"><dl class="kv">'
+      + (d.projectId?row('Editor drawing',
+          '<button class="btn-x" style="padding:0" onclick="openEditor(\''+esc(d.projectId)+'\')">'
+          + 'Open in editor</button>'):'')
+      + (d.finProjectId?row('Marketplace listing',
+          '<span class="mono">'+esc(d.finProjectId)+'</span>'):'')
+      + '</dl></div></div>';
+  }
+  return h;
+}
+
+function linkRow(l){
+  var d=findDeal(S.openId);
+  var can=A.can('write_deal')&&d&&!d._demo;
+  return '<div class="doc" style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;'
+    + 'border-bottom:1px solid #F0F3F5">'
+    + '<div style="flex:1;min-width:0">'
+    +   '<a href="'+esc(l.url)+'" target="_blank" rel="noopener" '
+    +   'style="font-size:13px;font-weight:600;color:var(--accent);text-decoration:none">'
+    +   esc(l.label)+' \u2197</a>'
+    +   (l.stored
+          ? '<div class="t-sub">'+esc(l.fileName||'')+' \u00b7 '+F.fmtBytes(l.size)
+            + ' \u00b7 <span style="color:var(--money);font-weight:600">uploaded</span></div>'
+          : '<div class="t-sub" style="word-break:break-all">'+esc(l.url)+'</div>')
+    +   (l.note?'<div class="t-sub">'+esc(l.note)+'</div>':'')
+    +   '<div class="t-sub" style="color:var(--ink-3)">'
+    +     esc(l.addedByName||l.addedBy||'')+' \u00b7 '+esc(F.fmtDate(l.addedAt))+'</div>'
+    + '</div>'
+    + (can?'<button class="btn-x" onclick="doEditLink(\''+esc(l.id)+'\')">Edit</button>'
+         + '<button class="btn-x danger" onclick="doRemoveLink(\''+esc(l.id)+'\')">Remove</button>':'')
+    + '</div>';
 }
 
 function tabScore(d){
@@ -3754,8 +3907,11 @@ function doReattribute(){ var d=guard(); if(!d) return;
 }
 
 function doEditSite(){ var d=guard(); if(!d) return;
-  Forms.open({ title:'Site details', intro:d.name,
+  Forms.open({ title:'Project details', intro:d.name,
     fields:[
+      {key:'name',type:'text',label:'Project name',required:true,value:d.name,
+        hint:'Appears on the marketplace listing, the editor drawing and every activity '
+           + 'line. Renaming is logged with the old name.'},
       {key:'projectType',type:'select',label:'Project type',value:d.projectType,
         options:optTypes()},
       {key:'address',type:'text',label:'Location',value:d.address},
@@ -3769,7 +3925,10 @@ function doEditSite(){ var d=guard(); if(!d) return;
     if(!v) return;
     var f={ address:v.address, state:v.state, sizeMw:v.sizeMw, sizeMwh:v.sizeMwh,
             capexUsd:v.capexUsd, clientOrgId:v.clientOrgId };
-    var p=F.patch(d,f,{type:'edit',message:'Site details updated.'});
+    var p=F.patch(d,f,{type:'edit',message:'Project details updated.'});
+    /* Rename separately so it gets its own log line carrying the old name —
+       folded into the generic patch it would be invisible in the history. */
+    if(v.name && v.name!==d.name) p=p.then(function(){ return F.rename(d,v.name); });
     if(v.projectType && v.projectType!==d.projectType)
       p=p.then(function(){ return F.setProjectType(d,v.projectType); });
     act(p,'Saved');
@@ -3946,6 +4105,109 @@ function doAddNote(){ var d=guard(); if(!d) return;
   var el=document.getElementById('deal-note'), t=el?el.value.trim():'';
   if(!t){ toast('Nothing to save',true); return; }
   act(F.addNote(d,t),'Note saved');
+}
+
+/* ── Documents ────────────────────────────────────────────────────────── */
+function doUploadDoc(){
+  var d=guard(); if(!d) return;
+  var el=document.getElementById('deal-upload');
+  if(el){ el.value=''; el.click(); }
+}
+
+function handleUpload(input){
+  var d=guard(); if(!d){ input.value=''; return; }
+  var file=input.files&&input.files[0];
+  if(!file) return;
+
+  /* Ask what it IS before uploading, not after. A file named
+     "Scan_2026_08_19.pdf" sitting in an untitled list is the problem the
+     label requirement exists to prevent, and a filename is rarely a name. */
+  Forms.open({
+    title:'Upload '+file.name,
+    intro:F.fmtBytes(file.size),
+    fields:[
+      {key:'label',type:'text',label:'What is it',required:true,
+        value:file.name.replace(/\.[^.]+$/,''),
+        hint:'A filename is rarely a name. "PVsyst production report, Rev C" beats '
+           + '"Scan_2026_08_19".'},
+      {key:'kind',type:'radio',label:'Kind',required:true,value:'energy',
+        options:F.linkKinds().filter(function(k){ return k.key!=='folder'; })
+          .map(function(k){ return {value:k.key,label:k.label,hint:k.hint}; })},
+      {key:'note',type:'text',label:'Note'}
+    ],
+    submitLabel:'Upload',
+    footNote:'Final versions only \u2014 working files belong in Drive'
+  }).then(function(v){
+    input.value='';
+    if(!v) return;
+    var bar=document.getElementById('deal-prog');
+    if(bar){ bar.style.display='block'; bar.firstChild.style.width='0'; }
+    toast('Uploading\u2026');
+    F.uploadDoc(d,file,v,function(frac){
+      if(bar) bar.firstChild.style.width=Math.round(frac*100)+'%';
+    }).then(function(){
+      toast('Uploaded'); return refresh();
+    })['catch'](function(e){
+      toast((e&&e.message)||'Upload failed',true);
+    })['finally'](function(){
+      if(bar) bar.style.display='none';
+    });
+  });
+}
+
+function doAddLink(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Add a link',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'Paste a Drive or Dropbox link. <b>Share it in Drive too</b> \u2014 '
+        + 'pasting it here does not grant anyone access, so a partner clicking a link they '
+        + 'have not been shared on gets \u201crequest access\u201d rather than the file.'},
+      {key:'url',type:'text',label:'Link',required:true,autofocus:true,
+        placeholder:'https://drive.google.com/\u2026',
+        validate:function(v){
+          return F.normalizeUrl(v) ? null
+            : 'That does not look like a link. Paste the full address.'; }},
+      {key:'label',type:'text',label:'What is it',required:true,
+        placeholder:'e.g. PVsyst production report, Rev C',
+        hint:'A Drive URL is opaque \u2014 without a name this list is unreadable in a month.'},
+      {key:'kind',type:'radio',label:'Kind',required:true,value:'folder',
+        options:F.linkKinds().map(function(k){
+          return {value:k.key,label:k.label,hint:k.hint}; })},
+      {key:'note',type:'text',label:'Note'}
+    ],
+    submitLabel:'Add link'
+  }).then(function(v){ if(v) act(F.addLink(d,v),'Link added'); });
+}
+
+function doEditLink(id){
+  var d=guard(); if(!d) return;
+  var l=(d.links||[]).filter(function(x){ return x.id===id; })[0];
+  if(!l) return;
+  Forms.open({
+    title:'Edit link', intro:l.label,
+    fields:[
+      {key:'url',type:'text',label:'Link',required:true,value:l.url,
+        validate:function(v){ return F.normalizeUrl(v)?null:'That does not look like a link.'; }},
+      {key:'label',type:'text',label:'What is it',required:true,value:l.label},
+      {key:'kind',type:'select',label:'Kind',required:true,value:l.kind,
+        options:F.linkKinds().map(function(k){ return {value:k.key,label:k.label}; })},
+      {key:'note',type:'text',label:'Note',value:l.note}
+    ]
+  }).then(function(v){ if(v) act(F.updateLink(d,id,v),'Link updated'); });
+}
+
+function doRemoveLink(id){
+  var d=guard(); if(!d) return;
+  var l=(d.links||[]).filter(function(x){ return x.id===id; })[0];
+  if(!l) return;
+  Forms.confirm({
+    title:'Remove this link?', intro:l.label,
+    fields:[{type:'static',html:'Only the link is removed. The file itself stays exactly '
+      + 'where it is in Drive \u2014 nothing is deleted.'}],
+    submitLabel:'Remove'
+  }).then(function(ok){ if(ok) act(F.removeLink(d,l),'Removed'); });
 }
 
 /* ── Viability, permitting, assignment ────────────────────────────────── */

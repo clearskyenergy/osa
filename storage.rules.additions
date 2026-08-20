@@ -58,6 +58,41 @@
        of the record, and the Firestore rules refuse to remove them from the
        document — a partner who could still delete the underlying file would
        leave the record pointing at nothing. */
+    /* ── Deal documents ──────────────────────────────────────────────────
+       Uploaded PDFs on a portfolio deal: signed reports, stamped drawings,
+       executed agreements.
+
+       WHAT BELONGS HERE vs IN DRIVE. Uploads are for FINAL artifacts — the
+       version somebody signed, stamped or executed, which will never be
+       edited again. Working files stay in Drive and are linked instead,
+       because a copy of a living document goes stale the moment somebody
+       edits the original and nobody can tell which is current. That is the
+       whole reason the Files tab holds both kinds side by side.
+
+       THE ACCESS TRADE, stated plainly, because deal documents can include
+       financial models. Read is `signed in`, checked on the PATH rather than
+       by looking the deal up in Firestore — a Firestore read on every file
+       operation is a cost the rule gets deployed without the first time
+       somebody is in a hurry. In practice exposure is narrow: the deal id is
+       a random Firestore id, and Firebase download URLs carry an unguessable
+       token, so a file is not reachable without someone handing over the
+       link. But it is NOT the same guarantee as the Firestore rules give the
+       deal record itself.
+
+       So: if a document would be damaging in the hands of any approved portal
+       user, link it from Drive instead, where the permission is real. Say so
+       to whoever is uploading — the console does. */
+    match /deals/{dealId}/{file} {
+      allow read:   if vSignedIn();
+      allow write:  if vSignedIn()
+                    && request.resource.size < 50 * 1024 * 1024
+                    && request.resource.contentType.matches(
+                         'application/pdf|image/.*');
+      /* Staff only, and the Firestore record keeps its entry either way — a
+         missing file is visible as a broken link rather than silently gone. */
+      allow delete: if vIsStaff();
+    }
+
     match /verifications/{vid}/{file} {
       allow read:   if vSignedIn();
       allow write:  if vSignedIn()
