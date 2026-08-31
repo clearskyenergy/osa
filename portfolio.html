@@ -227,6 +227,18 @@ tfoot td{font-weight:600;color:var(--navy);border-top:1.5px solid var(--line);bo
 .dr-f .spacer{flex:1}
 @media(max-width:900px){#drawer{width:100vw;right:-100vw}}
 
+/* The one next step. Loud on purpose — it is the only thing on the panel that
+   is an instruction rather than a record, and burying it among the read-only
+   sections is what made this feel complicated. */
+.nextstep{background:var(--accent-soft);border:1px solid #D9D5F5;border-radius:var(--r);
+  padding:15px 16px;margin-bottom:14px}
+.nextstep.waiting{background:#F4F6F8;border-color:var(--line)}
+.ns-k{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--accent)}
+.nextstep.waiting .ns-k{color:var(--ink-3)}
+.ns-l{font-size:16px;font-weight:700;color:var(--navy);margin-top:5px;letter-spacing:-.2px}
+.ns-h{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.55}
+
 .sec{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
 .sec-h{padding:11px 15px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;
   letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:9px}
@@ -316,6 +328,7 @@ select.ff-i{cursor:pointer}
 .ff-card.on b{color:var(--accent)}
 .ff-card em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-2);
   margin-top:2px;line-height:1.45}
+.ff-neworg{border-left:2px solid var(--accent);padding-left:10px}
 .ff-chips{display:flex;flex-wrap:wrap;gap:7px;border:1.5px solid transparent;border-radius:8px}
 .ff-chip{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:6px 13px;
   font-size:12.5px;cursor:pointer;color:var(--ink-2);user-select:none}
@@ -432,6 +445,10 @@ select.ff-i{cursor:pointer}
 .kb-card b{display:block;font-size:12.5px;font-weight:600;color:var(--navy);line-height:1.3}
 .kb-card .m{font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.35;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-next{font-size:11px;color:var(--accent);margin-top:5px;font-weight:600;
+  line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical}
+.kb-col.exit .kb-next{color:var(--ink-2)}
 .kb-card .f{display:flex;gap:4px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .kb-card .f span{font-size:10px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
   border-radius:4px;padding:1px 5px}
@@ -526,7 +543,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-20.0045</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-31.1921</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
@@ -887,10 +904,10 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="/config.js?v=6"></script>
-<script src="/forms.js?v=2"></script>
+<script src="/config.js?v=9"></script>
+<script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=8"></script>
+<script src="/portfolio-data.js?v=11"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -910,7 +927,7 @@ var S = { deals:[], users:[], loaded:false, demo:false, view:'dash',
           pipeFilter:'live', userFilter:'pending', supplyFilter:'all',
           openId:null, tab:'overview', partnerOpen:'',
           inbox:[], inboxErrors:[], inboxFilter:'new', inboxLoaded:false,
-          imp:null, verifications:[], verifyFilter:'open', marketNews:[],
+          imp:null, verifications:[], verifyFilter:'open', marketNews:[], pendingRescore:null,
           boardQ:'', boardOrg:'', boardPrefs:null, pinned:{}, pendingMove:null,
           design:[], designLoaded:false, designFilter:'all', designQ:'', staff:[], invites:[],
           inboxOrg:'', inboxQ:'', inboxSel:{} };
@@ -1223,6 +1240,7 @@ function pipeRows(k){
     if(k==='dead') return d.stage==='dead';
     if(k==='parked') return d.stage==='parked';
     if(k==='discarded') return d.stage==='discarded';
+    if(k==='reevaluate') return d.stage==='reevaluate';
     if(k==='stale') return isStale(d);
     if(k==='unattributed') return !d.origination.partnerOrg;
     return d.stage===k;
@@ -1315,7 +1333,8 @@ function doResolveDupes(names){
 function renderPipeline(){
   var defs=[{k:'live',l:'Live'},{k:'stale',l:'Stalled'},{k:'unattributed',l:'Unattributed'},
             {k:'dead',l:'Dead'},{k:'parked',l:'Parked'},
-            {k:'discarded',l:'Discarded'},{k:'all',l:'All'}];
+            {k:'reevaluate',l:'Re-evaluate'},{k:'discarded',l:'Discarded'},
+            {k:'all',l:'All'}];
   document.getElementById('pipe-chips').innerHTML = defs.map(function(d){
     return '<button class="chip'+(S.pipeFilter===d.k?' on':'')+'" onclick="setPipe(\''+d.k+'\')">'
       + d.l+' <span class="mono">'+pipeRows(d.k).length+'</span></button>'; }).join('');
@@ -1511,21 +1530,36 @@ function renderSupply(){
 }
 
 /* ── Option builders: every dropdown reads from config, never a literal ── */
+/* Name first. The domain still travels as the value — it is what scopes the
+   deal — but nobody should have to recognise a company by its URL. */
 function optOrgs(){
   var seen={}, out=[];
   Object.keys(A.orgs()).forEach(function(k){ seen[k]=1;
-    out.push({value:k,label:A.orgName(k)+' ('+k+')'}); });
+    var n=A.orgName(k);
+    out.push({value:k,label:(n&&n!==k)?n+'  \u00b7  '+k:k}); });
   /* Orgs that appear on deals or users but were never registered still have to
      be selectable, or the form blocks work that is already happening. */
+  /* Organisations that appear on deals or users but were never registered
+     still have to be selectable, or the form blocks work already happening. */
   S.deals.forEach(function(d){ var o=d.origination.partnerOrg;
-    if(o&&!seen[o]){ seen[o]=1; out.push({value:o,label:o}); }});
+    if(o&&!seen[o]){ seen[o]=1;
+      out.push({value:o,label:(d.origination.partnerName||o)+'  \u00b7  '+o}); }});
   S.users.forEach(function(u){ if(u.orgId&&!seen[u.orgId]){ seen[u.orgId]=1;
-    out.push({value:u.orgId,label:(u.orgName||u.orgId)+' ('+u.orgId+')'}); }});
+    out.push({value:u.orgId,label:(u.orgName||u.orgId)+'  \u00b7  '+u.orgId}); }});
   return out.sort(function(a,b){ return a.label.localeCompare(b.label); });
 }
 function optUsers(){
-  return S.users.filter(function(u){ return u.status==='active'; })
-    .map(function(u){ return {value:u.email,label:u.name+' \u00b7 '+(u.orgName||u.orgId)}; });
+  var out=S.users.filter(function(u){ return u.status==='active'; })
+    .map(function(u){ return {value:u.email,
+      label:u.name+'  \u00b7  '+(u.orgName||A.orgName(u.orgId)||u.orgId)}; });
+  /* Staff on the ops roster who have not signed into this console yet still
+     need to be assignable — otherwise the rep you actually want is missing
+     from the only list that matters. */
+  (S.staff||[]).forEach(function(s){
+    if(s.email && !out.some(function(u){ return u.value===s.email; }))
+      out.push({value:s.email,label:s.name+'  \u00b7  not signed in yet'});
+  });
+  return out.sort(function(a,b){ return a.label.localeCompare(b.label); });
 }
 function optTypes(){
   return F.projectTypes().map(function(t){
@@ -1592,6 +1626,7 @@ var PHASES = [
   { label:'Development', keys:['pre_dev','permitting','verified'] },
   { label:'Capital',     keys:['marketplace','committed','funded'] },
   { label:'Delivery',    keys:['construction','operating'] },
+  { label:'Needs attention', keys:['reevaluate'] },
   { label:'Closed',      keys:['parked','dead'] },
   { label:'Excluded',    keys:['discarded'] }
 ];
@@ -1686,10 +1721,14 @@ function kbCard(d){
     if(F.stageOf(d.stage).rank>=F.stageOf('pre_dev').rank&&!d.projectId) f+='<span class="warn">no drawing</span>';
     if(v.score!=null&&v.verdict!=='pass') f+='<span class="warn">score '+v.score+'</span>';
   }
+  var ns=F.nextStep(d);
   return '<div class="kb-card" data-id="'+d.id+'" onclick="openDeal(\''+d.id+'\')">'
     + '<b>'+esc(d.name)+'</b>'
     + '<div class="m">'+esc(d.origination.partnerName||d.origination.partnerOrg||'unattributed')
     +   (F.ageDays(d)!=null?' \u00b7 '+F.ageDays(d)+'d':'')+'</div>'
+    /* The next step on the card, so the board answers "what do I do" without
+       opening anything. */
+    + (ns.id!=='none'?'<div class="kb-next">'+esc(ns.label)+'</div>':'')
     + (f?'<div class="f">'+f+'</div>':'')
     + '</div>';
 }
@@ -1713,6 +1752,9 @@ function wireBoardDnd(host){
       if(to==='dead'){ S.openId=d.id; doDead(); return; }
       if(to==='parked'){ S.openId=d.id; doPark(); return; }
       if(to==='discarded'){ S.openId=d.id; doDiscard(); return; }
+      if(to==='reevaluate'){ S.openId=d.id;
+        act(F.toReevaluate(d,'Moved by hand'),'Moved to re-evaluate'); return; }
+      if(d.stage==='reevaluate' && to==='screening'){ S.openId=d.id; doRescore(); return; }
       if(d.stage==='discarded'){ S.openId=d.id; doRestore(); return; }
       if(F.isExit(d.stage)){ S.openId=d.id; doRevive(); return; }
       if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
@@ -1806,7 +1848,8 @@ function moveTo(d,to){
     'funding.closedUsd':    {label:'Edit funding',        fn:'doEditFunding'},
     'funding.closedAt':     {label:'Edit funding',        fn:'doEditFunding'},
     'funding.investorOrg':  {label:'Edit funding',        fn:'doEditFunding'},
-    'origination.partnerOrg':{label:'Set attribution',    fn:'doReattribute'}
+    'origination.partnerOrg':{label:'Set attribution',    fn:'doReattribute'},
+    'assignment.rep':       {label:'Assign a rep',        fn:'doAssignRep'}
   };
   var sentence = miss.filter(function(m){ return String(m).charAt(0)==='!'; });
   var fields   = miss.filter(function(m){ return String(m).charAt(0)!=='!'; });
@@ -2145,7 +2188,7 @@ function doBulkAdopt(){
     fields:[
       {type:'static',html:'<b>One answer, '+sel.length+' deals.</b> Attribution locks as '
         + 'soon as a deal advances, so this is the moment to get it right.'},
-      {key:'partnerOrg',type:'org',label:'Who brought all of these (email domain)',
+      {key:'partnerOrg',type:'orgpick',label:'Who brought all of these (email domain)',
         required:true, options:optOrgs(),
         value: mixed?'':(sel[0].filedByGuess||''),
         validate:function(v){ return A.validateDomain(v); }},
@@ -2192,7 +2235,7 @@ function doAdopt(idx){
            : '.')
         + ' Whoever filed it is frequently not who referred it, and attribution locks as '
         + 'soon as the deal advances.'},
-      {key:'partnerOrg',type:'org',label:'Who brought it (email domain)',required:true,
+      {key:'partnerOrg',type:'orgpick',label:'Who brought it (email domain)',required:true,
         options:optOrgs(),
         value:c.filedByGuess||'',
         validate:function(v){ return A.validateDomain(v); },
@@ -2710,7 +2753,7 @@ function doInvite(){
           return String(v).indexOf('@')>0 ? null : 'A full email address.'; }},
       {key:'role',type:'radio',label:'Role on arrival',required:true,value:'member',
         options:roles.map(function(r){ return {value:r.key,label:r.label,hint:r.hint}; })},
-      {key:'orgId',type:'org',label:'Organisation',options:optOrgs(),
+      {key:'orgId',type:'orgpick',label:'Organisation',options:optOrgs(),
         validate:function(v){ return v?A.validateDomain(v):null; },
         hint:'Leave blank to use their email domain. This decides which deals they see.'},
       {key:'manageOrgs',type:'multi',label:'Organisations they may administer',
@@ -2938,7 +2981,7 @@ function doMergeOrg(from){
         + 'organisation you pick. Each move is logged individually and the previous partner '
         + 'stays in the record \u2014 this is the same reattribution path as changing one deal '
         + 'by hand, not a bulk overwrite that hides what happened.'},
-      {key:'to',type:'org',label:'Merge into',required:true,options:targets,
+      {key:'to',type:'orgpick',label:'Merge into',required:true,options:targets,
         validate:function(v){ return A.validateDomain(v); }},
       {key:'why',type:'textarea',label:'Reason',rows:2,required:true,
         value:'Merged duplicate organisation '+from,
@@ -3044,70 +3087,74 @@ function doToggleOrg(k,on){
 function openNew(){
   Forms.open({
     title:'New project',
-    intro:'Everything the pipeline needs in one pass. Prescreen it straight after.',
+    intro:'Only what you can actually know today. Everything else is asked at the '
+        + 'stage it becomes knowable.',
     fields:[
       {key:'name',type:'text',label:'Site name',required:true,autofocus:true,
-        placeholder:'e.g. Cedar Rapids fleet depot'},
+        placeholder:'e.g. Hillside Bottling Factory'},
       {key:'projectType',type:'radio',label:'What are we building',required:true,
         options:optTypes(),
-        hint:'Sets the technology categories, the BOM lines offered and which '
-           + 'manufacturers appear. Change it later from the deal panel.'},
-      {key:'address',type:'text',label:'Location',placeholder:'City, state'},
-      {key:'state',type:'text',label:'State / region'},
+        hint:'Sets the technology tags, which screening tool runs it, and which '
+           + 'BOM lines appear later.'},
+      {key:'address',type:'text',label:'Where',placeholder:'Street, city, state'},
 
-      {type:'divider',label:'Attribution'},
-      {key:'partnerOrg',type:'org',label:'Who brought it',required:true,
-        options:optOrgs(), placeholder:'clearsky-usa.com',
-        requiredMsg:'Required \u2014 this is the one field that cannot be filled in later '
-                  + 'without an owner\u2019s approval.',
-        hint:'Their domain. Locks as soon as the deal advances, so it is worth getting '
-           + 'right now rather than arguing about in eighteen months.'},
-      {key:'channel',type:'select',label:'Channel',
-        options:((window.CLEARSKY_CONFIG.portfolio||{}).channels||[])},
-      {key:'clientOrgId',type:'org',label:'Client',options:optOrgs(),
-        hint:'Whose site it is, if different from who referred it.'},
+      {type:'divider',label:'Who'},
+      {key:'clientOrgId',type:'orgpick',label:'Client',options:optOrgs(),
+        hint:'Whose site it is.'},
+      {key:'partnerOrg',type:'orgpick',label:'Who brought it',required:true,
+        options:optOrgs(),
+        requiredMsg:'Required \u2014 the one field that cannot be filled in later without '
+                  + 'an owner\u2019s approval.',
+        hint:'Locks as soon as the deal advances, because it decides who gets paid.'},
 
-      {type:'divider',label:'Sizing'},
-      {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01'},
-      {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',
-        hint:'Storage only.'},
-      {key:'capexUsd',type:'money',label:'Estimated capex'},
-      {key:'requestedUsd',type:'money',label:'Capital sought'},
+      {type:'divider',label:'What you saw'},
+      {key:'siteNotes',type:'textarea',label:'Site notes',rows:5,
+        placeholder:'Roof condition, switchgear, where the meters are, who you spoke to, '
+                  + 'anything that struck you\u2026',
+        hint:'Free text, and it travels with the project the whole way through. The '
+           + 'screening tool reads it too, so what you noticed on site is worth typing.'},
 
-      {type:'divider',label:'Context'},
-      {key:'utility',type:'text',label:'Utility'},
-      {key:'ahj',type:'text',label:'AHJ'},
-      {key:'notes',type:'textarea',label:'Anything worth knowing',rows:3}
+      {type:'divider',label:'Energy, if you have it'},
+      {type:'static',html:'Before a design exists there is no capex and often no MW \u2014 '
+        + 'but there is usually <b>a bill and a meter count</b>. Those are what screening '
+        + 'actually runs on. Leave anything you do not have blank; blank is treated as '
+        + 'unknown rather than zero.'},
+      {key:'monthlyBillUsd',type:'money',label:'Monthly electricity bill'},
+      {key:'annualKwh',type:'number',label:'Annual kWh',step:'any'},
+      {key:'meters',type:'number',label:'How many meters',step:'1',min:0},
+      {key:'loadKw',type:'number',label:'Peak load (kW)',step:'any'},
+      {key:'sizeMw',type:'number',label:'Target size (MW), if known',step:'0.01',
+        hint:'A target, not a commitment. The real number comes out of the design.'}
     ],
-    submitLabel:'Create and prescreen',
-    footNote:'Cmd/Ctrl + Enter to save'
+    submitLabel:'Save as a referral',
+    footNote:'Saves to Referred \u2014 an administrator assigns it for screening next'
   }).then(function(v){
     if(!v) return;
     var t=F.typeOf(v.projectType)||{};
     F.create({
       name:v.name, partnerOrg:v.partnerOrg,
       partnerName:A.orgName(v.partnerOrg)||v.partnerOrg,
-      channel:v.channel, address:v.address, state:v.state,
-      clientOrgId:v.clientOrgId, categories:(t.categories||[]).slice(),
-      sizeMw:v.sizeMw, sizeMwh:v.sizeMwh, capexUsd:v.capexUsd,
-      requestedUsd:v.requestedUsd
+      address:v.address, clientOrgId:v.clientOrgId,
+      categories:(t.categories||[]).slice(), sizeMw:v.sizeMw
     }).then(function(ref){
-      var extra={ projectType:v.projectType };
-      if(v.utility) extra.utility=v.utility;
-      if(v.ahj) extra.ahj=v.ahj;
-      return db.collection(F.COLLECTION).doc(ref.id).update(extra)
-        .then(function(){ return ref.id; });
+      /* The knowable stuff, in one follow-up write. F.create() takes the
+         referral essentials; these are the fields it does not know about. */
+      return db.collection(F.COLLECTION).doc(ref.id).update({
+        projectType:v.projectType,
+        siteNotes:v.siteNotes||'',
+        energy:{
+          monthlyBillUsd:F.num(v.monthlyBillUsd), annualKwh:F.num(v.annualKwh),
+          meters:F.num(v.meters), loadKw:F.num(v.loadKw), utilityAccount:''
+        }
+      }).then(function(){ return ref.id; });
     }).then(function(id){
-      toast('Project created');
-      return refresh().then(function(){
-        var d=findDeal(id);
-        if(d) doPrescreen(d);   /* straight into the prescreen, no second click */
-      });
+      toast('Saved as a referral');
+      return refresh().then(function(){ openDeal(id); });
     })['catch'](function(e){ toast((e&&e.message)||'Could not create',true); });
   });
 }
 
-/* ── Prescreen ─────────────────────────────────────────────────────────────
+/* ── Prescreen ──/* ── Prescreen ─────────────────────────────────────────────────────────────
    The fast look. Four questions and a verdict, before anybody spends an hour
    on a full viability score. A pass moves the deal to Screening automatically;
    a fail parks it with the reason attached rather than leaving it to rot in
@@ -3254,6 +3301,29 @@ function tabOverview(d){
       + '</ul>'+(next.why?'<div style="font-size:11.5px;color:#8A1F1F;margin-top:6px">'
       + esc(next.why)+'</div>':'')+'</div>';
   }
+  /* THE ONE THING TO DO NEXT, first, before everything else. The panels below
+     are for reading; this is for working. */
+  var ns=F.nextStep(d);
+  if(ns.id!=='none'){
+    var mine = ns.who==='admin' ? A.can('write_deal')
+             : ns.who==='rep'   ? (!d.assignment.rep || d.assignment.rep===ME.email
+                                   || A.can('write_deal'))
+             : true;
+    h+='<div class="nextstep'+(mine?'':' waiting')+'">'
+      + '<div class="ns-k">Next step'
+      +   (ns.who!=='—'?' \u00b7 '+esc(ns.who==='admin'?'an administrator':'the assigned rep'):'')
+      +   '</div>'
+      + '<div class="ns-l">'+esc(ns.label)+'</div>'
+      + (ns.hint?'<div class="ns-h">'+esc(ns.hint)+'</div>':'')
+      + (ns.action&&mine&&!d._demo
+          ? '<button class="btn-a" style="margin-top:11px" onclick="'+ns.action+'()">'
+            + esc(ns.label)+'</button>'
+          : (ns.action&&!mine
+             ? '<div class="ns-h" style="margin-top:9px;font-style:italic">Waiting on '
+               + esc(d.assignment.rep||'somebody else')+'.</div>' : ''))
+      + '</div>';
+  }
+
   var pre=d.prescreen;
   h+='<div class="sec"><div class="sec-h">Prescreen'
     + (pre?'<span class="r">'+esc(F.fmtDate(pre.at))+'</span>':'')+'</div><div class="sec-b">'
@@ -3304,6 +3374,24 @@ function tabOverview(d){
                 + ' \u2014 '+esc(o.reason||'')+'</div></div>'; }).join('')+'</div>' : '')
     + '</div></div>';
 
+  h+='<div class="sec"><div class="sec-h">Site notes and energy'
+    + '<span class="r">What screening runs on</span></div><div class="sec-b">'
+    + (d.siteNotes
+        ? '<div style="font-size:13px;line-height:1.65;white-space:pre-wrap;'
+          + 'background:#F7F9FB;border-radius:8px;padding:11px 13px">'
+          + esc(d.siteNotes)+'</div>'
+        : '<div style="font-size:12.5px;color:var(--ink-3)">No site notes yet.</div>')
+    + '<dl class="kv" style="margin-top:12px">'
+    + row('Monthly bill', F.money(d.energy.monthlyBillUsd))
+    + row('Annual kWh', d.energy.annualKwh!=null?F.fmtNumber(d.energy.annualKwh):'\u2014')
+    + row('Meters', d.energy.meters!=null?d.energy.meters:'\u2014')
+    + row('Peak load', d.energy.loadKw!=null?d.energy.loadKw+' kW':'\u2014')
+    + '</dl>'
+    + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSiteNotes()">'
+          + 'Edit notes and energy</button></div>':'')
+    + '</div></div>';
+
   h+='<div class="sec"><div class="sec-h">Site</div><div class="sec-b"><dl class="kv">'
     + row('Project type', d.projectType
         ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
@@ -3323,6 +3411,7 @@ function tabOverview(d){
 
   h+='<div class="sec"><div class="sec-h">Assignment'
     + '<span class="r">A different axis from stage</span></div><div class="sec-b"><dl class="kv">'
+    + row('Screening rep', esc(d.assignment.rep||'\u2014'))
     + row('Design lead', esc(d.assignment.designLead||'\u2014'))
     + row('Dev lead', esc(d.assignment.devLead||'\u2014'))
     + row('Due', esc(F.fmtDate(d.assignment.dueAt))
@@ -3430,6 +3519,7 @@ function row(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
 function fieldLabel(path){
   if(String(path).charAt(0)==='!') return String(path).slice(1);
   var m={ 'origination.partnerOrg':'Who brought the deal',
+    'assignment.rep':'A rep assigned to screen it',
     'viability.score':'A viability score',
     'preDev.budgetUsd':'A pre-development budget',
     'permitting.startedAt':'Permitting opened',
@@ -3920,7 +4010,7 @@ function doReattribute(){ var d=guard(); if(!d) return;
     warning:'This decides who gets paid. The previous partner stays in the record '
       + 'permanently and the change is logged with your name against it.',
     fields:[
-      {key:'org',type:'org',label:'Correct originating organisation',required:true,
+      {key:'org',type:'orgpick',label:'Correct originating organisation',required:true,
         options:optOrgs(), value:d.origination.partnerOrg},
       {key:'why',type:'textarea',label:'Why is this changing',rows:3,required:true,
         hint:'Kept permanently.'}
@@ -3945,7 +4035,7 @@ function doEditSite(){ var d=guard(); if(!d) return;
       {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01',value:d.sizeMw},
       {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',value:d.sizeMwh},
       {key:'capexUsd',type:'money',label:'Capex',value:d.capexUsd},
-      {key:'clientOrgId',type:'org',label:'Client',options:optOrgs(),value:d.clientOrgId}
+      {key:'clientOrgId',type:'orgpick',label:'Client',options:optOrgs(),value:d.clientOrgId}
     ]
   }).then(function(v){
     if(!v) return;
@@ -3995,7 +4085,7 @@ function doEditFunding(){ var d=guard(); if(!d) return;
         hint:'Financial close. Entering this does not move the stage \u2014 declaring close '
            + 'is a separate, deliberate act.'},
       {key:'closedAt',type:'date',label:'Closed on',value:d.funding.closedAt},
-      {key:'investorOrg',type:'org',label:'Investor organisation',options:optOrgs(),
+      {key:'investorOrg',type:'orgpick',label:'Investor organisation',options:optOrgs(),
         value:d.funding.investorOrg},
       {key:'structure',type:'text',label:'Structure',value:d.funding.structure,
         placeholder:'Construction + term, tax equity, etc.'}
@@ -4107,7 +4197,7 @@ function doBomStatus(id){ var d=guard(); if(!d) return;
 function doAddParticipant(){ var d=guard(); if(!d) return;
   Forms.open({ title:'Add an organisation', intro:d.name,
     fields:[
-      {key:'orgId',type:'org',label:'Organisation',required:true,options:optOrgs()},
+      {key:'orgId',type:'orgpick',label:'Organisation',required:true,options:optOrgs()},
       {key:'role',type:'radio',label:'Their role',required:true,
         options:F.PARTICIPANT_ROLES.map(function(r){
           return {value:r.key,label:r.label,hint:r.hint}; })},
@@ -4249,6 +4339,154 @@ function doRemoveLink(id){
   }).then(function(ok){ if(ok) act(F.removeLink(d,l),'Removed'); });
 }
 
+/* ── The flow actions ─────────────────────────────────────────────────── */
+
+function doAssignRep(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Assign a rep', intro:d.name,
+    fields:[
+      {type:'static',html:'They own screening: working the site, filling in what is '
+        + 'missing, and running it through the partner\u2019s tool.'},
+      {key:'rep',type:'user',label:'Who is screening it',required:true,
+        options:optUsers(), value:d.assignment.rep},
+      {key:'note',type:'text',label:'Anything they should know'}
+    ],
+    submitLabel:'Assign and move to Screening'
+  }).then(function(v){
+    if(!v) return;
+    /* Assign, then advance \u2014 through the gate, which now requires exactly the
+       thing we just set. */
+    act(F.assignRep(d,v.rep,v.note).then(function(){
+      return db.collection(F.COLLECTION).doc(d.id).get().then(function(s){
+        var fresh=F.normalize(d.id,s.data()||{});
+        if(fresh.stage!=='referred') return;
+        return F.advance(fresh,'screening','Assigned to '+v.rep);
+      });
+    }),'Assigned to '+v.rep);
+  });
+}
+
+/* Advance to whatever is next on the ladder, through the normal gate. */
+function doAdvanceNext(){
+  var d=guard(); if(!d) return;
+  var next=nextStage(d);
+  if(!next){ toast('Nothing after this stage',true); return; }
+  moveTo(d,next.key);
+}
+
+/* Push to the partner's screening tool, then route on the result. */
+function doAgentScore(){
+  var d=guard(); if(!d) return;
+  var skill=F.skillFor(d);
+  if(!skill){
+    toast('No screening tool mapped to this project type \u2014 score it by hand',true);
+    doScore(); return;
+  }
+  if(!F.scoringEnabled()){
+    toast('Partner screening is not switched on yet \u2014 scoring by hand',true);
+    doScore(); return;
+  }
+  var thin=[];
+  if(d.energy.monthlyBillUsd==null && d.energy.annualKwh==null) thin.push('no bill or kWh');
+  if(!d.siteNotes) thin.push('no site notes');
+
+  Forms.confirm({
+    title:'Run '+F.skillLabel(skill),
+    intro:d.name, danger:false,
+    warning: thin.length
+      ? 'Sending with ' + thin.join(' and ') + '. The tool scores what it is given, '
+        + 'and a thin site usually comes back as "cannot determine" rather than a '
+        + 'low score \u2014 worth two minutes filling those in first.'
+      : '',
+    fields:[{type:'static',html:'Sends the site notes, the energy figures, the project '
+      + 'type and any document links. <b>Over the threshold moves it to Qualified; '
+      + 'under moves it to Re-evaluate</b> \u2014 not dead, just needing something changed.'}],
+    submitLabel:'Send it'
+  }).then(function(ok){
+    if(!ok) return;
+    toast('Sending to '+F.skillLabel(skill)+'\u2026');
+    F.requestScore(d,function(st){ if(st==='saving') toast('Score back \u2014 saving\u2026'); })
+      .then(function(out){ return F.routeOnScore(d,out); })
+      .then(function(r){
+        if(r.gateIssue) toast('Scored '+r.score+' \u2014 could not advance, see the deal',true);
+        else if(r.passed) toast('Scored '+r.score+'/'+r.threshold+' \u2014 moved to Qualified');
+        else toast('Scored '+r.score+', below '+r.threshold+' \u2014 moved to Re-evaluate',true);
+        return refresh();
+      })['catch'](function(e){
+        toast((e&&e.message)||'Screening failed',true);
+        console.error('[screening]',e);
+      });
+  });
+}
+
+/* From Re-evaluate: change something, then run it again. */
+function doRescore(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Re-evaluate', intro:d.name,
+    fields:[
+      {type:'static',html:'<b>'+esc(d.reevaluateReason||'Scored below the threshold')
+        + '.</b> Usually the fix is a missing bill, meter count or load figure rather '
+        + 'than anything about the site.'},
+      {key:'what',type:'radio',label:'What now',required:true,value:'fix',
+        options:[
+          {value:'fix',label:'Fill in what was missing',
+           hint:'Opens the notes and energy form, then re-run the tool.'},
+          {value:'rerun',label:'Re-run it as it stands',
+           hint:'Something changed elsewhere.'},
+          {value:'dead',label:'Mark it dead',
+           hint:'Stays in the denominators with a reason.'}
+        ]}
+    ],
+    submitLabel:'Continue'
+  }).then(function(v){
+    if(!v) return;
+    if(v.what==='dead'){ doDead(); return; }
+    if(v.what==='fix'){ S.pendingRescore=d.id; doEditSiteNotes(); return; }
+    /* Re-running means going back to screening first \u2014 the score routes from
+       there, and skipping it would leave the stage history lying. */
+    act(F.advance(d,'screening','Re-running screening'),'Back to screening')
+      .then(function(){ var f=findDeal(d.id); if(f) doAgentScore(); });
+  });
+}
+
+function doEditSiteNotes(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Site notes and energy', intro:d.name,
+    fields:[
+      {key:'siteNotes',type:'textarea',label:'Site notes',rows:6,value:d.siteNotes,
+        hint:'Travels with the project the whole way through, and the screening tool '
+           + 'reads it.'},
+      {type:'divider',label:'Energy'},
+      {type:'static',html:'Blank is treated as <b>unknown</b>, not zero \u2014 the tool is '
+        + 'told which figures it did not get rather than scoring the site against a made '
+        + 'up number.'},
+      {key:'monthlyBillUsd',type:'money',label:'Monthly bill',value:d.energy.monthlyBillUsd},
+      {key:'annualKwh',type:'number',label:'Annual kWh',step:'any',value:d.energy.annualKwh},
+      {key:'meters',type:'number',label:'Meters',step:'1',value:d.energy.meters},
+      {key:'loadKw',type:'number',label:'Peak load (kW)',step:'any',value:d.energy.loadKw},
+      {key:'utilityAccount',type:'text',label:'Utility account',value:d.energy.utilityAccount}
+    ]
+  }).then(function(v){
+    if(!v) return;
+    act(F.patch(d,{ siteNotes:v.siteNotes, energy:{
+      monthlyBillUsd:F.num(v.monthlyBillUsd), annualKwh:F.num(v.annualKwh),
+      meters:F.num(v.meters), loadKw:F.num(v.loadKw),
+      utilityAccount:v.utilityAccount||'' }},
+      {type:'edit',message:'Site notes and energy updated.'}),'Saved')
+      .then(function(){
+        /* Came here from Re-evaluate: go straight back to scoring rather than
+           making somebody find it again. */
+        if(S.pendingRescore===d.id){
+          S.pendingRescore=null;
+          var f=findDeal(d.id); if(f && f.stage==='reevaluate') doRescore();
+        }
+      });
+  });
+}
+
 /* ── Viability, permitting, assignment ────────────────────────────────── */
 function doScore(){
   var d=guard(); if(!d) return;
@@ -4336,6 +4574,9 @@ function doAssign(){ var d=guard(); if(!d) return;
     fields:[
       {type:'static',html:'Assignment is a different axis from stage. A deal in '
         + 'pre-development may have design finished and permitting stalled.'},
+      {key:'rep',type:'user',label:'Screening rep',options:optUsers(),
+        value:d.assignment.rep,
+        hint:'Owns screening. Usually not the same person who designs it.'},
       {key:'designLead',type:'user',label:'Design lead',options:optUsers(),
         value:d.assignment.designLead},
       {key:'devLead',type:'user',label:'Development lead',options:optUsers(),
@@ -4359,7 +4600,7 @@ function doCreateProject(){
         + 'so the finished drawing appears in their own portal with no export step. '
         + 'The site details are copied across, not linked \u2014 a designer should not find '
         + 'dimensions changing under them because somebody edited the deal mid-draw.'},
-      {key:'orgId',type:'org',label:'Whose workspace',required:true,options:optOrgs(),
+      {key:'orgId',type:'orgpick',label:'Whose workspace',required:true,options:optOrgs(),
         value:d.clientOrgId||'',
         requiredMsg:'Required \u2014 a drawing filed into our own org never reaches the person '
                   + 'who asked for it.'},

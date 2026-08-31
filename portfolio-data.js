@@ -58,8 +58,10 @@
       needs:['origination.partnerOrg'] },
 
     { key:'screening',    label:'Screening',     short:'Screen', rank:20, color:'#0070F2',
-      hint:'Machine screen and human desk review. No money spent yet.',
-      needs:[] },
+      hint:'A rep works the site and runs it through the partner\u2019s scoring tool.',
+      needs:['assignment.rep'],
+      why:'Screening is somebody\u2019s job, not a state a deal drifts into. Without a '
+        + 'named rep it sits in the column and nobody is answerable for it.' },
 
     /* THE GATE INTO SPEND. Everything before this is looking; everything after
        costs money. It is the only stage with a computed condition rather than a
@@ -146,6 +148,16 @@
      direction is bad: delete real failures and you flatter yourself; keep
      junk and you libel your partners. */
   var EXITS = [
+    /* NOT a failure and NOT an exit in the usual sense: a deal that scored below
+       the threshold and needs something changed before it is worth re-running.
+       It stays in every denominator because it really was referred and really
+       did get screened \u2014 the whole point of the conversion numbers.
+
+       It exists because "scored 41" and "dead" are different facts, and
+       collapsing them loses the pile of deals that would pass if somebody
+       fixed one input. That pile is where the cheapest wins are. */
+    { key:'reevaluate', label:'Re-evaluate', short:'Re-eval', color:'#D97706',
+      hint:'Scored below the threshold. Change something and re-score, or mark it dead.' },
     { key:'parked',    label:'Parked',  short:'Parked', color:'#94A3AF',
       hint:'Not now. Revisit on a trigger \u2014 new substation, rezoning, tariff change.' },
     { key:'dead',      label:'Dead',    short:'Dead',   color:'#DC2626',
@@ -279,6 +291,14 @@
     }
     return '$' + Math.round(v).toLocaleString('en-US');
   }
+  /* Plain thousands separator. Added because the site panel referenced a
+     helper that did not exist — which would have thrown on the first deal
+     that actually had an annual kWh figure. */
+  function fmtNumber(n) {
+    if (n == null || n === '') return '\u2014';
+    var v = Number(n);
+    return isFinite(v) ? Math.round(v).toLocaleString('en-US') : '\u2014';
+  }
   function mw(n) { return n == null ? '\u2014' : (Math.round(n*100)/100) + ' MW'; }
   function pct(a, b) { return !b ? '\u2014' : Math.round((a/b)*100) + '%'; }
   function fmtDate(v) {
@@ -339,6 +359,7 @@
       stage:        d.stage || 'referred',
       stageHistory: Array.isArray(d.stageHistory) ? d.stageHistory : [],
       deadReason:   d.deadReason || '',
+      reevaluateReason: d.reevaluateReason || '',
       discardReason:d.discardReason || '',
       discardedAt:  d.discardedAt || null,
       deadAt:       d.deadAt || null,
@@ -348,6 +369,18 @@
          BOM categories offered, and which manufacturers appear. Distinct from
          `categories`, which is the technology present — see config.js. */
       projectType:  d.projectType || '',
+      /* What is actually knowable at intake. Before a design exists there is no
+         capex and often no MW — but there IS a bill, a meter count and what
+         somebody saw on site. Asking for those instead of numbers nobody has
+         is the difference between a form people fill in and one they abandon. */
+      siteNotes:    d.siteNotes || '',
+      energy: {
+        monthlyBillUsd: num((d.energy||{}).monthlyBillUsd),
+        annualKwh:      num((d.energy||{}).annualKwh),
+        meters:         num((d.energy||{}).meters),
+        loadKw:         num((d.energy||{}).loadKw),
+        utilityAccount: (d.energy||{}).utilityAccount || ''
+      },
       categories:   Array.isArray(d.categories) ? d.categories : [],
       sizeMw:       num(d.sizeMw),
       sizeMwh:      num(d.sizeMwh),
@@ -390,6 +423,10 @@
          started. Assignees resolve against omega_staff \u2014 this deliberately
          does not keep a second roster. */
       assignment: {
+        /* The rep who works screening. Distinct from the design and dev leads:
+           screening happens before anybody draws anything, and the person who
+           qualifies a site is usually not the person who designs it. */
+        rep:        String(as.rep || '').toLowerCase(),
         designLead: String(as.designLead || '').toLowerCase(),
         devLead:    String(as.devLead || '').toLowerCase(),
         reviewers:  Array.isArray(as.reviewers) ? as.reviewers : [],
@@ -799,6 +836,16 @@
     return _db.collection(COLLECTION).doc(deal.id)['delete']();
   }
 
+  /* Score came back under the threshold. Not dead \u2014 something needs changing. */
+  function toReevaluate(deal, reason) {
+    return patch(deal, {
+      stage:'reevaluate', reevaluateReason: reason || '',
+      stageHistory: firebase.firestore.FieldValue.arrayUnion({
+        at:stamp(), from:deal.stage, to:'reevaluate', by:_me?_me.email:'',
+        note:reason || '' })
+    }, { type:'stage', message:'Moved to re-evaluate' + (reason ? ' \u2014 ' + reason : '') });
+  }
+
   function park(deal, note) {
     return patch(deal, {
       stage:'parked',
@@ -958,6 +1005,114 @@
   function removeBomLine(deal, line) {
     return patch(deal, { bom: firebase.firestore.FieldValue.arrayRemove(line) },
       { type:'bom', message:'Removed ' + line.item });
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ONE NEXT STEP
+     ═══════════════════════════════════════════════════════════════════════
+     The console shows everything a deal has at once, which is right for
+     reading and wrong for working. At any given moment a deal has exactly one
+     thing that should happen next, and burying it among eleven panels is what
+     makes this feel complicated when the process itself is not.
+
+     This returns that one thing. The drawer renders it at the top, the board
+     puts it on the card, and everything else stays available underneath for
+     when somebody actually wants it.
+
+     `who` matters: half these steps are an administrator's and half are the
+     assigned rep's, and "waiting on somebody else" is a legitimate answer that
+     stops people hunting for an action that is not theirs. */
+  function nextStep(deal) {
+    var S = function (id, label, hint, who, action) {
+      return { id:id, label:label, hint:hint, who:who || 'anyone', action:action || null };
+    };
+
+    if (deal.stage === 'discarded')
+      return S('none','Discarded','Excluded from every count. Restore it if that was wrong.','—');
+    if (deal.stage === 'dead')
+      return S('none','Dead \u2014 ' + (deal.deadReason || 'no reason recorded'),
+               'Stays in the denominators. Reopen if something changed.','—');
+    if (deal.stage === 'parked')
+      return S('none','Parked','Waiting on a trigger. Reopen when it fires.','—');
+
+    if (deal.stage === 'reevaluate')
+      return S('reevaluate','Fix something and re-score, or mark it dead',
+        (deal.reevaluateReason || 'Scored below the threshold')
+        + '. Change what the score was wrong about \u2014 usually a missing bill, '
+        + 'meter count or load figure \u2014 then run it again.',
+        'rep','doRescore');
+
+    if (deal.stage === 'referred')
+      return S('assign_rep','Assign a rep to screen it',
+        'A referral sits still until somebody owns it. This is the only thing '
+        + 'standing between it and screening.','admin','doAssignRep');
+
+    if (deal.stage === 'screening') {
+      if (!deal.assignment.rep)
+        return S('assign_rep','Assign a rep','Nobody is working this.','admin','doAssignRep');
+      if (deal.viability.score == null)
+        return S('score','Run it through the screening tool',
+          'Pushes the site to the partner\u2019s tool and routes on the result: over '
+          + 'the threshold goes to Qualified, under goes to Re-evaluate.',
+          'rep','doAgentScore');
+      return S('advance','Move it to Qualified','It has a passing score.','rep','doAdvanceNext');
+    }
+
+    if (deal.stage === 'qualified')
+      return S('predev','Set a pre-development budget',
+        'Qualified means it is worth spending on. The budget is what makes that '
+        + 'a decision rather than a drift.','admin','doEditPreDev');
+
+    if (deal.stage === 'pre_dev') {
+      if (!deal.projectId)
+        return S('design','Assign it for design in the editor',
+          'This is where the project gets drawn and where the price comes from. '
+          + 'Until it is designed there is no capex to work with.','admin','doCreateProject');
+      if (deal.capexUsd == null)
+        return S('capex','Record the capex from the design',
+          'The drawing exists. Bring its number back onto the deal so the rest of '
+          + 'the pipeline has something to work with.','rep','doEditSite');
+      return S('advance','Move it forward','Design is done and priced.','rep','doAdvanceNext');
+    }
+
+    if (deal.stage === 'permitting')
+      return S('permits',
+        (deal.permitting.applications || []).length ? 'Update the applications'
+                                                    : 'Log the permit applications',
+        'Permitting runs for months in parallel. Tracking each application is the '
+        + 'only way to know what is actually blocking.','rep','doAddApp');
+
+    if (deal.stage === 'verified')
+      return S('market','Push it to the marketplace',
+        'It has a signed opinion. Capital can see it now.','admin','doPushMarketplace');
+
+    if (deal.stage === 'marketplace')
+      return deal.finProjectId
+        ? S('wait','Waiting on an offer',
+            'Listed. The console checks the marketplace on every refresh and will '
+            + 'tell you when something is accepted.','—')
+        : S('market','List it on the marketplace',
+            'The stage says marketplace but no listing exists.','admin','doPushMarketplace');
+
+    if (deal.stage === 'committed')
+      return S('close','Record the financial close',
+        'A term sheet is signed. Close is the event that turns this into a '
+        + 'portfolio asset.','admin','doEditFunding');
+
+    if (deal.stage === 'funded')
+      return (deal.funding.stages || []).length
+        ? S('ntp','Issue notice to proceed','Money is committed. NTP starts the build.','admin','doAdvanceNext')
+        : S('schedule','Apply the release schedule',
+            'Capital arrives against milestones, not in one payment.','admin','doApplySchedule');
+
+    if (deal.stage === 'construction')
+      return S('build','Track the BOM and draws',
+        'Building. Keep the purchase orders and releases current.','rep','doAddBom');
+
+    if (deal.stage === 'operating')
+      return S('none','Operating','Nothing outstanding.','—');
+
+    return S('none','\u2014','','—');
   }
 
   /* ── Project type ────────────────────────────────────────────────────────
@@ -1147,6 +1302,126 @@
             + (computed.unscored ? ' (' + computed.unscored + ' criteria unscored)' : '') });
   }
 
+  /* ── The partner's screening tool ────────────────────────────────────────
+     Pushes the site to the partner's API, gets a score back, and routes on it:
+     over the threshold goes to Qualified, under goes to Re-evaluate. The
+     browser never holds the API key \u2014 /api/score.js does. */
+  function scoringCfg()   { return (cfg().portfolio || {}).scoring || {}; }
+  function scoringEnabled(){ return scoringCfg().enabled === true; }
+  function skillFor(deal) { return (scoringCfg().skills || {})[deal.projectType] || null; }
+  function skillLabel(k)  { return ((scoringCfg().labels || {})[k]) || k; }
+  function skillAxis(k)   { return ((scoringCfg().axis || {})[k]) || ''; }
+
+  /* Everything we know, in the shape AGENT-SPEC.md documents. Empty stays
+     empty: the agent should treat a missing field as unknown rather than zero,
+     and inventing defaults here would hide that a site is thin. */
+  function scoringPayload(deal, skill) {
+    var raw = deal._raw || {};
+    return {
+      dealId: deal.id, skill: skill, requestedAt: stamp(),
+      requestedBy: _me ? _me.email : '',
+      project: {
+        name: deal.name, type: deal.projectType || '',
+        categories: (deal.categories || []).slice(),
+        address: deal.address || '', state: deal.state || '',
+        sizeMw: deal.sizeMw, sizeMwh: deal.sizeMwh, capexUsd: deal.capexUsd,
+        utility: raw.utility || '', ahj: raw.ahj || ''
+      },
+      /* The things we DO know at screening, which is the point: bills, meters
+         and the site notes are often all anybody has before design. */
+      site: {
+        notes:         deal.siteNotes || '',
+        monthlyBillUsd:deal.energy.monthlyBillUsd,
+        annualKwh:     deal.energy.annualKwh,
+        meters:        deal.energy.meters,
+        loadKw:        deal.energy.loadKw
+      },
+      prescreen: deal.prescreen || null,
+      commercial: {
+        requestedUsd: deal.funding.requestedUsd,
+        committedUsd: deal.funding.committedUsd,
+        closedUsd:    deal.funding.closedUsd,
+        counterparty: deal.funding.counterparty || ''
+      },
+      context: {
+        stage: deal.stage, preDevBudgetUsd: deal.preDev.budgetUsd,
+        referredBy: deal.origination.partnerOrg || '',
+        permitting: { started: !!deal.permitting.startedAt,
+                      applications: (deal.permitting.applications || []).length },
+        links: (deal.links || []).map(function (l) {
+          return { kind:l.kind, label:l.label, url:l.url }; })
+      }
+    };
+  }
+
+  function requestScore(deal, onState) {
+    var skill = skillFor(deal);
+    if (!skill) return Promise.reject(new Error(
+      'No screening tool is mapped to ' + ((typeOf(deal.projectType) || {}).label
+      || 'this project type') + '. Score it by hand, or add the mapping in '
+      + 'config.js under portfolio.scoring.skills.'));
+    if (!scoringEnabled()) return Promise.reject(new Error(
+      'Partner screening is switched off. Set portfolio.scoring.enabled once the '
+      + 'endpoint is confirmed.'));
+
+    if (onState) onState('sending');
+    return fetch(scoringCfg().relayUrl || '/api/score', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(scoringPayload(deal, skill))
+    }).then(function (r) {
+      return r.json()['catch'](function () { return null; }).then(function (j) {
+        if (!r.ok) throw new Error((j && (j.error || j.detail))
+          || ('The screening tool returned ' + r.status));
+        return j;
+      });
+    }).then(function (out) {
+      if (onState) onState('saving');
+      return saveScore(deal, {
+        score: out.score,
+        criteria: (out.criteria || []).map(function (c) {
+          return { key:c.key, label:c.label || c.key, weight:c.weight,
+                   value: c.unscored ? null : c.value,
+                   unscored: !!c.unscored, note:c.note || '' }; }),
+        coverage: null,
+        unscored: (out.criteria || []).filter(function (c) { return c.unscored; }).length
+      }, { model: out.model, source: skill, threshold: out.threshold })
+      .then(function () {
+        var extra = { 'viability.axis': skillAxis(skill) };
+        if ((out.findings || []).length)  extra['viability.findings']  = out.findings;
+        if ((out.pathToNtp || []).length) extra['viability.pathToNtp'] = out.pathToNtp;
+        if (out.summary)                  extra['viability.summary']   = out.summary;
+        if (out.verdict)                  extra['viability.agentVerdict'] = out.verdict;
+        return patch(deal, extra, null);
+      })
+      .then(function () { return out; });
+    });
+  }
+
+  /* ── Routing on the result ───────────────────────────────────────────────
+     Over the threshold advances to Qualified; under moves to Re-evaluate.
+
+     THE ADVANCE STILL GOES THROUGH THE GATE. If Qualified needs something the
+     deal has not got, it is reported rather than forced \u2014 an automatic move
+     that bypasses its own gate is just a gate that does not exist. */
+  function routeOnScore(deal, out) {
+    var th = out.threshold != null ? num(out.threshold) : threshold();
+    var passed = out.score != null && out.score >= th;
+    /* Re-read: saveScore has changed the document under us and the local copy
+       is stale, so the gate would be checked against the old score. */
+    return _db.collection(COLLECTION).doc(deal.id).get().then(function (snap) {
+      var fresh = normalize(deal.id, snap.data() || {});
+      if (!passed) {
+        return toReevaluate(fresh, 'Scored ' + out.score + ', below ' + th)
+          .then(function () { return { passed:false, score:out.score, threshold:th }; });
+      }
+      return advance(fresh, 'qualified', 'Passed screening at ' + out.score + '/' + th)
+        .then(function () { return { passed:true, score:out.score, threshold:th }; })
+        ['catch'](function (e) {
+          return { passed:true, score:out.score, threshold:th, gateIssue:e };
+        });
+    });
+  }
+
   /* A score from your own tool. Same storage, same gate, `source` records
      where it came from so a model change can be traced later. */
   function postScore(deal, payload) {
@@ -1220,8 +1495,22 @@
      Assignees are emails resolved against omega_staff, not a second roster.
      One definition of who works here \u2014 the same reason the ops console reuses
      isOmegaStaff() instead of a parallel domain check. */
+  /* Assigning the rep who will screen it. Its own function because it is the
+     act that moves a referral into somebody's queue, and it wants its own line
+     in the history rather than being folded into a generic assignment. */
+  function assignRep(deal, email, note) {
+    if (!email) return Promise.reject(new Error('Pick who is screening it.'));
+    return patch(deal, {
+      'assignment.rep': String(email).toLowerCase(),
+      'assignment.assignedAt': stamp(),
+      'assignment.assignedBy': _me ? _me.email : '',
+      'assignment.notes': note || deal.assignment.notes || ''
+    }, { type:'assignment', message:'Assigned to ' + email + ' for screening' });
+  }
+
   function assign(deal, a) {
     var fields = {
+      'assignment.rep':        String(a.rep || deal.assignment.rep || '').toLowerCase(),
       'assignment.designLead': String(a.designLead || '').toLowerCase(),
       'assignment.devLead':    String(a.devLead || '').toLowerCase(),
       'assignment.dueAt':      a.dueAt || null,
@@ -1708,7 +1997,8 @@
     'funding','build','bom','notes','activity','orgsInvolved','createdAt','updatedAt','_demo',
     'viability','viabilityHistory','permitting','assignment','finProjectId','adoptedFrom',
     'adoptedAt','importBatch','externalIds','projectType','prescreen',
-    'discardReason','discardedAt','discardedBy','links'];
+    'discardReason','discardedAt','discardedBy','links','reevaluateReason',
+    'siteNotes','energy'];
   function unmapped(deal) {
     var raw = deal._raw || {}, out = {}, n = 0;
     for (var k in raw) { if (!raw.hasOwnProperty(k) || KNOWN.indexOf(k) >= 0) continue; out[k] = raw[k]; n++; }
@@ -1721,12 +2011,12 @@
     BOM_STATUS:BOM_STATUS, DRAW_STATUS:DRAW_STATUS,
     stageOf:stageOf, isExit:isExit, bomCatOf:bomCatOf, bomStatusOf:bomStatusOf,
     drawStatusOf:drawStatusOf, roleOf:roleOf,
-    ms:ms, num:num, money:money, mw:mw, pct:pct, fmtDate:fmtDate, days:days, esc:esc, stamp:stamp,
+    ms:ms, num:num, money:money, mw:mw, fmtNumber:fmtNumber, pct:pct, fmtDate:fmtDate, days:days, esc:esc, stamp:stamp,
     normalize:normalize, init:init, loadDeals:loadDeals, deals:deals, patch:patch,
     counted:counted, discard:discard, restore:restore, destroy:destroy,
     DISCARD_REASONS:DISCARD_REASONS,
     create:create, canAdvance:canAdvance, missingFor:missingFor, advance:advance,
-    markDead:markDead, park:park, reattribute:reattribute,
+    markDead:markDead, park:park, toReevaluate:toReevaluate, reattribute:reattribute,
     addParticipant:addParticipant, removeParticipant:removeParticipant,
     setFunding:setFunding, addDraw:addDraw, setDrawStatus:setDrawStatus,
     addBomLine:addBomLine, setBomStatus:setBomStatus, removeBomLine:removeBomLine,
@@ -1735,14 +2025,18 @@
     addLink:addLink, updateLink:updateLink, removeLink:removeLink, rename:rename,
     uploadDoc:uploadDoc, fmtBytes:fmtBytes, maxUploadMb:maxUploadMb,
     projectTypes:projectTypes, typeOf:typeOf, setProjectType:setProjectType,
+    nextStep:nextStep,
     savePrescreen:savePrescreen, financePartners:financePartners,
     financePartnerOf:financePartnerOf, applyFundingSchedule:applyFundingSchedule,
     releaseStage:releaseStage,
     criteriaSet:criteriaSet, threshold:threshold, computeScore:computeScore,
     saveScore:saveScore, postScore:postScore, overrideViability:overrideViability,
+    scoringEnabled:scoringEnabled, skillFor:skillFor, skillLabel:skillLabel,
+    skillAxis:skillAxis, scoringPayload:scoringPayload, requestScore:requestScore,
+    routeOnScore:routeOnScore,
     startPermitting:startPermitting, addApplication:addApplication,
     setApplicationStatus:setApplicationStatus,
-    assign:assign, attachProject:attachProject, workload:workload,
+    assign:assign, assignRep:assignRep, attachProject:attachProject, workload:workload,
     drawnUsd:drawnUsd, requestedDrawUsd:requestedDrawUsd, undrawnUsd:undrawnUsd,
     deployedUsd:deployedUsd, bomTotalUsd:bomTotalUsd, lineTotal:lineTotal,
     everReached:everReached, enteredAt:enteredAt, daysToFund:daysToFund, ageDays:ageDays,

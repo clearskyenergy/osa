@@ -451,6 +451,38 @@ window.CLEARSKY_CONFIG = {
       { key:'other',       label:'Other',                 hint:'' }
     ],
 
+    /* ── Partner screening tool ────────────────────────────────────────────
+       Which skill runs for which project type. A type absent from this map is
+       not an error \u2014 it falls through to manual scoring.
+
+       Endpoint and key are NOT here. They are Vercel environment variables
+       read by /api/score.js, because everything in this file is public.
+       See AGENT-SPEC.md for the contract we send them. */
+    scoring: {
+      enabled: false,            /* flip on once the endpoint is confirmed */
+      relayUrl: '/api/score',
+      skills: {
+        compute:       'datacenter-feasibility',
+        compute_gen:   'datacenter-feasibility',
+        solar:         'solar-storage-ntp',
+        solar_bess:    'solar-storage-ntp',
+        bess:          'solar-storage-ntp',
+        charging_bess: 'solar-storage-ntp'
+      },
+      labels: {
+        'datacenter-feasibility': 'the data centre feasibility tool',
+        'solar-storage-ntp':      'the solar / storage bankability tool'
+      },
+      /* Which axis each answers \u2014 feasibility is a claim about the SITE,
+         bankability a claim about the DEAL. Same two axes the verification
+         partners sign later, so an agent score and a signed opinion on the
+         same site are directly comparable. */
+      axis: {
+        'datacenter-feasibility': 'feasibility',
+        'solar-storage-ntp':      'bankability'
+      }
+    },
+
     /* ── Viability scoring ─────────────────────────────────────────────────
        The gate into spend. Edit the criteria and weights freely; the weights
        are relative, not percentages, so adding a criterion does not require

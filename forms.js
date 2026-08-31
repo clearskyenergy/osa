@@ -134,6 +134,37 @@
         h += '</div>';
         break;
 
+      /* ── Organisations, picked by NAME ───────────────────────────────────
+         A datalist puts the VALUE in the box, and for an organisation the
+         value is the domain — so the field showed "sunesol.com" while the
+         person was looking for "Sunesol Energy". The domain is what the system
+         needs; the name is what people know.
+
+         So: a real select listing names, with the domain as small print, plus
+         an explicit "add a new one" escape that reveals a text input. The
+         registry stays a convenience rather than a gate — an organisation
+         nobody has registered yet still has to be nameable, or the first thing
+         the form does is block the work. */
+      case 'orgpick':
+        var newId = id + '_new';
+        h += '<select id="' + id + '" class="ff-i" '
+           + 'onchange="this.parentNode.querySelector(\'.ff-neworg\').style.display='
+           +   '(this.value===\'__new__\'?\'block\':\'none\')">';
+        if (!f.required || !f.value) h += '<option value="">' + esc(f.placeholder || 'Choose\u2026') + '</option>';
+        (f.options || []).forEach(function (o) {
+          var v = (o && o.value != null) ? o.value : o;
+          var l = (o && o.label != null) ? o.label : o;
+          h += '<option value="' + esc(v) + '"' + (String(f.value) === String(v) ? ' selected' : '')
+             + '>' + esc(l) + '</option>';
+        });
+        h += '<option value="__new__">+ A company not listed here\u2026</option></select>'
+           + '<div class="ff-neworg" style="display:none;margin-top:8px">'
+           +   '<input id="' + newId + '" class="ff-i" placeholder="Email domain, e.g. acme.com">'
+           +   '<div class="ff-h">Their email domain. It is how people from that company '
+           +   'sign in and how their deals are scoped, so it has to be real.</div>'
+           + '</div>';
+        break;
+
       /* A datalist rather than a hard select: the registry is a convenience,
          not a gate. A partner you have not registered yet still has to be
          nameable, or the first thing the form does is block the work. */
@@ -183,6 +214,15 @@
     var t = f.type;
     if (t === 'divider' || t === 'static') return undefined;
 
+    if (t === 'orgpick') {
+      var sel = el.querySelector('select');
+      var v = sel ? sel.value : '';
+      if (v === '__new__') {
+        var nu = el.querySelector('.ff-neworg input');
+        return nu ? nu.value.trim().toLowerCase() : '';
+      }
+      return v;
+    }
     if (t === 'multi') {
       var out = [];
       el.querySelectorAll('.ff-chip.on').forEach(function (c) { out.push(c.getAttribute('data-v')); });
