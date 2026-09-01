@@ -49,7 +49,7 @@
    console showed a new build stamp while the serverless function was still the
    previous one, and nothing in the reply said so. Bump this whenever the file
    changes and the answer is visible from any response. */
-const BUILD = '2026-09-01.runtime-fixed';
+const BUILD = '2026-09-01.osm-layers';
 
 const MODEL = {
   version: 'grid-atlas-svc-v1',
@@ -342,20 +342,139 @@ async function geocode(address) {
 
    Replace each `return null` with the real lookup and the scoring starts
    working. Return [] only when you have genuinely queried and found nothing. */
-async function findSubstations(lat, lng, radiusKm) {
-  // return [{ name, distanceKm, voltageKv, owner }] тАФ or null while unconnected
-  return null;
+/* тФАтФА The data sources тФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФА
+   OpenStreetMap via Overpass, which is what Grid Atlas's own "OSM Substations"
+   and "OSM Power Lines" layers already draw. Free, no key, no quota to
+   negotiate тАФ and using the same source means the console and the map agree
+   rather than quietly disagreeing about the same site.
+
+   OSM coverage for US transmission infrastructure is good and not perfect. It
+   is very good on substations and lines, thinner on ownership and voltage
+   attributes, and it is crowd-maintained rather than authoritative. So:
+
+     ┬╖ a missing voltage is left null and drops out of the score, rather than
+       being guessed at
+     ┬╖ a failed query returns null тАФ "we did not look" тАФ never [] , which
+       would read as "there is nothing there" and score the site at 1
+
+   HIFLD is the authoritative alternative and worth adding later; it needs an
+   ArcGIS endpoint and returns the same shape, so it would slot in beside these
+   rather than replacing the file. */
+
+const OVERPASS = process.env.OVERPASS_URL || 'https://overpass-api.de/api/interpreter';
+
+async function overpass(query) {
+  const r = await fetch(OVERPASS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+               'User-Agent': 'ClearSky-OMEGA/1.0 (grid-atlas; ops@clearsky-usa.com)' },
+    body: 'data=' + encodeURIComponent(query)
+  });
+  if (!r.ok) throw new Error('overpass ' + r.status);
+  const j = await r.json();
+  return (j && j.elements) || [];
 }
-async function findLines(lat, lng, radiusKm) {
-  // return [{ name, distanceKm, voltageKv }] тАФ or null while unconnected
-  return null;
-}
-async function findPlants(lat, lng, radiusKm) {
-  // return [{ name, distanceKm, fuel, capacityMw }] тАФ or null while unconnected
+
+/* Overpass returns nodes with lat/lon and ways with a `center` when asked with
+   `out center`. Both are normalised to a point here so the distance maths does
+   not have to care which it got. */
+function pointOf(el) {
+  if (el.lat != null && el.lon != null) return { lat: el.lat, lng: el.lon };
+  if (el.center) return { lat: el.center.lat, lng: el.center.lon };
   return null;
 }
 
-/* Haversine, for computing distanceKm once the raw features are in hand. */
+function kvOf(tags) {
+  const raw = (tags && (tags.voltage || tags['voltage:primary'])) || '';
+  /* "138000;69000" тАФ take the highest, since that is the one that matters for
+     whether a project can connect. */
+  const vals = String(raw).split(/[;,]/).map(v => parseFloat(v)).filter(v => isFinite(v));
+  if (!vals.length) return null;
+  return Math.round(Math.max.apply(null, vals) / 1000);
+}
+
+function nameOf(tags, fallback) {
+  return (tags && (tags.name || tags.operator || tags.ref)) || fallback;
+}
+
+async function findSubstations(lat, lng, radiusKm) {
+  try {
+    const m = Math.round(radiusKm * 1000);
+    const q = '[out:json][timeout:25];('
+      + 'node["power"="substation"](around:' + m + ',' + lat + ',' + lng + ');'
+      + 'way["power"="substation"](around:' + m + ',' + lat + ',' + lng + ');'
+      + ');out center 60;';
+    const els = await overpass(q);
+    return els.map(el => {
+      const p = pointOf(el); if (!p) return null;
+      return {
+        name: nameOf(el.tags, 'Unnamed substation'),
+        distanceKm: distanceKm(lat, lng, p.lat, p.lng),
+        voltageKv: kvOf(el.tags),
+        owner: (el.tags && el.tags.operator) || '',
+        osmId: el.type + '/' + el.id
+      };
+    }).filter(Boolean).sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.warn('[grid-atlas] substations:', e && e.message);
+    return null;   /* did not look тАФ NOT "nothing there" */
+  }
+}
+
+async function findLines(lat, lng, radiusKm) {
+  try {
+    const m = Math.round(radiusKm * 1000);
+    /* Transmission only. `power=minor_line` is distribution and would put a
+       street pole 40 m away at the top of the list, which is true and
+       useless. */
+    const q = '[out:json][timeout:25];('
+      + 'way["power"="line"](around:' + m + ',' + lat + ',' + lng + ');'
+      + ');out center 60;';
+    const els = await overpass(q);
+    return els.map(el => {
+      const p = pointOf(el); if (!p) return null;
+      return {
+        name: nameOf(el.tags, 'Transmission line'),
+        distanceKm: distanceKm(lat, lng, p.lat, p.lng),
+        voltageKv: kvOf(el.tags),
+        osmId: el.type + '/' + el.id
+      };
+    }).filter(Boolean).sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.warn('[grid-atlas] lines:', e && e.message);
+    return null;
+  }
+}
+
+async function findPlants(lat, lng, radiusKm) {
+  try {
+    const m = Math.round(radiusKm * 1000);
+    const q = '[out:json][timeout:25];('
+      + 'node["power"="plant"](around:' + m + ',' + lat + ',' + lng + ');'
+      + 'way["power"="plant"](around:' + m + ',' + lat + ',' + lng + ');'
+      + ');out center 40;';
+    const els = await overpass(q);
+    return els.map(el => {
+      const p = pointOf(el); if (!p) return null;
+      const mw = parseFloat(String((el.tags && el.tags['plant:output:electricity']) || '')
+                   .replace(/[^\d.]/g, ''));
+      return {
+        name: nameOf(el.tags, 'Generating plant'),
+        distanceKm: distanceKm(lat, lng, p.lat, p.lng),
+        fuel: (el.tags && (el.tags['plant:source'] || el.tags['generator:source'])) || '',
+        capacityMw: isFinite(mw) ? mw : null,
+        osmId: el.type + '/' + el.id
+      };
+    }).filter(Boolean).sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.warn('[grid-atlas] plants:', e && e.message);
+    return null;
+  }
+}
+
+/* Haversine. Function declaration, so it is hoisted above the lookups that
+   call it тАФ the same use-before-declare trap that took down the handler once
+   already, avoided here by not using const. */
 function distanceKm(aLat, aLng, bLat, bLng) {
   const R = 6371, rad = d => d * Math.PI / 180;
   const dLat = rad(bLat - aLat), dLng = rad(bLng - aLng);
@@ -379,13 +498,12 @@ module.exports = async function handler(req, res) {
         + 'retried progressively less specific until something matches.',
       authRequired: !!process.env.GRID_ATLAS_KEY,
       dataSources: {
-        substations: 'not connected \u2014 see \u26a0 DATA SOURCE in this file',
-        lines:       'not connected',
-        plants:      'not connected'
+        substations: 'OpenStreetMap via Overpass',
+        lines:       'OpenStreetMap via Overpass',
+        plants:      'OpenStreetMap via Overpass'
       },
-      note: 'Scores return with unscored layers until the three lookups are pointed '
-          + 'at real data. An unscored layer drops out of the calculation rather than '
-          + 'counting against the site.'
+      note: 'A layer that cannot be reached is scored as unscored and drops out of the '
+          + 'calculation, rather than counting against the site as if nothing were there.'
     });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'GET or POST.' });
@@ -445,11 +563,17 @@ module.exports = async function handler(req, res) {
     const anyLayer = substations || lines || plants;
 
     const findings = [];
-    if (!anyLayer) findings.push({ severity:'note',
-      text:'No grid data sources are connected to this service yet, so nothing was '
-         + 'measured and no score was produced. See \u26a0 DATA SOURCE in api/grid-atlas.js.' });
-    if (anyLayer && !substations) findings.push({ severity:'note', text:'Substation layer unavailable тАФ not scored.' });
-    if (anyLayer && !lines)       findings.push({ severity:'note', text:'Transmission layer unavailable тАФ not scored.' });
+    /* "not connected" and "connected but unreachable" are different problems
+       with different fixes, and saying the first when it is the second sends
+       somebody to edit code when they should be retrying. */
+    if (!anyLayer) findings.push({ severity:'risk',
+      text:'Could not reach OpenStreetMap for any layer, so nothing was measured and no '
+         + 'score was produced. Usually transient \u2014 try again in a minute.' });
+    if (anyLayer && !substations) findings.push({ severity:'note',
+      text:'Substation data was unreachable \u2014 that part is unscored, so the score below '
+         + 'is based on the rest.' });
+    if (anyLayer && !lines) findings.push({ severity:'note',
+      text:'Transmission data was unreachable \u2014 that part is unscored.' });
     if (substations && !nearestSub)
       findings.push({ severity:'blocker', text:'No substation within ' + radiusKm + ' km.' });
     if (nearestSub && nearestSub.distanceKm > 10)
@@ -462,7 +586,7 @@ module.exports = async function handler(req, res) {
     /* No score means no claim. Saying "no substation found" when we never
        looked is the same lie in words that the 21 was in numbers. */
     const summary = !anyLayer
-      ? 'No grid layers connected yet \u2014 nothing measured.'
+      ? 'Could not reach the grid data \u2014 nothing measured.'
       : nearestSub
         ? nearestSub.voltageKv + ' kV substation ' + nearestSub.distanceKm + ' km away'
           + (nearestLine ? ', transmission ' + nearestLine.distanceKm + ' km' : '')
