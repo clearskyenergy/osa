@@ -79,6 +79,19 @@ for html in ['portfolio.html','index.html']:
     else:
         fail(html + ' inline script does not parse'); print(rc.stderr.strip()[:400])
 
+# ── 4 · Serverless handlers must actually RUN ──────────────────────────────
+# `node --check` only parses. Both recent production failures were runtime-only:
+# a const used before its declaration, and a handler that threw into a catch-all
+# that hid the cause. Executing each handler once catches that class outright.
+if os.path.exists(path('test-api.js')):
+    r = subprocess.run(['node', path('test-api.js')], capture_output=True, text=True,
+                       cwd=here)
+    if r.returncode == 0:
+        good('api handlers execute')
+    else:
+        fail('an api handler threw at runtime')
+        print(r.stdout.strip())
+
 print()
 print('READY TO PUSH' if ok else 'DO NOT PUSH — fix the above')
 sys.exit(0 if ok else 1)

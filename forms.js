@@ -280,6 +280,25 @@
 
       var els = wrap.querySelectorAll('.ff');
 
+      /* ── Errors clear as you fix them ──────────────────────────────────
+         Validation only ran on submit, and the message stayed on screen while
+         the person typed the correction — so a field showing "add the city and
+         state" was still showing it after the city and state had been added.
+         That reads as "the app does not believe me", which is worse than no
+         message at all.
+
+         Only clears; never validates as you type. Complaining at somebody
+         halfway through typing an address is its own kind of rude. */
+      wrap.addEventListener('input', clearFieldError, true);
+      wrap.addEventListener('change', clearFieldError, true);
+      function clearFieldError(e) {
+        var f = e.target && e.target.closest ? e.target.closest('.ff') : null;
+        if (!f || !f.classList.contains('bad')) return;
+        f.classList.remove('bad');
+        var err = f.querySelector('.ff-err');
+        if (err) err.textContent = '';
+      }
+
       /* Chips and score controls need live handlers; everything else is read
          on submit. Kept here rather than delegated so the markup above stays
          a pure function of the spec. */

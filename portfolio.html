@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0259</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0308</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -917,14 +917,14 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="/config.js?v=13"></script>
-<script src="/forms.js?v=3"></script>
+<script src="/forms.js?v=4"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=20"></script>
+<script src="/portfolio-data.js?v=22"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=6"></script>
-<script src="/grid-atlas-adapter.js?v=6"></script>
+<script src="/grid-atlas-adapter.js?v=8"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -1546,7 +1546,10 @@ function renderSupply(){
 /* Mirrors the server's check, so the console can warn before somebody presses
    a button that is going to fail. Kept deliberately simple and in sync with
    hasLocality() in api/grid-atlas.js — if they drift, the server is right. */
-function placeable(a){
+function placeable(a,st){
+  /* Older records kept the state in its own field, so it counts toward being
+     placeable even though the address text alone would not be. */
+  if(st && String(st).trim()) a = String(a||'')+' '+st;
   var s=String(a||'');
   if(/\b\d{5}\b/.test(s)) return true;
   if(/\b(A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[DLNA]|K[SY]|LA|M[EDAINSOT]|N[EVHJMYCD]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[TA]|W[AVIY])\b/
@@ -1802,7 +1805,13 @@ function wireBoardDnd(host){
       if(d.stage==='discarded'){ S.openId=d.id; doRestore(); return; }
       if(F.isExit(d.stage)){ S.openId=d.id; doRevive(); return; }
       if(F.stageOf(to).rank < F.stageOf(d.stage).rank){
-        toast('Moving a deal backwards needs a reason \u2014 open it and use Reopen',true);
+        /* Free below marketplace. Above it, somebody outside the company was
+           told something and walking that back is worth a sentence. */
+        if(!F.reversalNeedsReason(d.stage)){
+          act(F.advance(d,to,'Moved back on the board'),'Moved to '+F.stageOf(to).label);
+          return;
+        }
+        moveBack(d,to);
         return;
       }
       moveTo(d,to);
@@ -1858,6 +1867,27 @@ function openBoardColumns(){
    Now a blocked move opens a dialog that names the gate, explains why it
    exists, and puts the fix one button away. A gate that cannot be satisfied
    from the message that refuses you is a gate people learn to resent. */
+/* Reversing out of a stage the outside world knows about. One field, and it
+   is the only thing asked — the point is the sentence, not a form. */
+function moveBack(d,to){
+  var from=F.stageOf(d.stage), st=F.stageOf(to);
+  Forms.open({
+    title:'Move back to '+st.label,
+    intro:d.name+' · currently '+from.label,
+    fields:[
+      {type:'static',html:'<b>'+esc(from.label)+' is a claim made outside the company</b> — '
+        + 'a listing capital can see, a signed term sheet, money that closed. Walking one '
+        + 'back is worth a line, because somebody will ask.'},
+      {key:'why',type:'text',label:'What happened',required:true,
+        placeholder:'Offer withdrawn / listed by mistake / terms fell through'}
+    ],
+    submitLabel:'Move back'
+  }).then(function(v){
+    if(!v) return;
+    act(F.advance(d,to,v.why),'Moved back to '+st.label);
+  });
+}
+
 function moveTo(d,to){
   var st=F.stageOf(to);
   var miss=F.missingFor(d,to);
@@ -3244,7 +3274,8 @@ function openNew(){
     F.create({
       name:v.name, partnerOrg:v.partnerOrg,
       partnerName:A.orgName(v.partnerOrg)||v.partnerOrg,
-      address:v.address, clientOrgId:v.clientOrgId,
+      address:v.address, state:F.stateFromAddress(v.address),
+      clientOrgId:v.clientOrgId,
       categories:(t.categories||[]).slice(), sizeMw:v.sizeMw
     }).then(function(ref){
       /* The knowable stuff, in one follow-up write. F.create() takes the
@@ -3300,9 +3331,9 @@ function doPrescreen(deal){
                   hint:'Stays in the denominator; comes back when something changes.'},
                  {value:'fail',label:'Fail \u2014 not for us',
                   hint:'Marked dead with your reason.'}]},
-      {key:'reason',type:'textarea',label:'Reason',rows:2,required:true,
-        value:pre.reason,
-        hint:'One line. This is what makes the prescreen report worth reading in six months.'}
+      {key:'reason',type:'text',label:'Reason (optional)',value:pre.reason,
+        hint:'Grid Atlas writes this one automatically now. Add a line only if you know '
+           + 'something it does not.'}
     ],
     submitLabel:'Save prescreen'
   }).then(function(v){
@@ -3537,7 +3568,7 @@ function tabOverview(d){
       + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
           + (d.address
-              ? (placeable(d.address)
+              ? (placeable(d.address,d.state)
                   ? '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
                     + (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
                   : '<button class="btn-a" onclick="doEditSite()">'
@@ -3576,7 +3607,8 @@ function tabOverview(d){
         ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
         : '<span style="color:var(--warn)">not set</span>')
     + rowIf('Address', esc(d.address)
-        + (d.address && !placeable(d.address)
+        + (d.state?'<div class="t-sub">'+esc(d.state)+'</div>':'')
+        + (d.address && !placeable(d.address,d.state)
           ? '<div class="t-sub" style="color:var(--warn)">No city, state or ZIP \u2014 '
             + 'Grid Atlas cannot place this, and a geocoder would pick the wrong one. '
             + '<a href="#" onclick="doEditSite();return false">Add them</a></div>'
@@ -4292,10 +4324,16 @@ function doDestroy(){
 }
 
 function doRevive(){ var d=guard(); if(!d) return;
-  Forms.open({ title:'Reopen', intro:d.name,
-    fields:[{key:'why',type:'textarea',label:'What changed',rows:2,required:true}],
+  /* Optional. Why it died is already on the record with a date and a name;
+     making somebody restate it to undo a click was friction for its own sake. */
+  Forms.open({ title:'Reopen', intro:d.name
+      + (d.deadReason?' · was marked dead: '+d.deadReason:''),
+    fields:[{key:'why',type:'text',label:'What changed (optional)'}],
     submitLabel:'Reopen'
-  }).then(function(v){ if(v) act(F.advance(d,'screening',v.why),'Reopened'); });
+  }).then(function(v){
+    if(!v) return;
+    act(F.advance(d,'screening',v.why||'Reopened'),'Reopened');
+  });
 }
 
 function doReattribute(){ var d=guard(); if(!d) return;
@@ -4329,7 +4367,6 @@ function doEditSite(){ var d=guard(); if(!d) return;
           return (!v || placeable(v)) ? null
             : 'Add the city and state (or ZIP) — without them Grid Atlas matches the '
             + 'wrong place rather than failing.'; }},
-      {key:'state',type:'text',label:'State / region',value:d.state},
       {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01',value:d.sizeMw},
       {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',value:d.sizeMwh},
       {key:'capexUsd',type:'money',label:'Capex',value:d.capexUsd},
@@ -4337,7 +4374,12 @@ function doEditSite(){ var d=guard(); if(!d) return;
     ]
   }).then(function(v){
     if(!v) return;
-    var f={ address:v.address, state:v.state, sizeMw:v.sizeMw, sizeMwh:v.sizeMwh,
+    /* State comes out of the address rather than being typed beside it. Two
+       fields holding halves of one fact is two chances to disagree, and
+       nothing here could resolve "NJ" in one against "Hillside CT" in the
+       other. */
+    var f={ address:v.address, state:F.stateFromAddress(v.address),
+            sizeMw:v.sizeMw, sizeMwh:v.sizeMwh,
             capexUsd:v.capexUsd, clientOrgId:v.clientOrgId };
     var p=F.patch(d,f,{type:'edit',message:'Project details updated.'});
     /* Rename separately so it gets its own log line carrying the old name —

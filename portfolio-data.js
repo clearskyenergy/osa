@@ -259,6 +259,25 @@
         || { key:k||'?', label:k||'Unknown', short:'?', rank:0, color:'#6B7280' };
   }
   function isExit(k)   { return !!find(EXITS, k); }
+
+  /* ── When does going backwards need explaining? ──────────────────────────
+     Not always, and requiring it always was wrong. Dragging a deal from
+     Pre-development back to Qualified because it was moved too early is a
+     correction, and demanding a written justification for a mis-click is the
+     kind of friction that teaches people to work around the board.
+
+     It earns its keep in one place: reversing out of a stage where somebody
+     OUTSIDE the company was told something. A marketplace listing was
+     published, a term sheet signed, money closed, construction started. Those
+     are claims made to other people, and quietly walking one back is what is
+     worth a sentence.
+
+     Everything below marketplace moves freely both ways. The stage history
+     records every move regardless \u2014 what changes is whether a person is
+     stopped and asked to type. */
+  function reversalNeedsReason(fromStage) {
+    return stageOf(fromStage).rank >= stageOf('marketplace').rank;
+  }
   function bomCatOf(k) { return find(BOM_CATEGORIES, k) || { key:k, label:k || 'Other' }; }
   function bomStatusOf(k) { return find(BOM_STATUS, k) || BOM_STATUS[0]; }
   function drawStatusOf(k){ return find(DRAW_STATUS, k) || DRAW_STATUS[0]; }
@@ -300,6 +319,53 @@
   /* Plain thousands separator. Added because the site panel referenced a
      helper that did not exist — which would have thrown on the first deal
      that actually had an annual kWh figure. */
+  /* ── One address, everything in it ───────────────────────────────────────
+     Grid Atlas takes a single string, so the address field holds the whole
+     thing: street, city, state, postcode. The separate state field is derived
+     from it rather than typed, because two fields holding halves of one fact
+     is two chances to disagree \u2014 and somebody typing NJ in one while the
+     other says Hillside CT is a disagreement nothing here could resolve. */
+  var US_STATES = {
+    alabama:'AL',alaska:'AK',arizona:'AZ',arkansas:'AR',california:'CA',colorado:'CO',
+    connecticut:'CT',delaware:'DE',florida:'FL',georgia:'GA',hawaii:'HI',idaho:'ID',
+    illinois:'IL',indiana:'IN',iowa:'IA',kansas:'KS',kentucky:'KY',louisiana:'LA',
+    maine:'ME',maryland:'MD',massachusetts:'MA',michigan:'MI',minnesota:'MN',
+    mississippi:'MS',missouri:'MO',montana:'MT',nebraska:'NE',nevada:'NV',
+    'new hampshire':'NH','new jersey':'NJ','new mexico':'NM','new york':'NY',
+    'north carolina':'NC','north dakota':'ND',ohio:'OH',oklahoma:'OK',oregon:'OR',
+    pennsylvania:'PA','rhode island':'RI','south carolina':'SC','south dakota':'SD',
+    tennessee:'TN',texas:'TX',utah:'UT',vermont:'VT',virginia:'VA',washington:'WA',
+    'west virginia':'WV',wisconsin:'WI',wyoming:'WY'
+  };
+  var STATE_CODES = Object.keys(US_STATES).map(function (k) { return US_STATES[k]; });
+
+  function stateFromAddress(a) {
+    var s = String(a || '').trim();
+    if (!s) return '';
+
+    /* THE TAIL, NOT THE WHOLE STRING. "12 Ohio Street, Austin, TX" contains
+       Ohio, and a naive scan returns OH for a Texas address. A US address puts
+       the state at the end, after the town — so only the last segment is
+       considered, and a street called Ohio in the first segment is left alone.
+
+       Scanning the whole string was wrong in a quiet way: it would have
+       mislabelled records rather than failing, and nobody checks a state field
+       that is already filled in. */
+    var segs = s.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    var tail = segs.length > 1 ? segs.slice(-2).join(' ') : s;
+
+    var low = tail.toLowerCase();
+    for (var name in US_STATES) {
+      if (new RegExp('(^|[^a-z])' + name + '([^a-z]|$)').test(low)) return US_STATES[name];
+    }
+    var up = ' ' + tail.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+    var found = '';
+    STATE_CODES.forEach(function (c) {
+      if (up.indexOf(' ' + c + ' ') >= 0) found = c;
+    });
+    return found;
+  }
+
   function fmtNumber(n) {
     if (n == null || n === '') return '\u2014';
     var v = Number(n);
@@ -2243,9 +2309,10 @@
     STAGES:STAGES, EXITS:EXITS, DEAD_REASONS:DEAD_REASONS,
     PARTICIPANT_ROLES:PARTICIPANT_ROLES, BOM_CATEGORIES:BOM_CATEGORIES,
     BOM_STATUS:BOM_STATUS, DRAW_STATUS:DRAW_STATUS,
-    stageOf:stageOf, isExit:isExit, bomCatOf:bomCatOf, bomStatusOf:bomStatusOf,
+    stageOf:stageOf, isExit:isExit, reversalNeedsReason:reversalNeedsReason, bomCatOf:bomCatOf, bomStatusOf:bomStatusOf,
     drawStatusOf:drawStatusOf, roleOf:roleOf,
-    ms:ms, num:num, money:money, mw:mw, fmtNumber:fmtNumber, pct:pct, fmtDate:fmtDate, days:days, esc:esc, stamp:stamp,
+    ms:ms, num:num, money:money, mw:mw, fmtNumber:fmtNumber,
+    stateFromAddress:stateFromAddress, pct:pct, fmtDate:fmtDate, days:days, esc:esc, stamp:stamp,
     normalize:normalize, init:init, loadDeals:loadDeals, deals:deals, patch:patch,
     counted:counted, discard:discard, restore:restore, destroy:destroy,
     DISCARD_REASONS:DISCARD_REASONS,

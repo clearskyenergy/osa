@@ -53,6 +53,18 @@
   function init(me) { _me = me || null; }
 
   function enabled() { return gcfg().enabled === true; }
+
+  /* One string, everything in it — which is what Grid Atlas and every
+     geocoder want. */
+  function fullAddress(deal) {
+    var a = String(deal.address || '').trim();
+    var s = String(deal.state || '').trim();
+    if (!a) return '';
+    if (!s) return a;
+    var up = ' ' + a.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+    if (up.indexOf(' ' + s.toUpperCase() + ' ') >= 0) return a;
+    return a + ', ' + s;
+  }
   function pageUrl() { return gcfg().url || '/grid-atlas.html'; }
 
   /* ── Geocoding ───────────────────────────────────────────────────────────
@@ -142,7 +154,12 @@
     return fetch(url, {
       method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        address: deal.address, sizeMw: deal.sizeMw, dealId: deal.id,
+        /* The stored state is appended when the address does not already carry
+           one. Older records were captured with the two split apart, and
+           reading only the address field would send them to the geocoder
+           missing the very thing that disambiguates them. */
+        address: fullAddress(deal),
+        sizeMw: deal.sizeMw, dealId: deal.id,
         /* Coordinates set by hand win over the address. Some sites genuinely
            cannot be geocoded \u2014 a rural parcel with no street number, a new
            subdivision \u2014 and dropping a pin should not require the address to
@@ -152,7 +169,13 @@
     }).then(function (r) {
       return r.json()['catch'](function () { return null; }).then(function (j) {
         if (!r.ok) {
-          var e = new Error((j && (j.error || j.detail)) || ('Grid Atlas returned ' + r.status));
+          /* error AND detail. The server sends both and the client was showing
+             only the first, so "Grid Atlas failed." arrived with the actual
+             cause discarded on the way. */
+          var m = (j && j.error) || ('Grid Atlas returned ' + r.status);
+          if (j && j.detail && j.error && String(j.detail).indexOf(j.error) < 0)
+            m += ' \u2014 ' + j.detail;
+          var e = new Error(m);
           /* Carry the function's own build back with the error. A stale
              serverless function returning an old message while the console
              shows a new build stamp is a genuinely confusing failure, and the
@@ -211,7 +234,7 @@
      cost of guessing wrong once is a tool that opens empty. */
   function openWith(deal) {
     var u = pageUrl();
-    var addr = deal.address || '';
+    var addr = fullAddress(deal);
     var q = [];
     ['address','q','search','site'].forEach(function (k) {
       q.push(k + '=' + encodeURIComponent(addr));
@@ -268,7 +291,7 @@
   global.GridAtlasAdapter = {
     init: init, enabled: enabled, pageUrl: pageUrl,
     prescreenThreshold: prescreenThreshold, prescreenVerdict: prescreenVerdict,
-    run: run, openWith: openWith, geocode: geocode,
+    run: run, openWith: openWith, geocode: geocode, fullAddress: fullAddress,
     normalise: normalise, asCriterion: asCriterion, core: core
   };
 })(window);
