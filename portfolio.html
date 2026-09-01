@@ -243,7 +243,8 @@ tfoot td{font-weight:600;color:var(--navy);border-top:1.5px solid var(--line);bo
 .sec-h{padding:11px 15px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;
   letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:9px}
 .sec-h .r{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;font-size:11.5px;color:var(--ink-3)}
-.sec-b{padding:15px}
+.sec-b{padding:14px 15px}
+.sec+.sec{margin-top:0}
 .sec-note{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:9px}
 
 .kv{display:grid;grid-template-columns:150px 1fr;gap:7px 14px;font-size:13px}
@@ -445,6 +446,10 @@ select.ff-i{cursor:pointer}
 .kb-card b{display:block;font-size:12.5px;font-weight:600;color:var(--navy);line-height:1.3}
 .kb-card .m{font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.35;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-do{display:block;width:100%;margin-top:7px;border:1px solid var(--accent);
+  background:#fff;color:var(--accent);border-radius:6px;padding:5px 8px;
+  font:600 11px 'DM Sans',sans-serif;cursor:pointer;text-align:left;line-height:1.3}
+.kb-do:hover{background:var(--accent);color:#fff}
 .kb-next{font-size:11px;color:var(--accent);margin-top:5px;font-weight:600;
   line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
   -webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -543,10 +548,10 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-08-31.1921</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0122</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
-    <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ Referral</button>
+    <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
     <button class="btn-sm" onclick="refresh(true)" id="btn-refresh">Refresh</button>
     <span class="tb-name" id="tb-name"></span>
     <button class="btn-sm" onclick="signOut()">Sign out</button>
@@ -907,7 +912,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="/config.js?v=9"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=11"></script>
+<script src="/portfolio-data.js?v=12"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1705,6 +1710,17 @@ function kbColumn(key, inCol, prefs){
 }
 function pinColumn(k){ S.pinned[k]=1; renderBoard(); }
 
+/* Runs a deal's next step straight from its card. Sets the open deal so the
+   action functions — which all read S.openId — work without the drawer being
+   visible, then leaves the drawer closed so the person stays on the board. */
+function cardAct(e,id,fn){
+  e.stopPropagation();
+  var d=findDeal(id); if(!d) return;
+  S.openId=id;
+  if(typeof window[fn]==='function') window[fn]();
+  else toast('That action is not available',true);
+}
+
 function kbCard(d){
   var stale=isStale(d), v=d.viability, exit=F.isExit(d.stage);
   /* Only flags that mean somebody has to act. A card covered in badges is a
@@ -1728,7 +1744,13 @@ function kbCard(d){
     +   (F.ageDays(d)!=null?' \u00b7 '+F.ageDays(d)+'d':'')+'</div>'
     /* The next step on the card, so the board answers "what do I do" without
        opening anything. */
-    + (ns.id!=='none'?'<div class="kb-next">'+esc(ns.label)+'</div>':'')
+    /* The next step is a BUTTON on the card, not just a label. Assigning a rep
+       to eleven referrals should be eleven clicks, not eleven open-read-act-close
+       cycles. Stops the click reaching the card underneath. */
+    + (ns.id!=='none' && ns.action && A.can('write_deal') && !d._demo
+        ? '<button class="kb-do" onclick="cardAct(event,\''+d.id+'\',\''+ns.action+'\')">'
+          + esc(ns.label)+'</button>'
+        : (ns.id!=='none'?'<div class="kb-next">'+esc(ns.label)+'</div>':''))
     + (f?'<div class="f">'+f+'</div>':'')
     + '</div>';
 }
@@ -3236,16 +3258,39 @@ function renderDrawer(){
   var d=findDeal(S.openId); if(!d) return closeDrawer();
   var st=F.stageOf(d.stage);
   document.getElementById('dr-title').textContent=d.name;
+  /* One line that answers "where is this and what is it" without reading a
+     single panel. */
   document.getElementById('dr-meta').innerHTML =
       '<span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
     + '<span class="dot"></span>'+esc(st.label)+'</span> &nbsp; '+esc(d.address||'\u2014')
-    + ' \u00b7 brought by <b>'+esc(d.origination.partnerName||'unattributed')+'</b>'
-    + (d.origination.locked?' <span class="lock">(locked)</span>':'')
-    + ' \u00b7 '+(F.ageDays(d)!=null?F.ageDays(d)+' days old':'');
+    + ' \u00b7 brought by <b>'+esc(d.origination.partnerName
+        ||A.orgName(d.origination.partnerOrg)||'unattributed')+'</b>'
+    + (d.projectType?' \u00b7 '+esc((F.typeOf(d.projectType)||{}).label):'')
+    + (d.assignment.rep?' \u00b7 with <b>'+esc(d.assignment.rep.split('@')[0])+'</b>':'')
+    + ' \u00b7 '+(F.ageDays(d)!=null?F.ageDays(d)+'d':'');
 
-  var tabs=[['overview','Overview'],['files','Files'],['score','Viability'],
-            ['permits','Permitting'],['money','Funding'],['bom','BOM'],
-            ['people','Participants'],['history','History']];
+  /* TABS APPEAR WHEN THEY MATTER. A referral with nothing in it was showing
+     eight tabs, six of which could not possibly have content yet — which is
+     most of what made this feel heavy.
+
+     The rule that makes hiding safe: a tab is shown if the deal has reached the
+     stage it belongs to OR if it already has content. Hiding something that
+     holds data would make that data unreachable, which is worse than clutter. */
+  var rank=F.stageOf(d.stage).rank, live=!F.isExit(d.stage);
+  function from(k){ return !live || rank>=F.stageOf(k).rank; }
+  var tabs=[['overview','Overview'],['files','Files']];
+  if(from('screening')  || d.viability.score!=null)        tabs.push(['score','Viability']);
+  if(from('pre_dev')    || (d.permitting.applications||[]).length
+                        || d.permitting.startedAt)         tabs.push(['permits','Permitting']);
+  if(from('marketplace')|| d.funding.requestedUsd!=null
+                        || d.funding.closedUsd!=null)      tabs.push(['money','Funding']);
+  if(from('funded')     || (d.bom||[]).length)             tabs.push(['bom','BOM']);
+  if(from('qualified')  || (d.participants||[]).length
+                        || (d.notes||[]).length)           tabs.push(['people','Participants']);
+  tabs.push(['history','History']);
+  /* If the open tab just disappeared — a deal moved backwards, say — fall back
+     rather than rendering a blank panel. */
+  if(!tabs.some(function(t){ return t[0]===S.tab; })) S.tab='overview';
   document.getElementById('dr-tabs').innerHTML=tabs.map(function(t){
     return '<button class="dr-tab'+(S.tab===t[0]?' on':'')+'" onclick="setTab(\''+t[0]+'\')">'
       + t[1]+'</button>'; }).join('');
@@ -3324,54 +3369,37 @@ function tabOverview(d){
       + '</div>';
   }
 
-  var pre=d.prescreen;
-  h+='<div class="sec"><div class="sec-h">Prescreen'
-    + (pre?'<span class="r">'+esc(F.fmtDate(pre.at))+'</span>':'')+'</div><div class="sec-b">'
-    + (pre
-      ? '<div class="verdict" style="grid-template-columns:1fr">'
-        + '<div class="ax"><div class="lbl">Verdict</div><div class="val" style="color:'
-        + (pre.verdict==='pass'?'var(--ok)':pre.verdict==='park'?'var(--warn)':'var(--bad)')+'">'
-        + esc(String(pre.verdict||'').toUpperCase())+'</div>'
-        + '<div class="sub">'+esc(pre.reason||'')+'</div></div></div>'
-        + '<dl class="kv" style="margin-top:12px">'
-        + row('Fit', esc(pre.fit||'\u2014')) + row('Size', esc(pre.size||'\u2014'))
-        + row('Offtake', esc(pre.offtake||'\u2014')) + row('Timing', esc(pre.timing||'\u2014'))
-        + row('By', esc(pre.by||'\u2014'))
-        + '</dl>'
-      : '<div style="font-size:12.5px;color:var(--ink-3)">Not prescreened. '
-        + 'The fast look before anybody spends an hour scoring it.</div>')
-    + (A.can('write_deal')&&!d._demo
-        ? '<div style="margin-top:12px"><button class="btn-x" onclick="doPrescreen()">'
-          + (pre?'Re-run prescreen':'Prescreen it')+'</button></div>':'')
-    + '</div></div>';
-
-  h+='<div class="sec"><div class="sec-h">Attribution'
-    + (d.origination.locked?'<span class="r">Locked when this deal left Referred</span>':'')
+  /* ATTRIBUTION FIRST, because it is the fact that locks and the one people
+     need to check. Prescreen moved to the bottom \u2014 it is an optional fast look,
+     not a step on the path, now that screening runs the partner's tool. */
+  var o=d.origination;
+  h+='<div class="sec"><div class="sec-h">Brought by'
+    + (o.locked?'<span class="r">Locked when it left Referred</span>':'')
     + '</div><div class="sec-b"><dl class="kv">'
-    + row('Brought by', esc(d.origination.partnerName||A.orgName(d.origination.partnerOrg)||'\u2014'))
-    + row('Domain', '<span class="mono">'+esc(d.origination.partnerOrg||'\u2014')+'</span>')
-    + row('Channel', esc(d.origination.channel||'\u2014'))
-    + row('Contact', esc(d.origination.contactName||'\u2014'))
-    + row('Referred', esc(F.fmtDate(d.origination.referredAt)))
-    + row('Agreement', '<span class="mono">'+esc(d.origination.agreementRef||'\u2014')+'</span>')
-    + row('Fee basis', esc(d.origination.feeBasis||'\u2014'))
-    + row('Fee', F.money(d.origination.feeUsd)
-        + (d.origination.feePaidAt?' \u00b7 paid '+esc(F.fmtDate(d.origination.feePaidAt))
-           :' \u00b7 <span style="color:var(--warn)">unpaid</span>'))
+    + row('Organisation', esc(o.partnerName||A.orgName(o.partnerOrg)||'\u2014')
+        + (o.partnerOrg?'<div class="t-sub mono">'+esc(o.partnerOrg)+'</div>':''))
+    + rowIf('Channel', esc(o.channel), o.channel)
+    + rowIf('Contact', esc(o.contactName), o.contactName)
+    + row('Referred', esc(F.fmtDate(o.referredAt)))
+    + rowIf('Agreement', '<span class="mono">'+esc(o.agreementRef)+'</span>', o.agreementRef)
+    + rowIf('Fee basis', esc(o.feeBasis), o.feeBasis)
+    + rowIf('Fee', F.money(o.feeUsd)
+        + (o.feePaidAt?' \u00b7 paid '+esc(F.fmtDate(o.feePaidAt))
+           :' \u00b7 <span style="color:var(--warn)">unpaid</span>'), o.feeUsd)
     + '</dl>'
     + (A.can('lock_attribution') && !d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doReattribute()">'
           + 'Change attribution\u2026</button></div>' : '')
-    + '<div class="sec-note">Attribution locks the moment real work starts, and changing it '
-    + 'afterwards takes an owner, a written reason, and leaves the previous partner in the '
-    + 'record. An editable field here is not a fact, it is the opening position in an argument '
-    + 'you will have eighteen months from now.</div>'
+    + (o.locked
+        ? '<div class="sec-note">Changing this takes an owner and a written reason, and '
+          + 'the previous partner stays in the record. It decides who gets paid.</div>' : '')
     + (d.originationHistory.length
-        ? '<div style="margin-top:12px"><b style="font-size:11.5px;color:var(--ink-3)">Previously</b>'
-          + d.originationHistory.map(function(o){
-              return '<div class="note"><div class="m">'+esc(F.fmtDate(o.changedAt))+' by '
-                + esc(o.changedBy)+'</div><div class="t">'+esc(o.partnerName||o.partnerOrg)
-                + ' \u2014 '+esc(o.reason||'')+'</div></div>'; }).join('')+'</div>' : '')
+        ? '<div style="margin-top:12px"><b style="font-size:11.5px;color:var(--ink-3)">'
+          + 'Previously</b>'
+          + d.originationHistory.map(function(x){
+              return '<div class="note"><div class="m">'+esc(F.fmtDate(x.changedAt))+' by '
+                + esc(x.changedBy)+'</div><div class="t">'+esc(x.partnerName||x.partnerOrg)
+                + ' \u2014 '+esc(x.reason||'')+'</div></div>'; }).join('')+'</div>' : '')
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Site notes and energy'
@@ -3392,37 +3420,39 @@ function tabOverview(d){
           + 'Edit notes and energy</button></div>':'')
     + '</div></div>';
 
+  var siteFilled=[d.projectType,d.address,d.sizeMw,d.capexUsd,d.clientOrgId]
+    .filter(function(x){ return x!=null&&x!==''; }).length;
   h+='<div class="sec"><div class="sec-h">Site</div><div class="sec-b"><dl class="kv">'
     + row('Project type', d.projectType
         ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
         : '<span style="color:var(--warn)">not set</span>')
-    + row('Location', esc(d.address||'\u2014'))
-    + row('Categories', d.categories.length
-        ? d.categories.map(function(c){ return '<span class="cat">'+esc(c.toUpperCase())+'</span>'; }).join('')
-        : '\u2014')
-    + row('Size', d.sizeMw!=null?F.mw(d.sizeMw)+(d.sizeMwh?' \u00b7 '+d.sizeMwh+' MWh':''):'\u2014')
-    + row('Capex', F.money(d.capexUsd))
-    + row('Client', esc(A.orgName(d.clientOrgId)||'\u2014'))
+    + rowIf('Location', esc(d.address), d.address)
+    + rowIf('Categories', d.categories.map(function(c){
+        return '<span class="cat">'+esc(c.toUpperCase())+'</span>'; }).join(''), d.categories)
+    + rowIf('Size', F.mw(d.sizeMw)+(d.sizeMwh?' \u00b7 '+d.sizeMwh+' MWh':''), d.sizeMw)
+    /* Capex only appears once a design exists \u2014 showing "Capex \u2014" on a
+       referral implies somebody forgot to enter it, when in fact it cannot be
+       known yet. */
+    + rowIf('Capex', F.money(d.capexUsd), d.capexUsd)
+    + rowIf('Client', esc(A.orgName(d.clientOrgId)), d.clientOrgId)
     + '</dl>'
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditSite()">'
-          + 'Edit project details</button></div>':'')
+          + 'Edit project details</button>'+unfilled(siteFilled,5)+'</div>':'')
     + '</div></div>';
 
   h+='<div class="sec"><div class="sec-h">Assignment'
     + '<span class="r">A different axis from stage</span></div><div class="sec-b"><dl class="kv">'
-    + row('Screening rep', esc(d.assignment.rep||'\u2014'))
-    + row('Design lead', esc(d.assignment.designLead||'\u2014'))
-    + row('Dev lead', esc(d.assignment.devLead||'\u2014'))
-    + row('Due', esc(F.fmtDate(d.assignment.dueAt))
+    + rowIf('Screening rep', esc(d.assignment.rep), d.assignment.rep)
+    + rowIf('Design lead', esc(d.assignment.designLead), d.assignment.designLead)
+    + rowIf('Dev lead', esc(d.assignment.devLead), d.assignment.devLead)
+    + rowIf('Due', esc(F.fmtDate(d.assignment.dueAt))
         + (F.ms(d.assignment.dueAt) && F.ms(d.assignment.dueAt)<Date.now() && !F.isExit(d.stage)
-           ? ' <span style="color:var(--bad);font-weight:600">overdue</span>':''))
-    + row('Editor project', d.projectId
-        ? '<span class="mono">'+esc(d.projectId)+'</span>'
-        : '<span style="color:var(--ink-3)">not created</span>')
-    + row('Marketplace', d.finProjectId
-        ? '<span class="mono">'+esc(d.finProjectId)+'</span>'
-        : '<span style="color:var(--ink-3)">not listed</span>')
+           ? ' <span style="color:var(--bad);font-weight:600">overdue</span>':''), d.assignment.dueAt)
+    + rowIf('Editor project',
+        '<button class="btn-x" style="padding:0" onclick="openEditor(\''+esc(d.projectId)+'\')">'
+        + 'Open the drawing</button>', d.projectId)
+    + rowIf('Marketplace', '<span class="mono">'+esc(d.finProjectId)+'</span>', d.finProjectId)
     + '</dl>'
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
@@ -3439,6 +3469,10 @@ function tabOverview(d){
     + 'roster \u2014 this keeps no second list of who works here.</div>'
     + '</div></div>';
 
+  /* Hidden entirely until the deal is at least Qualified \u2014 a referral has no
+     pre-development budget by definition, and a panel of dashes teaches people
+     to skim past panels. */
+  if(F.stageOf(d.stage).rank>=F.stageOf('qualified').rank || d.preDev.budgetUsd!=null){
   h+='<div class="sec"><div class="sec-h">Pre-development</div><div class="sec-b"><dl class="kv">'
     + row('Budget', F.money(d.preDev.budgetUsd))
     + row('Spent', F.money(d.preDev.spentUsd)
@@ -3449,6 +3483,7 @@ function tabOverview(d){
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditPreDev()">Edit</button></div>':'')
     + '</div></div>';
+  }
 
   /* The actual documents, on the Overview, not a count that sends you to
      another tab. Counting things somebody has to click through to read is the
@@ -3490,6 +3525,9 @@ function tabOverview(d){
         : '')
     + '</div></div>';
 
+  /* Third-party verification cannot happen before pre-development, so the
+     panel does not appear before then. */
+  if(F.stageOf(d.stage).rank>=F.stageOf('pre_dev').rank || d.verification.verdictId){
   h+='<div class="sec"><div class="sec-h">Verification</div><div class="sec-b">'
     + (d.verification.verdictId
       ? '<dl class="kv">'
@@ -3503,6 +3541,36 @@ function tabOverview(d){
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doSendToVerify()">'
           + 'Send for verification\u2026</button></div>':'')
     + '</div></div>';
+  }
+
+  /* PRESCREEN LAST, and only offered while it can still change anything.
+     It was at the top, which implied it was step one \u2014 but the flow is
+     intake \u2192 assign \u2192 screening tool, and the tool is the real judgement.
+     Prescreen is a two-minute sanity check somebody may want before spending
+     an API call, not a gate. */
+  var pre=d.prescreen;
+  if(pre || F.stageOf(d.stage).rank<=F.stageOf('screening').rank){
+    h+='<div class="sec"><div class="sec-h">Prescreen'
+      + '<span class="r">Optional \u00b7 a two-minute look before running the tool</span>'
+      + '</div><div class="sec-b">'
+      + (pre
+        ? '<dl class="kv">'
+          + row('Verdict', '<b style="color:'
+              + (pre.verdict==='pass'?'var(--ok)':pre.verdict==='park'?'var(--warn)':'var(--bad)')
+              + '">'+esc(String(pre.verdict||'').toUpperCase())+'</b>')
+          + rowIf('Reason', esc(pre.reason), pre.reason)
+          + rowIf('Fit', esc(pre.fit), pre.fit)
+          + rowIf('Offtake', esc(pre.offtake), pre.offtake)
+          + rowIf('By', esc(pre.by)+' \u00b7 '+esc(F.fmtDate(pre.at)), pre.by)
+          + '</dl>'
+        : '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6">'
+          + 'Not prescreened. Skip it if you are confident \u2014 the screening tool is the '
+          + 'real judgement.</div>')
+      + (A.can('write_deal')&&!d._demo
+          ? '<div style="margin-top:12px"><button class="btn-x" onclick="doPrescreen()">'
+            + (pre?'Re-run prescreen':'Prescreen it')+'</button></div>':'')
+      + '</div></div>';
+  }
 
   var un=F.unmapped(d);
   if(un) h+='<div class="sec"><div class="sec-h">Fields the console didn\u2019t recognise'
@@ -3511,6 +3579,19 @@ function tabOverview(d){
   return h;
 }
 function row(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
+/* Only renders when there is something to show. A new referral was displaying
+   ten rows of em-dashes — Capex —, Fee —, Agreement — — which reads as
+   "this is broken" rather than "nobody has filled that in yet". The edit form
+   still asks for every field; the read view only reports the answered ones. */
+function rowIf(k,v,raw){
+  var empty = raw==null || raw==='' || (Array.isArray(raw)&&!raw.length);
+  return empty ? '' : row(k,v);
+}
+/* How much of a section is unfilled, so an Edit button can say so. */
+function unfilled(n,total){
+  return n<total ? '<span class="t-sub" style="margin-left:8px">'
+    + (total-n)+' not filled in</span>' : '';
+}
 /* Gate failures come back either as a FIELD PATH (something is missing) or as
    a '!'-prefixed SENTENCE (a computed condition failed, e.g. the score exists
    but does not pass). One list, because the caller should have one thing to
