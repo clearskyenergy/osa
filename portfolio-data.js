@@ -1505,6 +1505,9 @@
      a measurement anybody can check. */
   function gridPrescreen(g) {
     var GA = global.GridAtlasAdapter;
+    /* NO SCORE, NO VERDICT. A null score means nothing was measured, and
+       writing "fail" from an absent measurement is exactly the failure that
+       marked a workable NJ site as not viable. */
     if (!GA || g.score == null) return null;
     return {
       verdict: GA.prescreenVerdict(g),

@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0252</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0259</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -916,15 +916,15 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="/config.js?v=12"></script>
+<script src="/config.js?v=13"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=19"></script>
+<script src="/portfolio-data.js?v=20"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=6"></script>
-<script src="/grid-atlas-adapter.js?v=5"></script>
+<script src="/grid-atlas-adapter.js?v=6"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -1541,6 +1541,17 @@ function renderSupply(){
           + '<td><span class="pill" style="background:'+st.color+'18;color:'+st.color+'">'
           +   '<span class="dot"></span>'+esc(st.label)+'</span></td></tr>'; }).join('')
     : '<tr><td colspan="7"><div class="empty"><b>Nothing specified</b></div></td></tr>';
+}
+
+/* Mirrors the server's check, so the console can warn before somebody presses
+   a button that is going to fail. Kept deliberately simple and in sync with
+   hasLocality() in api/grid-atlas.js — if they drift, the server is right. */
+function placeable(a){
+  var s=String(a||'');
+  if(/\b\d{5}\b/.test(s)) return true;
+  if(/\b(A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[DLNA]|K[SY]|LA|M[EDAINSOT]|N[EVHJMYCD]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[TA]|W[AVIY])\b/
+     .test(s.toUpperCase())) return true;
+  return /,\s*[A-Za-z][A-Za-z .'-]{2,}\s*$/.test(s);
 }
 
 /* ── Option builders: every dropdown reads from config, never a literal ── */
@@ -3188,7 +3199,14 @@ function openNew(){
         options:optTypes(),
         hint:'Sets the technology tags, which screening tool runs it, and which '
            + 'BOM lines appear later.'},
-      {key:'address',type:'text',label:'Where',placeholder:'Street, city, state'},
+      {key:'address',type:'text',label:'Full address',
+        placeholder:'600 N Union Ave, Hillside, NJ 07205',
+        validate:function(v){
+          return (!v || placeable(v)) ? null
+            : 'Add the city and state (or ZIP). Without them Grid Atlas cannot tell this '
+            + 'street from every other one of the same name — it will match the wrong '
+            + 'state rather than admit it does not know.'; },
+        hint:'City and state or ZIP matter: they are what Grid Atlas uses to place the site.'},
 
       {type:'divider',label:'Who'},
       {key:'clientOrgId',type:'orgpick',label:'Client',options:optOrgs(),
@@ -3502,8 +3520,9 @@ function tabOverview(d){
                  ? ' Worth an OGI run.' : ' Not worth an OGI run as it stands.')
               + '</div>':'')
           + (gr.resolvedAddress&&gr.resolvedAddress!==d.address
-            ? '<div class="t-sub" style="margin-top:10px">Matched to '
-              + esc(gr.resolvedAddress)+'</div>':'')
+            ? '<div class="banner '+((gr.geocode&&gr.geocode.precision!=='exact')?'warn':'info')
+              + '" style="margin-top:10px"><b>Matched to</b> '+esc(gr.resolvedAddress)
+              + '. Check that is the right place \u2014 everything below measures it.</div>':'')
           + (gr.summary?'<div class="sec-note" style="margin-top:12px">'+esc(gr.summary)+'</div>':'')
           + (gr.findings.length
             ? '<div style="margin-top:12px">'+gr.findings.map(function(f){
@@ -3518,9 +3537,12 @@ function tabOverview(d){
       + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
           + (d.address
-              ? '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
-                + (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
-              : '<button class="btn-o" onclick="doEditSite()">Add an address first</button>')
+              ? (placeable(d.address)
+                  ? '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
+                    + (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
+                  : '<button class="btn-a" onclick="doEditSite()">'
+                    + 'Add the city and state first</button>')
+              : '<button class="btn-a" onclick="doEditSite()">Add an address first</button>')
           + (gr.ranAt||!d.address?'':'')
           + '<button class="btn-o" onclick="doOpenGridAtlas()">Open Grid Atlas</button>'
           + '<button class="btn-o" onclick="doGridCoords()">'
@@ -3553,7 +3575,12 @@ function tabOverview(d){
     + row('Project type', d.projectType
         ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
         : '<span style="color:var(--warn)">not set</span>')
-    + rowIf('Location', esc(d.address), d.address)
+    + rowIf('Address', esc(d.address)
+        + (d.address && !placeable(d.address)
+          ? '<div class="t-sub" style="color:var(--warn)">No city, state or ZIP \u2014 '
+            + 'Grid Atlas cannot place this, and a geocoder would pick the wrong one. '
+            + '<a href="#" onclick="doEditSite();return false">Add them</a></div>'
+          : ''), d.address)
     + rowIf('Categories', d.categories.map(function(c){
         return '<span class="cat">'+esc(c.toUpperCase())+'</span>'; }).join(''), d.categories)
     + rowIf('Size', F.mw(d.sizeMw)+(d.sizeMwh?' \u00b7 '+d.sizeMwh+' MWh':''), d.sizeMw)
@@ -4296,7 +4323,12 @@ function doEditSite(){ var d=guard(); if(!d) return;
            + 'line. Renaming is logged with the old name.'},
       {key:'projectType',type:'select',label:'Project type',value:d.projectType,
         options:optTypes()},
-      {key:'address',type:'text',label:'Location',value:d.address},
+      {key:'address',type:'text',label:'Full address',value:d.address,
+        placeholder:'600 N Union Ave, Hillside, NJ 07205',
+        validate:function(v){
+          return (!v || placeable(v)) ? null
+            : 'Add the city and state (or ZIP) — without them Grid Atlas matches the '
+            + 'wrong place rather than failing.'; }},
       {key:'state',type:'text',label:'State / region',value:d.state},
       {key:'sizeMw',type:'number',label:'Size (MW)',step:'0.01',value:d.sizeMw},
       {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',value:d.sizeMwh},
@@ -4661,6 +4693,17 @@ function doGridAtlas(silent){
             + '<i>US Census, then OpenStreetMap</i>.'}],
           submitLabel:'Close', cancelLabel:'Close'
         });
+        return;
+      }
+      /* No city or state is the single most common cause, and it has a
+         specific fix rather than a generic one. */
+      if(/no city, state or ZIP/i.test(msg)){
+        Forms.open({
+          title:'Add the city and state',
+          intro:d.name,
+          fields:[{type:'static',html:esc(msg)}],
+          submitLabel:'Edit the address', cancelLabel:'Close'
+        }).then(function(v){ if(v!==null) doEditSite(); });
         return;
       }
       if(/locate|geocod/i.test(msg)){

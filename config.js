@@ -469,7 +469,14 @@ window.CLEARSKY_CONFIG = {
          calculation rather than counting against the site. */
       enabled: true,
       serviceUrl: '/api/grid-atlas',
-      url: '/grid-atlas.html',
+      /* Grid Atlas lives in the OPS deployment, not this one \u2014 a relative
+         path 404s from osa.clearskyomega.com. Absolute, so it works from
+         whichever host the console is served on. */
+      url: 'https://tools.csebuilders.com/grid-atlas.html',
+      /* Passed through so the tool knows who is asking and where to send them
+         back. It ignores parameters it does not recognise, so several spellings
+         of the address are sent rather than guessing which one it reads. */
+      org: 'clearsky-usa.com',
 
       /* THE PRESCREEN BAR. Grid reachability is what kills the most sites
          earliest, so a threshold on it is a better fast filter than four

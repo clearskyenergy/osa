@@ -204,12 +204,26 @@
   /* The fallback, and it is not nothing: Grid Atlas opens with the address
      already in it, so the person does the lookup they were going to do anyway
      without retyping. Beats a dead button while the extraction is pending. */
+  /* Opens the real Grid Atlas with the site prefilled. The tool has its own
+     address box and its own parameter names, which I do not know from here —
+     so the address is sent under several common spellings. Unrecognised query
+     parameters are ignored, so the cost of sending four is nothing and the
+     cost of guessing wrong once is a tool that opens empty. */
   function openWith(deal) {
     var u = pageUrl();
-    var q = 'address=' + encodeURIComponent(deal.address || '')
-          + '&deal=' + encodeURIComponent(deal.id)
-          + '&name=' + encodeURIComponent(deal.name || '');
-    global.open(u + (u.indexOf('?') >= 0 ? '&' : '?') + q, '_blank', 'noopener');
+    var addr = deal.address || '';
+    var q = [];
+    ['address','q','search','site'].forEach(function (k) {
+      q.push(k + '=' + encodeURIComponent(addr));
+    });
+    if (deal.grid && deal.grid.lat != null && deal.grid.lng != null) {
+      q.push('lat=' + deal.grid.lat, 'lng=' + deal.grid.lng);
+    }
+    q.push('org=' + encodeURIComponent(gcfg().org || 'clearsky-usa.com'));
+    q.push('deal=' + encodeURIComponent(deal.id));
+    q.push('name=' + encodeURIComponent(deal.name || ''));
+    q.push('return=' + encodeURIComponent(global.location.origin + '/portfolio'));
+    global.open(u + (u.indexOf('?') >= 0 ? '&' : '?') + q.join('&'), '_blank', 'noopener');
   }
 
   /* Turning the measurement into something the score can use. Grid Atlas
