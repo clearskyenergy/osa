@@ -438,8 +438,12 @@ select.ff-i{cursor:pointer}
 .kb-sum{padding:5px 10px 0;font-size:10.5px;color:var(--ink-2);font-family:'DM Mono',monospace}
 .kb-b{padding:7px;display:flex;flex-direction:column;gap:6px;min-height:44px;
   max-height:calc(100vh - 330px);overflow-y:auto}
+/* overflow was hidden here to stop long site names widening the column. The
+   name is handled by overflow-wrap below, so clipping is no longer needed —
+   and it was cutting the bottom off the action button whenever its label
+   wrapped to a second line. */
 .kb-card{background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 9px;
-  cursor:pointer;min-width:0;overflow:hidden}
+  cursor:pointer;min-width:0}
 .kb-card b{overflow-wrap:anywhere}
 .kb-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
 .kb-card.drag{opacity:.4}
@@ -447,12 +451,14 @@ select.ff-i{cursor:pointer}
 .kb-card .m{font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.35;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kb-do{display:block;width:100%;margin-top:7px;border:1px solid var(--accent);
-  background:#fff;color:var(--accent);border-radius:6px;padding:5px 8px;
-  font:600 11px 'DM Sans',sans-serif;cursor:pointer;text-align:left;line-height:1.3}
+  background:#fff;color:var(--accent);border-radius:6px;padding:6px 9px;
+  font:600 11px 'DM Sans',sans-serif;cursor:pointer;text-align:center;
+  line-height:1.35;white-space:normal;overflow-wrap:anywhere}
 .kb-do:hover{background:var(--accent);color:#fff}
+/* The read-only fallback shown to people who cannot act. No clamp: two lines
+   of text is fine, silently truncated text is not. */
 .kb-next{font-size:11px;color:var(--accent);margin-top:5px;font-weight:600;
-  line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
-  -webkit-line-clamp:2;-webkit-box-orient:vertical}
+  line-height:1.35}
 .kb-col.exit .kb-next{color:var(--ink-2)}
 .kb-card .f{display:flex;gap:4px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .kb-card .f span{font-size:10px;font-weight:600;background:#EEF1F4;color:var(--ink-2);
@@ -548,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0122</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0143</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -909,10 +915,10 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="/config.js?v=9"></script>
+<script src="/config.js?v=10"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=12"></script>
+<script src="/portfolio-data.js?v=16"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1748,9 +1754,11 @@ function kbCard(d){
        to eleven referrals should be eleven clicks, not eleven open-read-act-close
        cycles. Stops the click reaching the card underneath. */
     + (ns.id!=='none' && ns.action && A.can('write_deal') && !d._demo
-        ? '<button class="kb-do" onclick="cardAct(event,\''+d.id+'\',\''+ns.action+'\')">'
-          + esc(ns.label)+'</button>'
-        : (ns.id!=='none'?'<div class="kb-next">'+esc(ns.label)+'</div>':''))
+        ? '<button class="kb-do" title="'+esc(ns.label)+'" '
+          + 'onclick="cardAct(event,\''+d.id+'\',\''+ns.action+'\')">'
+          + esc(ns.short)+'</button>'
+        : (ns.id!=='none'?'<div class="kb-next" title="'+esc(ns.label)+'">'
+            + esc(ns.short)+'</div>':''))
     + (f?'<div class="f">'+f+'</div>':'')
     + '</div>';
 }
@@ -1840,19 +1848,16 @@ function moveTo(d,to){
   var st=F.stageOf(to);
   var miss=F.missingFor(d,to);
   if(!miss.length){
-    Forms.open({
-      title:'Move to '+st.label,
-      intro:d.name,
-      fields:[
-        {type:'static',html:Forms.esc(st.hint||'')},
-        {key:'note',type:'textarea',label:'Note (optional)',rows:2,
-          placeholder:'What changed?'}
-      ],
-      submitLabel:'Move to '+st.label
-    }).then(function(v){
-      if(!v) return;
-      act(F.advance(d,to,v.note),'Moved to '+st.label);
-    });
+    /* GATE PASSES, SO JUST MOVE. Asking for an optional note on every advance
+       meant a dialog between the person and the thing they had already decided
+       to do — and an optional field that nobody fills in is worse than no
+       field, because it still costs a click and a read.
+
+       The stage change is logged either way; the reasons that genuinely need
+       words — dead, parked, reattributed, overridden — still ask for them,
+       because those are the ones somebody will question later. */
+    S.pendingMove=null;
+    act(F.advance(d,to,''),'Moved to '+st.label);
     return;
   }
 
@@ -1860,7 +1865,7 @@ function moveTo(d,to){
      work" is a button, not a hunt. */
   var FIX={
     'viability.score':      {label:'Score it now',        fn:'doScore'},
-    'preDev.budgetUsd':     {label:'Set the budget',      fn:'doEditPreDev'},
+    'preDev.budgetUsd':     {label:'Set the OSA budget',  fn:'doEditPreDev'},
     'permitting.startedAt': {label:'Open permitting',     fn:'doStartPermits'},
     'verification.verdictId':{label:'Send for verification',fn:'doSendToVerify'},
     'sizeMw':               {label:'Edit site details',   fn:'doEditSite'},
@@ -1924,6 +1929,13 @@ function moveTo(d,to){
 function checkPendingMove(){
   var p=S.pendingMove; if(!p) return;
   var d=findDeal(p.dealId); if(!d){ S.pendingMove=null; return; }
+  /* THE DEAL MAY HAVE GOT THERE WITHOUT US. It could have been advanced by
+     hand, dragged on the board, or routed automatically by the screening tool.
+     Without this the console offered to make a move that had already happened
+     — a modal appearing on top of the toast confirming the same thing. */
+  if(F.stageOf(d.stage).rank >= F.stageOf(p.to).rank || F.isExit(d.stage)){
+    S.pendingMove=null; return;
+  }
   if(F.missingFor(d,p.to).length) return;
   S.pendingMove=null;
   var st=F.stageOf(p.to);
@@ -1931,7 +1943,6 @@ function checkPendingMove(){
     title:'Ready for '+st.label,
     intro:d.name+' \u2014 that gate now passes.',
     danger:false,
-    fields:[{type:'static',html:Forms.esc(st.hint||'')}],
     submitLabel:'Move to '+st.label
   }).then(function(ok){
     if(ok) act(F.advance(d,p.to,'Gate satisfied'),'Moved to '+st.label);
@@ -2639,7 +2650,8 @@ function rejectUser(id){ var u=findUser(id); if(!u) return;
 function suspendUser(id){ var u=findUser(id); if(!u) return;
   Forms.open({ title:'Suspend '+u.email, danger:true,
     warning:'They are signed out on their next read and land on the waiting screen.',
-    fields:[{key:'why',type:'text',label:'Reason (optional)'}], submitLabel:'Suspend'
+    fields:[{key:'why',type:'text',label:'Reason',required:true,
+      hint:'Goes on their record. Somebody will ask why later.'}], submitLabel:'Suspend'
   }).then(function(v){ if(v) act(A.suspend(u,v.why||''),'Suspended'); });
 }
 function restoreUser(id){ var u=findUser(id); if(!u) return; act(A.restore(u),'Restored'); }
@@ -2780,8 +2792,7 @@ function doInvite(){
         hint:'Leave blank to use their email domain. This decides which deals they see.'},
       {key:'manageOrgs',type:'multi',label:'Organisations they may administer',
         options:optOrgs(),
-        hint:'Limited administrators only.'},
-      {key:'note',type:'text',label:'Note'}
+        hint:'Limited administrators only.'}
     ],
     submitLabel:'Record the invitation'
   }).then(function(v){
@@ -3441,6 +3452,61 @@ function tabOverview(d){
           + 'Edit project details</button>'+unfilled(siteFilled,5)+'</div>':'')
     + '</div></div>';
 
+  /* ── DESIGN ─────────────────────────────────────────────────────────────
+     The panel for the part of the process that produces everything else: the
+     site map, the layout, and the price. Shown from pre-development, or any
+     time a design already exists. */
+  var dz=d.design, dzRank=F.stageOf(d.stage).rank;
+  if(dzRank>=F.stageOf('pre_dev').rank || d.projectId || dz.team.length){
+    var DS={ not_started:['Not started','var(--ink-3)'],
+             in_design:['With the design team','var(--warn)'],
+             returned:['Returned','var(--ok)'] };
+    var st=DS[dz.status]||DS.not_started;
+    h+='<div class="sec"><div class="sec-h">Design'
+      + '<span class="r">Site map, layout and the price</span></div><div class="sec-b">'
+      + '<div class="verdict" style="grid-template-columns:1fr 1fr">'
+      +   '<div class="ax"><div class="lbl">Status</div>'
+      +     '<div class="val" style="color:'+st[1]+';font-size:16px">'+esc(st[0])+'</div>'
+      +     '<div class="sub">'
+      +       (dz.rounds?dz.rounds+' round'+(dz.rounds===1?'':'s')+' so far':'first pass')
+      +       (dz.sentAt?' \u00b7 sent '+esc(F.fmtDate(dz.sentAt)):'')+'</div></div>'
+      +   '<div class="ax"><div class="lbl">Price from the design</div>'
+      +     '<div class="val" style="font-size:16px">'
+      +       (d.capexUsd!=null?F.money(d.capexUsd):'\u2014')+'</div>'
+      +     '<div class="sub">'+(d.capexUsd!=null?'':'comes back with the drawing')
+      +     '</div></div>'
+      + '</div>'
+      + '<dl class="kv" style="margin-top:12px">'
+      + rowIf('Lead', esc(dz.lead), dz.lead)
+      + rowIf('Team', dz.team.map(function(e){
+          return '<span class="cat">'+esc(e.split('@')[0])+'</span>'; }).join(''), dz.team)
+      + rowIf('Due', esc(F.fmtDate(dz.dueAt))
+          + (F.ms(dz.dueAt)&&F.ms(dz.dueAt)<Date.now()&&dz.status==='in_design'
+             ? ' <span style="color:var(--bad);font-weight:600">overdue</span>':''), dz.dueAt)
+      + rowIf('Brief', esc(dz.brief), dz.brief)
+      + rowIf('Last note', esc(dz.note), dz.note)
+      + '</dl>'
+      + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:13px;display:flex;gap:8px;flex-wrap:wrap">'
+          + (d.projectId
+              ? '<button class="btn-a" style="padding:8px 14px" onclick="openEditor(\''
+                + esc(d.projectId)+'\')">Open the editor</button>'
+              : '<button class="btn-a" style="padding:8px 14px" onclick="doCreateProject()">'
+                + 'Create it in the editor</button>')
+          + '<button class="btn-o" onclick="doAssignDesign()">'
+          +   (dz.team.length||dz.lead?'Reassign the team':'Assign the design team')+'</button>'
+          + (dz.status==='in_design'
+              ? '<button class="btn-o" onclick="doDesignReturned()">Mark returned\u2026</button>':'')
+          + (dz.status==='returned'
+              ? '<button class="btn-o" onclick="doDesignRevise()">Send back for changes</button>':'')
+          + '</div>':'')
+      + '<div class="sec-note">The editor is where the site map is drawn, the equipment '
+      + 'laid out and the price worked out. It is created in the <b>client\u2019s</b> workspace, '
+      + 'so the finished drawing lands in their own portal with no export step \u2014 and the '
+      + 'price comes back here when the team returns it.</div>'
+      + '</div></div>';
+  }
+
   h+='<div class="sec"><div class="sec-h">Assignment'
     + '<span class="r">A different axis from stage</span></div><div class="sec-b"><dl class="kv">'
     + rowIf('Screening rep', esc(d.assignment.rep), d.assignment.rep)
@@ -3473,13 +3539,18 @@ function tabOverview(d){
      pre-development budget by definition, and a panel of dashes teaches people
      to skim past panels. */
   if(F.stageOf(d.stage).rank>=F.stageOf('qualified').rank || d.preDev.budgetUsd!=null){
-  h+='<div class="sec"><div class="sec-h">Pre-development</div><div class="sec-b"><dl class="kv">'
-    + row('Budget', F.money(d.preDev.budgetUsd))
-    + row('Spent', F.money(d.preDev.spentUsd)
+  h+='<div class="sec"><div class="sec-h">OSA budget'
+    + '<span class="r">What we are putting in</span></div>'
+    + '<div class="sec-b"><dl class="kv">'
+    + rowIf('Budget', F.money(d.preDev.budgetUsd), d.preDev.budgetUsd)
+    + rowIf('Spent', F.money(d.preDev.spentUsd)
         + (d.preDev.budgetUsd&&d.preDev.spentUsd>d.preDev.budgetUsd
-           ? ' <span style="color:var(--bad)">over budget</span>':''))
-    + row('Owner', esc(d.preDev.owner||'\u2014'))
+           ? ' <span style="color:var(--bad)">over budget</span>':''), d.preDev.spentUsd)
+    + rowIf('Owner', esc(d.preDev.owner), d.preDev.owner)
     + '</dl>'
+    + (d.preDev.budgetUsd==null
+        ? '<div style="font-size:12.5px;color:var(--ink-3)">Not set. Worth adding once '
+          + 'the design tells you what this actually costs to develop.</div>':'')
     + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px"><button class="btn-x" onclick="doEditPreDev()">Edit</button></div>':'')
     + '</div></div>';
@@ -3602,7 +3673,7 @@ function fieldLabel(path){
   var m={ 'origination.partnerOrg':'Who brought the deal',
     'assignment.rep':'A rep assigned to screen it',
     'viability.score':'A viability score',
-    'preDev.budgetUsd':'A pre-development budget',
+    'preDev.budgetUsd':'An OSA budget',
     'permitting.startedAt':'Permitting opened',
     'verification.verdictId':'A signed third-party opinion',
     'sizeMw':'Size in MW', 'capexUsd':'Capex',
@@ -4015,8 +4086,7 @@ function doDead(){ var d=guard(); if(!d) return;
       {key:'reason',type:'select',label:'Reason',required:true,
         options:F.DEAD_REASONS,
         hint:'From the fixed list, so the reasons aggregate. Twelve sites lost to '
-           + 'interconnection cost is a finding; twelve free-text answers are not.'},
-      {key:'note',type:'textarea',label:'Anything more',rows:2}
+           + 'interconnection cost is a finding; twelve free-text answers are not.'}
     ],
     submitLabel:'Mark dead'
   }).then(function(v){ if(v) act(F.markDead(d,v.reason,v.note),'Marked dead'); });
@@ -4038,8 +4108,7 @@ function doDiscard(){
       {type:'static',html:'Discarding removes it from <b>every count, funnel and partner '
         + 'statistic</b>. The record stays readable and this can be undone.'},
       {key:'reason',type:'radio',label:'Why was this never a deal',required:true,
-        options:F.DISCARD_REASONS.map(function(r){ return {value:r,label:r}; })},
-      {key:'note',type:'text',label:'Note'}
+        options:F.DISCARD_REASONS.map(function(r){ return {value:r,label:r}; })}
     ],
     submitLabel:'Discard'
   }).then(function(v){ if(v) act(F.discard(d,v.reason,v.note),'Discarded'); });
@@ -4133,13 +4202,17 @@ function doEditSite(){ var d=guard(); if(!d) return;
 }
 
 function doEditPreDev(){ var d=guard(); if(!d) return;
-  Forms.open({ title:'Pre-development', intro:d.name,
+  Forms.open({ title:'OSA budget', intro:d.name,
     fields:[
-      {key:'budgetUsd',type:'money',label:'Budget',required:true,value:d.preDev.budgetUsd,
-        hint:'Required to enter pre-development. Spending without one is how a screening '
-           + 'exercise becomes a six-figure line item nobody approved.'},
-      {key:'spentUsd',type:'money',label:'Spent to date',value:d.preDev.spentUsd},
-      {key:'owner',type:'user',label:'Who owns it',options:optUsers(),value:d.preDev.owner}
+      {type:'static',html:'What <b>OSA</b> is putting into developing this \u2014 land, '
+        + 'interconnection, studies, permits. Optional: at this point nobody knows the '
+        + 'real number yet, and a guess typed in to clear a form looks like a decision '
+        + 'afterwards.'},
+      {key:'budgetUsd',type:'money',label:'OSA budget',value:d.preDev.budgetUsd,
+        hint:'Leave blank until it is real.'},
+      {key:'spentUsd',type:'money',label:'Spent so far',value:d.preDev.spentUsd},
+      {key:'owner',type:'user',label:'Who owns the spend',options:optUsers(),value:d.preDev.owner,
+        hint:'Whoever answers for this budget internally.'}
     ]
   }).then(function(v){
     if(!v) return;
@@ -4281,8 +4354,7 @@ function doAddParticipant(){ var d=guard(); if(!d) return;
       {key:'orgId',type:'orgpick',label:'Organisation',required:true,options:optOrgs()},
       {key:'role',type:'radio',label:'Their role',required:true,
         options:F.PARTICIPANT_ROLES.map(function(r){
-          return {value:r.key,label:r.label,hint:r.hint}; })},
-      {key:'note',type:'text',label:'Note'}
+          return {value:r.key,label:r.label,hint:r.hint}; })}
     ]
   }).then(function(v){
     if(!v) return;
@@ -4342,8 +4414,7 @@ function handleUpload(input){
            + '"Scan_2026_08_19".'},
       {key:'kind',type:'radio',label:'Kind',required:true,value:'energy',
         options:F.linkKinds().filter(function(k){ return k.key!=='folder'; })
-          .map(function(k){ return {value:k.key,label:k.label,hint:k.hint}; })},
-      {key:'note',type:'text',label:'Note'}
+          .map(function(k){ return {value:k.key,label:k.label,hint:k.hint}; })}
     ],
     submitLabel:'Upload',
     footNote:'Final versions only \u2014 working files belong in Drive'
@@ -4384,8 +4455,7 @@ function doAddLink(){
         hint:'A Drive URL is opaque \u2014 without a name this list is unreadable in a month.'},
       {key:'kind',type:'radio',label:'Kind',required:true,value:'folder',
         options:F.linkKinds().map(function(k){
-          return {value:k.key,label:k.label,hint:k.hint}; })},
-      {key:'note',type:'text',label:'Note'}
+          return {value:k.key,label:k.label,hint:k.hint}; })}
     ],
     submitLabel:'Add link'
   }).then(function(v){ if(v) act(F.addLink(d,v),'Link added'); });
@@ -4402,8 +4472,7 @@ function doEditLink(id){
         validate:function(v){ return F.normalizeUrl(v)?null:'That does not look like a link.'; }},
       {key:'label',type:'text',label:'What is it',required:true,value:l.label},
       {key:'kind',type:'select',label:'Kind',required:true,value:l.kind,
-        options:F.linkKinds().map(function(k){ return {value:k.key,label:k.label}; })},
-      {key:'note',type:'text',label:'Note',value:l.note}
+        options:F.linkKinds().map(function(k){ return {value:k.key,label:k.label}; })}
     ]
   }).then(function(v){ if(v) act(F.updateLink(d,id,v),'Link updated'); });
 }
@@ -4430,8 +4499,7 @@ function doAssignRep(){
       {type:'static',html:'They own screening: working the site, filling in what is '
         + 'missing, and running it through the partner\u2019s tool.'},
       {key:'rep',type:'user',label:'Who is screening it',required:true,
-        options:optUsers(), value:d.assignment.rep},
-      {key:'note',type:'text',label:'Anything they should know'}
+        options:optUsers(), value:d.assignment.rep}
     ],
     submitLabel:'Assign and move to Screening'
   }).then(function(v){
@@ -4635,8 +4703,7 @@ function doAddApp(){ var d=guard(); if(!d) return;
       {key:'ref',type:'text',label:'Reference number'},
       {key:'status',type:'select',label:'Status',value:'preparing',
         options:[{value:'preparing',label:'Preparing'},{value:'submitted',label:'Submitted'},
-                 {value:'in_review',label:'In review'}]},
-      {key:'note',type:'text',label:'Note'}
+                 {value:'in_review',label:'In review'}]}
     ]
   }).then(function(v){ if(v) act(F.addApplication(d,v),'Application added'); });
 }
@@ -4659,7 +4726,7 @@ function doAssign(){ var d=guard(); if(!d) return;
         value:d.assignment.rep,
         hint:'Owns screening. Usually not the same person who designs it.'},
       {key:'designLead',type:'user',label:'Design lead',options:optUsers(),
-        value:d.assignment.designLead},
+        value:d.design.lead||d.assignment.designLead},
       {key:'devLead',type:'user',label:'Development lead',options:optUsers(),
         value:d.assignment.devLead},
       {key:'dueAt',type:'date',label:'Due',value:d.assignment.dueAt},
@@ -4670,6 +4737,72 @@ function doAssign(){ var d=guard(); if(!d) return;
 
 /* ── The three handoffs ──────────────────────────────────────────────────
    Real actions, not a box asking you to paste an id. */
+
+function doAssignDesign(){
+  var d=guard(); if(!d) return;
+  var dz=d.design;
+  Forms.open({
+    title:dz.team.length?'Reassign the design team':'Assign the design team',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'Pre-development is where the <b>site map is drawn, the equipment '
+        + 'laid out and the price worked out</b>. Everything downstream \u2014 capex, the '
+        + 'marketplace listing, the BOM \u2014 comes out of this.'},
+      {key:'lead',type:'user',label:'Design lead',required:true,options:optUsers(),
+        value:dz.lead, hint:'Who answers for the drawing.'},
+      {key:'team',type:'multi',label:'Anyone else on it',
+        options:optUsers(), value:dz.team},
+      {key:'dueAt',type:'date',label:'Due back by',value:dz.dueAt},
+      {key:'brief',type:'textarea',label:'Brief',rows:4,value:dz.brief,
+        hint:'What they need that is not already in the site notes \u2014 constraints, '
+           + 'preferred equipment, what the client actually asked for.'}
+    ],
+    submitLabel:'Assign'
+  }).then(function(v){
+    if(!v) return;
+    var team=(v.team||[]).slice();
+    if(v.lead && team.indexOf(v.lead)<0) team.unshift(v.lead);
+    act(F.assignDesign(d,{lead:v.lead,team:team,dueAt:v.dueAt,brief:v.brief}),
+        'Design assigned to '+v.lead);
+  });
+}
+
+/* The design coming back is the moment the project gets a price. Capturing it
+   here rather than on a generic edit form means the number arrives attached to
+   the round trip that produced it. */
+function doDesignReturned(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Design returned',
+    intro:d.name+(d.design.rounds?' \u00b7 round '+(d.design.rounds+1):''),
+    fields:[
+      {type:'static',html:'What came back from the design team. <b>The price is the point '
+        + 'of the round trip</b> \u2014 before the drawing existed nobody knew what this cost, '
+        + 'which is why it was never asked for at intake.'},
+      {key:'capexUsd',type:'money',label:'Price / capex',value:d.capexUsd,
+        hint:'From the design. Leave blank if it is still being costed.'},
+      {key:'sizeMw',type:'number',label:'Size (MW) as designed',step:'0.01',value:d.sizeMw,
+        hint:'The real number now, not the target from intake.'},
+      {key:'sizeMwh',type:'number',label:'Energy (MWh)',step:'0.1',value:d.sizeMwh},
+      {key:'note',type:'text',label:'Anything worth flagging'}
+    ],
+    submitLabel:'Mark returned'
+  }).then(function(v){ if(v) act(F.designReturned(d,v),'Design returned'); });
+}
+
+function doDesignRevise(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Send it back for changes',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'Keeps the round count. "This took four passes" is a fact about '
+        + 'the site or the brief, and it disappears if each revision overwrites the last.'},
+      {key:'why',type:'textarea',label:'What needs changing',rows:3,required:true}
+    ],
+    submitLabel:'Send back'
+  }).then(function(v){ if(v) act(F.designRevise(d,v.why),'Sent back for revision'); });
+}
 
 function doCreateProject(){
   var d=guard(); if(!d) return;
@@ -4711,7 +4844,18 @@ function doCreateProject(){
     IN.createEditorProject(d,v).then(function(id){
       toast('Project created — opening the editor');
       openEditor(id);
-      return refresh().then(function(){ if(S.designLoaded) return loadDesign(); });
+      /* Creating the drawing IS sending it to design. Leaving the status at
+         "not started" afterwards would have the board claim nobody is working
+         on something the team already has open. */
+      var lead=v.designLead||d.design.lead;
+      var after=(d.design.status==='not_started'&&lead)
+        ? F.assignDesign(d,{ lead:lead,
+            team:d.design.team.length?d.design.team:[lead],
+            dueAt:v.dueAt||d.design.dueAt, brief:v.brief||d.design.brief })
+            ['catch'](function(){})
+        : Promise.resolve();
+      return after.then(function(){ return refresh(); })
+        .then(function(){ if(S.designLoaded) return loadDesign(); });
     })['catch'](function(e){ toast((e&&e.message)||'Could not create',true); });
   });
 }

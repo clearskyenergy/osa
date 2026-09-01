@@ -83,9 +83,15 @@
 
     { key:'pre_dev',      label:'Pre-development', short:'PreDev', rank:40, color:'#6366F1',
       hint:'We are spending: land, interconnection, permits, studies.',
-      needs:['preDev.budgetUsd'],
-      why:'Pre-dev without a budget is how a screening exercise becomes a '
-        + 'six-figure line item nobody approved.' },
+      /* NO GATE. A budget was required here and that was wrong: at the point a
+         deal qualifies, nobody yet knows what developing it costs \u2014 that is
+         what the design produces. Requiring a number people do not have gets a
+         guess typed in to clear the gate, which is worse than no number at all,
+         because a guess looks like a decision afterwards.
+
+         The OSA budget stays available and is worth setting once it is real. It
+         is simply not a barrier to starting. */
+      needs:[] },
 
     /* Permitting genuinely OVERLAPS pre-dev and often runs past funding. A linear
        ladder cannot express that, so the stage means "furthest point reached" and
@@ -400,7 +406,19 @@
         scoredBy:  vb.scoredBy || '',
         scoredAt:  vb.scoredAt || null,
         override:  vb.override || '',
-        source:    vb.source || ''
+        source:    vb.source || '',
+        /* WRITTEN BY requestScore() AND PREVIOUSLY DROPPED HERE. Anything the
+           normaliser does not name is invisible to the rest of the console —
+           so the score saved, and the findings, the path to NTP and the axis
+           it answered all vanished on the next read. Silent, because nothing
+           throws when a field is simply absent. */
+        axis:         vb.axis || '',
+        agentVerdict: vb.agentVerdict || '',
+        providerName: vb.providerName || '',
+        providerOrg:  vb.providerOrg || '',
+        summary:      vb.summary || '',
+        findings:     Array.isArray(vb.findings) ? vb.findings : [],
+        pathToNtp:    Array.isArray(vb.pathToNtp) ? vb.pathToNtp : []
       },
       viabilityHistory: Array.isArray(d.viabilityHistory) ? d.viabilityHistory : [],
 
@@ -414,6 +432,27 @@
         utility:   pm.utility || '',
         owner:     pm.owner || '',
         applications: Array.isArray(pm.applications) ? pm.applications : []
+      },
+
+      /* ── Design handoff ────────────────────────────────────────────────
+         Pre-development is where the project actually gets built: the site map
+         drawn, the equipment laid out, and the price falls out of it. That is a
+         handoff to a named team with a round trip, not a single flag.
+
+         Tracked separately from `assignment` because a design has a state of
+         its own — sent, in progress, returned, being revised — and folding it
+         into stage would mean a deal in pre-development could not express
+         "drawn once, sent back for changes". */
+      design: {
+        status:     (d.design||{}).status || 'not_started',
+        team:       Array.isArray((d.design||{}).team) ? (d.design||{}).team : [],
+        lead:       String((d.design||{}).lead || '').toLowerCase(),
+        sentAt:     (d.design||{}).sentAt || null,
+        dueAt:      (d.design||{}).dueAt || null,
+        returnedAt: (d.design||{}).returnedAt || null,
+        rounds:     num((d.design||{}).rounds) || 0,
+        brief:      (d.design||{}).brief || '',
+        note:       (d.design||{}).note || ''
       },
 
       /* ── Assignment ────────────────────────────────────────────────────
@@ -1023,8 +1062,13 @@
      assigned rep's, and "waiting on somebody else" is a legitimate answer that
      stops people hunting for an action that is not theirs. */
   function nextStep(deal) {
-    var S = function (id, label, hint, who, action) {
-      return { id:id, label:label, hint:hint, who:who || 'anyone', action:action || null };
+    /* `short` is what goes on a board card, `label` is what goes in the panel.
+       The full sentence is right when it is the only instruction on screen and
+       wrong on a 214px card, where it wraps to three lines and gets clipped.
+       Defaults to the label so a step without one still renders. */
+    var S = function (id, label, hint, who, action, short) {
+      return { id:id, label:label, short:short || label, hint:hint,
+               who:who || 'anyone', action:action || null };
     };
 
     if (deal.stage === 'discarded')
@@ -1040,39 +1084,68 @@
         (deal.reevaluateReason || 'Scored below the threshold')
         + '. Change what the score was wrong about \u2014 usually a missing bill, '
         + 'meter count or load figure \u2014 then run it again.',
-        'rep','doRescore');
+        'rep','doRescore','Re-score or close');
 
     if (deal.stage === 'referred')
       return S('assign_rep','Assign a rep to screen it',
         'A referral sits still until somebody owns it. This is the only thing '
-        + 'standing between it and screening.','admin','doAssignRep');
+        + 'standing between it and screening.','admin','doAssignRep','Assign a rep');
 
     if (deal.stage === 'screening') {
       if (!deal.assignment.rep)
-        return S('assign_rep','Assign a rep','Nobody is working this.','admin','doAssignRep');
-      if (deal.viability.score == null)
-        return S('score','Run it through the screening tool',
-          'Pushes the site to the partner\u2019s tool and routes on the result: over '
-          + 'the threshold goes to Qualified, under goes to Re-evaluate.',
-          'rep','doAgentScore');
-      return S('advance','Move it to Qualified','It has a passing score.','rep','doAdvanceNext');
+        return S('assign_rep','Assign a rep','Nobody is working this.','admin','doAssignRep','Assign a rep');
+      if (deal.viability.score == null) {
+        /* Names the partner rather than saying "the tool" \u2014 the person
+           pressing it should know whose service they are spending. */
+        var prov = skillProvider(skillFor(deal));
+        var who  = prov ? prov.name : 'the screening tool';
+        return S('score','Send it to ' + who + ' for screening',
+          'Pushes the site notes, energy figures and documents to ' + who
+          + ', then routes on the result: over the threshold goes to Qualified, '
+          + 'under goes to Re-evaluate.',
+          'rep','doAgentScore', prov ? 'Send to ' + prov.name : 'Run screening');
+      }
+      return S('advance','Move it to Qualified','It has a passing score.','rep','doAdvanceNext','Move to Qualified');
     }
 
     if (deal.stage === 'qualified')
-      return S('predev','Set a pre-development budget',
-        'Qualified means it is worth spending on. The budget is what makes that '
-        + 'a decision rather than a drift.','admin','doEditPreDev');
+      return S('predev','Move it to pre-development',
+        'Qualified means it is worth spending on. Set an OSA budget when you know '
+        + 'one \u2014 it is not required to start.','admin','doAdvanceNext',
+        'Start pre-dev');
 
     if (deal.stage === 'pre_dev') {
+      var dz = deal.design;
+      /* THE DESIGN ROUND TRIP, step by step. Each of these is a real handoff
+         with somebody waiting at the other end, so the console names who and
+         what rather than collapsing it into "in pre-development". */
+      if (!dz.team.length && !dz.lead)
+        return S('design_assign','Assign the design team',
+          'Pre-development is where the site map gets drawn, the equipment laid out '
+          + 'and the price worked out. Name who is doing it before anything else.',
+          'admin','doAssignDesign','Assign design');
+
       if (!deal.projectId)
-        return S('design','Assign it for design in the editor',
-          'This is where the project gets drawn and where the price comes from. '
-          + 'Until it is designed there is no capex to work with.','admin','doCreateProject');
+        return S('design_open','Create it in the editor',
+          'Creates the project in the client\u2019s workspace and opens the editor, so the '
+          + 'finished drawing lands in their own portal with no export step.',
+          'admin','doCreateProject','Open the editor');
+
+      if (dz.status === 'not_started' || dz.status === 'in_design')
+        return S('design_wait','Waiting on design',
+          'With ' + (dz.lead || dz.team[0] || 'the design team')
+          + (dz.dueAt ? ', due ' + fmtDate(dz.dueAt) : '')
+          + '. Mark it returned once the drawing and the price come back.',
+          'rep','doDesignReturned','Mark returned');
+
       if (deal.capexUsd == null)
-        return S('capex','Record the capex from the design',
-          'The drawing exists. Bring its number back onto the deal so the rest of '
-          + 'the pipeline has something to work with.','rep','doEditSite');
-      return S('advance','Move it forward','Design is done and priced.','rep','doAdvanceNext');
+        return S('capex','Record the price from the design',
+          'The drawing is back. Bring its number onto the deal \u2014 until then the rest '
+          + 'of the pipeline has nothing to work with.','rep','doDesignReturned',
+          'Add the price');
+
+      return S('advance','Move it forward','Design is back and priced.','rep','doAdvanceNext',
+        'Move it forward');
     }
 
     if (deal.stage === 'permitting')
@@ -1080,11 +1153,11 @@
         (deal.permitting.applications || []).length ? 'Update the applications'
                                                     : 'Log the permit applications',
         'Permitting runs for months in parallel. Tracking each application is the '
-        + 'only way to know what is actually blocking.','rep','doAddApp');
+        + 'only way to know what is actually blocking.','rep','doAddApp','Update permits');
 
     if (deal.stage === 'verified')
       return S('market','Push it to the marketplace',
-        'It has a signed opinion. Capital can see it now.','admin','doPushMarketplace');
+        'It has a signed opinion. Capital can see it now.','admin','doPushMarketplace','List it');
 
     if (deal.stage === 'marketplace')
       return deal.finProjectId
@@ -1092,22 +1165,22 @@
             'Listed. The console checks the marketplace on every refresh and will '
             + 'tell you when something is accepted.','—')
         : S('market','List it on the marketplace',
-            'The stage says marketplace but no listing exists.','admin','doPushMarketplace');
+            'The stage says marketplace but no listing exists.','admin','doPushMarketplace','List it');
 
     if (deal.stage === 'committed')
       return S('close','Record the financial close',
         'A term sheet is signed. Close is the event that turns this into a '
-        + 'portfolio asset.','admin','doEditFunding');
+        + 'portfolio asset.','admin','doEditFunding','Record the close');
 
     if (deal.stage === 'funded')
       return (deal.funding.stages || []).length
-        ? S('ntp','Issue notice to proceed','Money is committed. NTP starts the build.','admin','doAdvanceNext')
+        ? S('ntp','Issue notice to proceed','Money is committed. NTP starts the build.','admin','doAdvanceNext','Issue NTP')
         : S('schedule','Apply the release schedule',
-            'Capital arrives against milestones, not in one payment.','admin','doApplySchedule');
+            'Capital arrives against milestones, not in one payment.','admin','doApplySchedule','Apply schedule');
 
     if (deal.stage === 'construction')
       return S('build','Track the BOM and draws',
-        'Building. Keep the purchase orders and releases current.','rep','doAddBom');
+        'Building. Keep the purchase orders and releases current.','rep','doAddBom','Update the BOM');
 
     if (deal.stage === 'operating')
       return S('none','Operating','Nothing outstanding.','—');
@@ -1311,6 +1384,11 @@
   function skillFor(deal) { return (scoringCfg().skills || {})[deal.projectType] || null; }
   function skillLabel(k)  { return ((scoringCfg().labels || {})[k]) || k; }
   function skillAxis(k)   { return ((scoringCfg().axis || {})[k]) || ''; }
+  /* Who runs the tool. Stamped onto the score so "who screened this" has an
+     answer later, and so OGI's screening work shows up in their partner record
+     next to anything they referred \u2014 two relationships with one company,
+     counted separately, same as a manufacturer who refers and then supplies. */
+  function skillProvider(k) { return ((scoringCfg().providers || {})[k]) || null; }
 
   /* Everything we know, in the shape AGENT-SPEC.md documents. Empty stays
      empty: the agent should treat a missing field as unknown rather than zero,
@@ -1498,6 +1576,58 @@
   /* Assigning the rep who will screen it. Its own function because it is the
      act that moves a referral into somebody's queue, and it wants its own line
      in the history rather than being folded into a generic assignment. */
+  /* ── The design handoff ─────────────────────────────────────────────────
+     Sending it to the team, and getting it back. Two functions rather than one
+     status dropdown because each direction has different consequences: going
+     out sets a clock and a brief, coming back carries the price. */
+  function assignDesign(deal, a) {
+    var team = (a.team || []).map(function (e) { return String(e).toLowerCase(); });
+    var lead = String(a.lead || team[0] || '').toLowerCase();
+    if (!lead && !team.length)
+      return Promise.reject(new Error('Name at least one person.'));
+    return patch(deal, {
+      'design.team':   team,
+      'design.lead':   lead,
+      'design.dueAt':  a.dueAt || null,
+      'design.brief':  a.brief || '',
+      'design.status': 'in_design',
+      'design.sentAt': stamp(),
+      /* Mirrored onto assignment so the workload view picks it up without
+         needing to know anything about the design model. */
+      'assignment.designLead': lead
+    }, { type:'design', message:'Design assigned to ' + (lead || team.join(', '))
+          + (a.dueAt ? ', due ' + fmtDate(a.dueAt) : '') });
+  }
+
+  /* Back from the team, with the number. The price is the point of the round
+     trip \u2014 before a design exists nobody knows what the project costs, which
+     is the whole reason capex is not asked for at intake. */
+  function designReturned(deal, r) {
+    var fields = {
+      'design.status':     'returned',
+      'design.returnedAt': stamp(),
+      'design.rounds':     (deal.design.rounds || 0) + 1,
+      'design.note':       r.note || deal.design.note || ''
+    };
+    if (num(r.capexUsd) != null) fields.capexUsd = num(r.capexUsd);
+    if (num(r.sizeMw)   != null) fields.sizeMw   = num(r.sizeMw);
+    if (num(r.sizeMwh)  != null) fields.sizeMwh  = num(r.sizeMwh);
+    return patch(deal, fields, { type:'design',
+      message:'Design returned' + (num(r.capexUsd) != null
+        ? ' \u2014 ' + money(num(r.capexUsd)) : '')
+        + ' (round ' + ((deal.design.rounds || 0) + 1) + ')' });
+  }
+
+  /* Sending it back for changes. Keeps the round count, because "this took
+     four passes" is a fact about the site or the brief, and it is invisible if
+     each revision quietly overwrites the last. */
+  function designRevise(deal, why) {
+    if (!why) return Promise.reject(new Error('Say what needs changing.'));
+    return patch(deal, {
+      'design.status':'in_design', 'design.note':why, 'design.returnedAt':null
+    }, { type:'design', message:'Sent back for revision \u2014 ' + why });
+  }
+
   function assignRep(deal, email, note) {
     if (!email) return Promise.reject(new Error('Pick who is screening it.'));
     return patch(deal, {
@@ -2032,11 +2162,13 @@
     criteriaSet:criteriaSet, threshold:threshold, computeScore:computeScore,
     saveScore:saveScore, postScore:postScore, overrideViability:overrideViability,
     scoringEnabled:scoringEnabled, skillFor:skillFor, skillLabel:skillLabel,
-    skillAxis:skillAxis, scoringPayload:scoringPayload, requestScore:requestScore,
+    skillAxis:skillAxis, skillProvider:skillProvider,
+    scoringPayload:scoringPayload, requestScore:requestScore,
     routeOnScore:routeOnScore,
     startPermitting:startPermitting, addApplication:addApplication,
     setApplicationStatus:setApplicationStatus,
     assign:assign, assignRep:assignRep, attachProject:attachProject, workload:workload,
+    assignDesign:assignDesign, designReturned:designReturned, designRevise:designRevise,
     drawnUsd:drawnUsd, requestedDrawUsd:requestedDrawUsd, undrawnUsd:undrawnUsd,
     deployedUsd:deployedUsd, bomTotalUsd:bomTotalUsd, lineTotal:lineTotal,
     everReached:everReached, enteredAt:enteredAt, daysToFund:daysToFund, ageDays:ageDays,

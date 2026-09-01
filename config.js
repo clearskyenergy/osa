@@ -469,9 +469,30 @@ window.CLEARSKY_CONFIG = {
         bess:          'solar-storage-ntp',
         charging_bess: 'solar-storage-ntp'
       },
+      /* WHO RUNS EACH TOOL. Named rather than anonymous for two reasons: the
+         button should say "Send to OGI Solar" rather than "run the tool", and
+         the score gets stamped with the organisation that produced it, so a
+         year from now "who scored this" has an answer and OGI's screening work
+         shows up in their partner record alongside anything they referred. */
+      providers: {
+        'datacenter-feasibility': { name:'OGI Solar', orgId:'ogisolar.com' },
+        'solar-storage-ntp':      { name:'OGI Solar', orgId:'ogisolar.com' }
+      },
       labels: {
-        'datacenter-feasibility': 'the data centre feasibility tool',
-        'solar-storage-ntp':      'the solar / storage bankability tool'
+        'datacenter-feasibility': 'OGI Solar \u2014 data centre feasibility',
+        'solar-storage-ntp':      'OGI Solar \u2014 solar / storage bankability'
+      },
+
+      /* WHICH ENVIRONMENT VARIABLE HOLDS WHICH ENDPOINT. Names only \u2014 the
+         values live in Vercel, never here, because this file is public.
+
+         Per skill rather than one global endpoint because the two tools may
+         well be separate services on OGI's side, and finding that out after
+         wiring a single URL is a rewrite rather than a config line. Both can
+         point at the same variable if they share an endpoint. */
+      endpoints: {
+        'datacenter-feasibility': { urlEnv:'OGI_DATACENTER_URL', keyEnv:'OGI_API_KEY' },
+        'solar-storage-ntp':      { urlEnv:'OGI_SOLAR_URL',      keyEnv:'OGI_API_KEY' }
       },
       /* Which axis each answers \u2014 feasibility is a claim about the SITE,
          bankability a claim about the DEAL. Same two axes the verification
