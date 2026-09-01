@@ -142,7 +142,12 @@
     return fetch(url, {
       method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        address: deal.address, sizeMw: deal.sizeMw, dealId: deal.id
+        address: deal.address, sizeMw: deal.sizeMw, dealId: deal.id,
+        /* Coordinates set by hand win over the address. Some sites genuinely
+           cannot be geocoded \u2014 a rural parcel with no street number, a new
+           subdivision \u2014 and dropping a pin should not require the address to
+           be fudged into something a geocoder happens to accept. */
+        lat: deal.grid && deal.grid.lat, lng: deal.grid && deal.grid.lng
       })
     }).then(function (r) {
       return r.json()['catch'](function () { return null; }).then(function (j) {
@@ -159,8 +164,10 @@
   }
 
   function run(deal) {
-    if (!deal.address)
-      return Promise.reject(new Error('This deal has no address to look up.'));
+    var haveCoords = deal.grid && deal.grid.lat != null && deal.grid.lng != null;
+    if (!deal.address && !haveCoords)
+      return Promise.reject(new Error(
+        'This deal has no address to look up. Add one, or set the coordinates by hand.'));
 
     return viaService(deal).then(function (out) {
       var g = normalise(out);

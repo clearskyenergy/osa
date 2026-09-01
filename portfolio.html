@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0229</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0237</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -923,7 +923,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=5"></script>
-<script src="/grid-atlas-adapter.js?v=2"></script>
+<script src="/grid-atlas-adapter.js?v=3"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -3463,6 +3463,8 @@ function tabOverview(d){
               : '<button class="btn-o" onclick="doEditSite()">Add an address first</button>')
           + (gr.ranAt||!d.address?'':'')
           + '<button class="btn-o" onclick="doOpenGridAtlas()">Open Grid Atlas</button>'
+          + '<button class="btn-o" onclick="doGridCoords()">'
+          +   (gr.lat!=null?'Coordinates':'Set coordinates')+'</button>'
           + '</div>':'')
       + '</div></div>';
   }
@@ -4576,8 +4578,54 @@ function doGridAtlas(silent){
       }
       return;
     }
-    if(!silent) toast((e&&e.message)||'Grid Atlas failed',true);
+    var msg=(e&&e.message)||'Grid Atlas failed';
+    if(!silent){
+      /* A geocoding failure has two fixes and the toast is too small for both,
+         so it opens the dialog that offers them. */
+      if(/locate|geocod/i.test(msg)){
+        Forms.confirm({ title:'Could not find that address', danger:false,
+          intro:d.name,
+          fields:[{type:'static',html:esc(msg)+'<br><br>Either correct the address on the '
+            + 'deal, or drop a pin instead — some sites genuinely have no geocodable '
+            + 'address.'}],
+          submitLabel:'Set coordinates', cancelLabel:'Close'
+        }).then(function(ok){ if(ok) doGridCoords(); });
+      } else toast(msg,true);
+    }
     console.warn('[gridatlas]', e);
+  });
+}
+
+/* Some sites cannot be geocoded from an address: a rural parcel with no street
+   number, a new subdivision, a site described by intersection. Dropping a pin
+   is the honest answer — better than fudging the address into something a
+   geocoder happens to accept, which then sits on the record as if it were the
+   real one. */
+function doGridCoords(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Site coordinates',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'Only needed when the address will not geocode. Set these and '
+        + 'Grid Atlas uses them instead of the address — right-click the spot in Google '
+        + 'Maps and the first menu item is the pair.'},
+      {key:'lat',type:'number',label:'Latitude',step:'any',value:d.grid.lat,
+        validate:function(v){ return (v>=-90&&v<=90)?null:'Between −90 and 90.'; }},
+      {key:'lng',type:'number',label:'Longitude',step:'any',value:d.grid.lng,
+        validate:function(v){ return (v>=-180&&v<=180)?null:'Between −180 and 180.'; }}
+    ],
+    submitLabel:'Save coordinates'
+  }).then(function(v){
+    if(!v) return;
+    act(F.patch(d,{'grid.lat':F.num(v.lat),'grid.lng':F.num(v.lng)},
+      {type:'grid',message:'Coordinates set by hand'}),'Saved')
+      .then(function(){
+        var f=findDeal(d.id);
+        if(f) Forms.confirm({ title:'Run Grid Atlas now?', danger:false,
+          intro:'Using the coordinates you just set.', submitLabel:'Run it'
+        }).then(function(ok){ if(ok){ S.openId=f.id; doGridAtlas(); } });
+      });
   });
 }
 
