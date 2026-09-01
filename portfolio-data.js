@@ -1201,10 +1201,11 @@
           + 'having it.','rep','doGridAtlas','Run Grid Atlas');
 
       if (deal.prescreen && deal.prescreen.verdict === 'fail')
-        return S('grid_fail','Grid Atlas says the site is not reachable',
+        return S('grid_fail','Check the address, then re-run Grid Atlas',
           (deal.prescreen.reason || '')
-          + '. Either the address is wrong, or this is not worth an OGI run.',
-          'rep','doPrescreen','Review it');
+          + '. A wrong or incomplete address is the usual cause \u2014 fix it and run it '
+          + 'again before deciding the site is no good.',
+          'rep','doEditAddress','Check the address');
 
       if (deal.viability.score == null) {
         /* Names the partner rather than saying "the tool" \u2014 the person
@@ -1593,10 +1594,19 @@
        and silently overwriting them would be the console deciding it knows
        better than the person who went there. */
     var pre = gridPrescreen(g);
-    if (pre && (!deal.prescreen || deal.prescreen.source === 'grid-atlas'))
+    if (pre && (!deal.prescreen || deal.prescreen.source === 'grid-atlas')) {
       fields.prescreen = pre;
+    } else if (!pre && deal.prescreen && deal.prescreen.source === 'grid-atlas') {
+      /* Nothing was measured this time, and the verdict on the record came
+         from Grid Atlas. Clearing it removes a FAIL that was written from a
+         score which turned out not to exist \u2014 leaving it would keep condemning
+         the site on the strength of a bug. A verdict somebody typed is left
+         alone; it was theirs, not ours. */
+      fields.prescreen = null;
+    }
     return patch(deal, fields, { type:'grid',
-      message:'Grid Atlas run' + (g.score != null ? ' \u2014 ' + g.score + '/100' : '')
+      message:'Grid Atlas run' + (g.score != null ? ' \u2014 ' + g.score + '/100'
+                                                  : ' \u2014 nothing measured')
         + (pre ? ', prescreen ' + pre.verdict : '')
         + (g.substations && g.substations.length && g.substations[0].distanceKm != null
            ? ', nearest substation ' + g.substations[0].distanceKm + ' km' : '') });

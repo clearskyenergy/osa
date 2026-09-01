@@ -126,7 +126,19 @@
 
   function normalise(out) {
     out = out || {};
-    var n = function (v) { var x = Number(v); return isFinite(x) ? x : null; };
+    /* Number(null) is 0 and isFinite(0) is true, so a null score arrived as a
+       real zero \u2014 and a real zero is a measurement. The API correctly returned
+       "nothing measured" and this turned it into "measured, scored nothing",
+       which then wrote a prescreen FAIL against a site nobody had looked at.
+
+       Absent has to stay absent all the way through. Same trap as [] versus
+       null in the data sources: the difference between no answer and a bad
+       answer is the whole thing. */
+    var n = function (v) {
+      if (v == null || v === '') return null;
+      var x = Number(v);
+      return isFinite(x) ? x : null;
+    };
     return {
       score:       n(out.score),
       summary:     out.summary || '',

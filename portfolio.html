@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0308</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0314</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -919,12 +919,12 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="/config.js?v=13"></script>
 <script src="/forms.js?v=4"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=22"></script>
+<script src="/portfolio-data.js?v=24"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=6"></script>
-<script src="/grid-atlas-adapter.js?v=8"></script>
+<script src="/grid-atlas-adapter.js?v=9"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -3532,7 +3532,8 @@ function tabOverview(d){
       + (gr.ranAt
         ? '<div class="verdict" style="grid-template-columns:1fr 1fr">'
           + '<div class="ax"><div class="lbl">Grid score</div>'
-          +   '<div class="val">'+(gr.score!=null?gr.score+' / 100':'\u2014')+'</div>'
+          +   '<div class="val"'+(gr.score==null?' style="color:var(--ink-3);font-size:15px"':'')
+          +   '>'+(gr.score!=null?gr.score+' / 100':'not measured')+'</div>'
           +   '<div class="sub">'+esc(F.fmtDate(gr.ranAt))
           +   (gr.ranBy?' \u00b7 '+esc(gr.ranBy.split('@')[0]):'')+'</div></div>'
           + '<div class="ax"><div class="lbl">Nearest substation</div>'
@@ -3575,6 +3576,7 @@ function tabOverview(d){
                     + 'Add the city and state first</button>')
               : '<button class="btn-a" onclick="doEditSite()">Add an address first</button>')
           + (gr.ranAt||!d.address?'':'')
+          + '<button class="btn-o" onclick="doEditAddress()">Edit address</button>'
           + '<button class="btn-o" onclick="doOpenGridAtlas()">Open Grid Atlas</button>'
           + '<button class="btn-o" onclick="doGridCoords()">'
           +   (gr.lat!=null?'Coordinates':'Set coordinates')+'</button>'
@@ -3606,7 +3608,9 @@ function tabOverview(d){
     + row('Project type', d.projectType
         ? esc((F.typeOf(d.projectType)||{}).label||d.projectType)
         : '<span style="color:var(--warn)">not set</span>')
-    + rowIf('Address', esc(d.address)
+    + rowIf('Address',
+        '<button class="btn-x" style="padding:0;text-align:left" onclick="doEditAddress()">'
+        + esc(d.address)+'</button>'
         + (d.state?'<div class="t-sub">'+esc(d.state)+'</div>':'')
         + (d.address && !placeable(d.address,d.state)
           ? '<div class="t-sub" style="color:var(--warn)">No city, state or ZIP \u2014 '
@@ -4767,6 +4771,45 @@ function doGridAtlas(silent){
    is the honest answer — better than fudging the address into something a
    geocoder happens to accept, which then sits on the record as if it were the
    real one. */
+/* The address on its own. Editing it was only possible through the full
+   project form, which is six fields of noise when the one thing wrong is a
+   missing town \u2014 and the address is the single input Grid Atlas depends on,
+   so it earns its own two-second edit. */
+function doEditAddress(){
+  var d=guard(); if(!d) return;
+  Forms.open({
+    title:'Site address',
+    intro:d.name,
+    fields:[
+      {type:'static',html:'This is what Grid Atlas looks up. <b>City and state, or a ZIP, '
+        + 'are what place it</b> \u2014 without them a geocoder picks one of the many streets '
+        + 'with that name rather than admitting it cannot tell.'},
+      {key:'address',type:'text',label:'Full address',required:true,autofocus:true,
+        value:d.address, placeholder:'600 N Union Ave, Hillside, NJ 07205',
+        validate:function(v){
+          return placeable(v) ? null
+            : 'Add the city and state, or a ZIP.'; }},
+      (d.grid.resolvedAddress&&d.grid.resolvedAddress!==d.address
+        ? {type:'static',html:'Last matched to <b>'+esc(d.grid.resolvedAddress)+'</b>. '
+            + 'If that is the wrong place, this is why.'}
+        : null)
+    ].filter(Boolean),
+    submitLabel:'Save and re-run Grid Atlas'
+  }).then(function(v){
+    if(!v) return;
+    var changed = v.address !== d.address;
+    act(F.patch(d,{ address:v.address, state:F.stateFromAddress(v.address) },
+      {type:'edit',message:changed?'Address updated':'Address confirmed'}),'Saved')
+      .then(function(){
+        /* Straight into the re-run. Editing the address is only ever done
+           because the lookup was wrong, so making somebody find the button
+           afterwards is a step with no decision in it. */
+        var f=findDeal(d.id);
+        if(f){ S.openId=f.id; doGridAtlas(); }
+      });
+  });
+}
+
 function doGridCoords(){
   var d=guard(); if(!d) return;
   Forms.open({
