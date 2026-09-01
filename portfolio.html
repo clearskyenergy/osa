@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0314</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0322</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -3564,8 +3564,8 @@ function tabOverview(d){
                   + '<span>'+esc(f.text||'')+'</span></div>'; }).join('')+'</div>':'')
         : '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6">'
           + 'Not run yet. Checks the address against substations, transmission lines and '
-          + 'generating plants \u2014 the measurement the screening score should be made '
-          + 'knowing.</div>')
+          + 'generating plants near the site \u2014 the measurement the screening score '
+          + 'should be made knowing.</div>')
       + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
           + (d.address
