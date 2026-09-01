@@ -696,24 +696,103 @@
      Every imported deal carries importBatch \u2014 filename plus timestamp \u2014
      because in six months "which import did this come from" is the first
      question somebody asks about a number that looks wrong. */
+  /* ── The referral template ───────────────────────────────────────────────
+     THE SAME FIELDS THE INTAKE FORM ASKS FOR, and no more. The previous list
+     wanted capex and capital sought, which nobody knows at referral \u2014 those
+     come out of the design. A template that asks for numbers people do not
+     have gets filled in with guesses, and a guess in a spreadsheet column is
+     indistinguishable from a fact afterwards.
+
+     `header` is what appears in the CSV. Matching on it exactly lets a file
+     downloaded here and filled in be uploaded back with no mapping step at
+     all, which is the whole point of providing a template. */
   var FIELDS = [
-    { key:'name',        label:'Site name',            required:true },
-    { key:'partnerOrg',  label:'Brought by (domain)',  required:true,
-      hint:'The organisation that referred it. Refused if blank.' },
-    { key:'partnerName', label:'Brought by (name)' },
-    { key:'address',     label:'Location' },
-    { key:'state',       label:'State / region' },
-    { key:'clientOrgId', label:'Client (domain)' },
-    { key:'categories',  label:'Categories',  hint:'Comma-separated: bess, solar, dcfc\u2026' },
-    { key:'sizeMw',      label:'Size (MW)',   numeric:true },
-    { key:'sizeMwh',     label:'Energy (MWh)',numeric:true },
-    { key:'capexUsd',    label:'Capex (USD)', numeric:true },
-    { key:'requestedUsd',label:'Capital sought (USD)', numeric:true },
-    { key:'channel',     label:'Channel' },
-    { key:'referredAt',  label:'Referred date' },
-    { key:'stage',       label:'Stage',
-      hint:'Only referred or screening are accepted. Anything else is clamped.' }
+    { key:'name',        header:'Site name', label:'Site name', required:true,
+      example:'Hillside Bottling Factory' },
+    { key:'partnerOrg',  header:'Brought by (email domain)', label:'Brought by',
+      required:true, example:'sunesol.com',
+      hint:'The organisation that referred it, as their email domain. Rows without '
+         + 'one are refused \u2014 attribution decides who gets paid.' },
+    { key:'clientOrgId', header:'Client (email domain)', label:'Client',
+      example:'westparkpartners.com' },
+    { key:'address',     header:'Address', label:'Address',
+      example:'600 N Union Ave, Havre de Grace, MD' },
+    { key:'projectType', header:'Project type', label:'Project type',
+      example:'bess',
+      hint:'One of: solar, solar_bess, bess, compute, compute_gen, microgrid, der, '
+         + 'dcfc, l2, charging_bess, powergen' },
+    { key:'siteNotes',   header:'Site notes', label:'Site notes',
+      example:'Roof recently replaced. Switchgear in the north bay.' },
+    { key:'monthlyBillUsd', header:'Monthly bill (USD)', label:'Monthly bill',
+      numeric:true, example:'8400' },
+    { key:'annualKwh',   header:'Annual kWh', label:'Annual kWh',
+      numeric:true, example:'1120000' },
+    { key:'meters',      header:'Meters', label:'Meters', numeric:true, example:'2' },
+    { key:'loadKw',      header:'Peak load (kW)', label:'Peak load',
+      numeric:true, example:'480' },
+    { key:'sizeMw',      header:'Target size (MW)', label:'Target size',
+      numeric:true, example:'3',
+      hint:'A target if you have one. The real number comes out of the design.' },
+    { key:'channel',     header:'Channel', label:'Channel',
+      example:'Shareholder introduction' },
+    { key:'referredAt',  header:'Referred date', label:'Referred date',
+      example:'2026-08-31' }
   ];
+
+  /* Two example rows, marked so the importer skips them. Somebody learns the
+     expected shape of "Project type" from seeing `bess` far faster than from a
+     hint in a header, and a blank template comes back filled in wrong. */
+  function templateCsv() {
+    var esc = function (v) {
+      v = String(v == null ? '' : v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    };
+    var rows = [FIELDS.map(function (f) { return esc(f.header); }).join(',')];
+    rows.push(FIELDS.map(function (f) {
+      return esc(f.key === 'name' ? 'EXAMPLE \u2014 delete this row' : (f.example || ''));
+    }).join(','));
+    rows.push(FIELDS.map(function (f) {
+      return esc(f.key === 'name'      ? 'EXAMPLE \u2014 delete this row too'
+               : f.key === 'partnerOrg'? 'ogisolar.com'
+               : f.key === 'projectType'? 'solar_bess'
+               : f.key === 'address'   ? '275 Research Parkway, Meriden, CT'
+               : f.key === 'siteNotes' ? 'Ground mount, 4 acres behind the plant.'
+               : '');
+    }).join(','));
+    return rows.join('\n') + '\n';
+  }
+
+  function downloadTemplate() {
+    var blob = new Blob([templateCsv()], { type:'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'clearsky-referrals-template.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  /* A row from the template we shipped. Skipped rather than refused, because a
+     refusal implies the person did something wrong when in fact they just did
+     not delete the samples. */
+  function isExampleRow(name) {
+    return /^\s*EXAMPLE\b/i.test(String(name || ''));
+  }
+
+  /* Exact header match first: a file downloaded here and filled in should
+     import with no mapping step. Falls back to the fuzzy matcher for
+     spreadsheets that came from somewhere else. */
+  function mapFromTemplate(headers) {
+    var map = {}, hit = 0;
+    FIELDS.forEach(function (f) {
+      for (var i = 0; i < headers.length; i++) {
+        if (String(headers[i] || '').trim().toLowerCase() === f.header.toLowerCase()) {
+          map[f.key] = i; hit++; return;
+        }
+      }
+    });
+    /* Both required columns present is enough to call it our template. */
+    return (map.name != null && map.partnerOrg != null) ? { map:map, matched:hit } : null;
+  }
 
   function parseWorkbook(file) {
     return new Promise(function (resolve, reject) {
@@ -771,7 +850,9 @@
   function buildRows(sheet, mapping, opts) {
     opts = opts || {};
     var headerRow = opts.headerRow != null ? opts.headerRow : 0;
-    var out = [];
+    var out = [], skipped = 0;
+    var TYPES = ((cfg().portfolio || {}).projectTypes || []).map(function (t) { return t.key; });
+
     for (var r = headerRow + 1; r < sheet.rows.length; r++) {
       var raw = sheet.rows[r];
       if (!raw || !raw.length) continue;
@@ -784,16 +865,23 @@
       });
       if (blank) continue;
 
-      var problems = [];
+      /* Our own sample rows. Skipped silently rather than refused \u2014 a refusal
+         implies a mistake when the person simply did not delete them. */
+      if (isExampleRow(v.name)) { skipped++; continue; }
+
+      var problems = [], warnings = [];
       if (!String(v.name || '').trim()) problems.push('No site name.');
       if (!String(v.partnerOrg || '').trim())
         problems.push('No originating organisation \u2014 refused. Attribution added later '
                     + 'is attribution somebody argued for.');
+      else if (F().normalizeUrl && !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(v.partnerOrg).trim()))
+        problems.push('"' + String(v.partnerOrg).trim() + '" is not an email domain. '
+                    + 'It decides who can sign in and see the deal.');
 
-      var stage = String(v.stage || '').toLowerCase().trim();
-      var clamped = null;
-      if (stage && ['referred','screening'].indexOf(stage) < 0) {
-        clamped = stage; stage = 'screening';
+      var pt = String(v.projectType || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (pt && TYPES.indexOf(pt) < 0) {
+        warnings.push('Project type "' + v.projectType + '" is not one we build \u2014 left blank.');
+        pt = '';
       }
 
       out.push({
@@ -801,26 +889,24 @@
         values: {
           name:        String(v.name || '').trim(),
           partnerOrg:  lower(String(v.partnerOrg || '').trim()),
-          partnerName: String(v.partnerName || '').trim(),
-          address:     String(v.address || '').trim(),
-          state:       String(v.state || '').trim(),
           clientOrgId: lower(String(v.clientOrgId || '').trim()),
-          categories:  String(v.categories || '').split(/[,;]/)
-                         .map(function (s) { return s.trim().toLowerCase(); })
-                         .filter(Boolean),
+          address:     String(v.address || '').trim(),
+          projectType: pt,
+          siteNotes:   String(v.siteNotes || '').trim(),
+          monthlyBillUsd: F().num(v.monthlyBillUsd),
+          annualKwh:   F().num(v.annualKwh),
+          meters:      F().num(v.meters),
+          loadKw:      F().num(v.loadKw),
           sizeMw:      F().num(v.sizeMw),
-          sizeMwh:     F().num(v.sizeMwh),
-          capexUsd:    F().num(v.capexUsd),
-          requestedUsd:F().num(v.requestedUsd),
           channel:     String(v.channel || '').trim() || 'Imported',
-          referredAt:  parseDate(v.referredAt),
-          stage:       stage || 'screening'
+          referredAt:  parseDate(v.referredAt)
         },
-        clampedFrom: clamped,
         problems: problems,
+        warnings: warnings,
         ok: !problems.length
       });
     }
+    out.skippedExamples = skipped;
     return out;
   }
 
@@ -838,6 +924,9 @@
   /* Sequential, not parallel. A hundred concurrent writes will trip rate
      limits and leave you unable to say which rows landed \u2014 and "which rows
      landed" is the only question that matters when an import half-fails. */
+  /* Sequential, not parallel. A hundred concurrent writes trips rate limits and
+     leaves you unable to say which rows landed \u2014 the only question that
+     matters when an import half-fails. */
   function runImport(rows, batchLabel, onProgress) {
     var good = rows.filter(function (r) { return r.ok; });
     var results = { created:0, failed:0, errors:[], batch:batchLabel };
@@ -846,20 +935,37 @@
     function step() {
       if (i >= good.length) return Promise.resolve(results);
       var r = good[i++];
-      var fields = {};
-      for (var k in r.values) fields[k] = r.values[k];
-      fields.importBatch = batchLabel;
+      var val = r.values;
+      var t = F().typeOf(val.projectType) || {};
 
-      return F().create(fields).then(function (ref) {
-        results.created++;
-        if (r.values.stage === 'screening') {
-          return _db.collection(F().COLLECTION).doc(ref.id)
-            .update({ stage:'screening', importBatch:batchLabel })
-            ['catch'](function () {});
-        }
-      })['catch'](function (e) {
+      return F().create({
+        name: val.name,
+        partnerOrg: val.partnerOrg,
+        partnerName: (A() && A().orgName(val.partnerOrg)) || val.partnerOrg,
+        clientOrgId: val.clientOrgId,
+        address: val.address,
+        channel: val.channel,
+        categories: (t.categories || []).slice(),
+        sizeMw: val.sizeMw,
+        referredAt: val.referredAt || stamp()
+      }).then(function (ref) {
+        /* The fields create() does not know about. Same second write the
+           intake form does, so an imported referral and a typed one are the
+           same shape \u2014 anything else and the screening tool sees two
+           different kinds of deal. */
+        return _db.collection(F().COLLECTION).doc(ref.id).update({
+          projectType: val.projectType || '',
+          siteNotes:   val.siteNotes || '',
+          importBatch: batchLabel,
+          energy: {
+            monthlyBillUsd: val.monthlyBillUsd, annualKwh: val.annualKwh,
+            meters: val.meters, loadKw: val.loadKw, utilityAccount: ''
+          }
+        });
+      }).then(function () { results.created++; })
+      ['catch'](function (e) {
         results.failed++;
-        results.errors.push({ row:r.row, name:r.values.name,
+        results.errors.push({ row:r.row, name:val.name,
                               message:(e && e.message) || String(e) });
       }).then(function () {
         if (onProgress) onProgress(i, good.length);
@@ -868,7 +974,6 @@
     }
     return step();
   }
-
 
   global.Ingest = {
     SOURCES:SOURCES, FIELDS:FIELDS,
@@ -881,6 +986,8 @@
     pushToMarketplace:pushToMarketplace,
     syncMarketplace:syncMarketplace,
     parseWorkbook:parseWorkbook, suggestMapping:suggestMapping,
+    templateCsv:templateCsv, downloadTemplate:downloadTemplate,
+    mapFromTemplate:mapFromTemplate, isExampleRow:isExampleRow,
     buildRows:buildRows, runImport:runImport
   };
 })(window);

@@ -153,6 +153,12 @@
       return r.json()['catch'](function () { return null; }).then(function (j) {
         if (!r.ok) {
           var e = new Error((j && (j.error || j.detail)) || ('Grid Atlas returned ' + r.status));
+          /* Carry the function's own build back with the error. A stale
+             serverless function returning an old message while the console
+             shows a new build stamp is a genuinely confusing failure, and the
+             only cure is for the reply to say which version answered. */
+          e.serviceBuild = (j && j.build) || null;
+          e.stale = !!(j && !j.build);
           /* 404 means the endpoint is not deployed — that is a "not wired in
              yet" rather than a failure, and the caller offers the page. */
           if (r.status === 404) e.needsExtraction = true;
@@ -176,6 +182,7 @@
       g.geocode = out.geocode || null;
       g.ranAt = stamp(); g.ranBy = _me ? _me.email : '';
       g.source = out.model || 'grid-atlas-service';
+      g.serviceBuild = out.build || '';
       return g;
     })['catch'](function (e) {
       /* Service unavailable: try an in-page module before giving up. */

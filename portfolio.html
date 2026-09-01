@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0243</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0252</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -675,7 +675,8 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
            leaves Referred.</p></div>
       <div class="card">
         <div class="card-h"><h2>Deals</h2>
-          <div class="chips" id="pipe-chips" style="margin-left:auto"></div></div>
+          <div class="chips" id="pipe-chips" style="margin-left:auto"></div>
+          <button class="btn-x" onclick="doImportReferrals()">Import referrals…</button></div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Site</th><th>Brought by</th><th>Stage</th><th class="num">Size</th>
             <th class="num">Capex</th><th class="num">Closed</th><th class="num">Drawn</th>
@@ -922,8 +923,8 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="/ingest-data.js?v=5"></script>
-<script src="/grid-atlas-adapter.js?v=4"></script>
+<script src="/ingest-data.js?v=6"></script>
+<script src="/grid-atlas-adapter.js?v=5"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -2461,6 +2462,44 @@ function renderWork(){
 }
 
 /* ── Spreadsheet import ───────────────────────────────────────────────── */
+/* ── Bulk referrals from a spreadsheet ───────────────────────────────────
+   Download a template, fill it in, upload it back. The template matters more
+   than it sounds: a blank CSV with a header row comes back filled in wrong,
+   because nobody knows whether "Project type" wants "Battery" or "bess". Two
+   worked example rows answer that without anybody asking, and the importer
+   skips them so they cannot land as real deals. */
+function doImportReferrals(){
+  Forms.open({
+    title:'Import referrals',
+    intro:'For a batch that arrives as a list rather than one at a time.',
+    fields:[
+      {type:'static',html:'<b>Start with the template.</b> It has the exact columns, two '
+        + 'filled-in example rows showing what each one wants, and it uploads back with '
+        + 'no column-matching step. The examples are skipped automatically \u2014 you do not '
+        + 'have to delete them.'},
+      {type:'static',html:'Every row needs a <b>site name</b> and <b>who brought it</b>. '
+        + 'Rows without an originator are refused rather than imported blank: attribution '
+        + 'decides who gets paid, and adding it later means arguing about it later.'},
+      {key:'what',type:'radio',label:'What now',required:true,value:'template',
+        options:[
+          {value:'template',label:'Download the template',
+           hint:'CSV, opens in Excel or Sheets.'},
+          {value:'upload',label:'Upload a filled-in file',
+           hint:'CSV or Excel. Everything lands as a referral.'}
+        ]}
+    ],
+    submitLabel:'Continue'
+  }).then(function(v){
+    if(!v) return;
+    if(v.what==='template'){
+      IN.downloadTemplate();
+      toast('Template downloaded \u2014 fill it in and upload it back');
+      return;
+    }
+    openImport();
+  });
+}
+
 function openImport(){
   var inp=document.createElement('input');
   inp.type='file'; inp.accept='.xlsx,.xls,.csv';
@@ -2485,6 +2524,20 @@ function openImport(){
    the attribution column, and attribution locks. */
 function pickSheet(file, sheet){
   var headers=sheet.rows[0]||[];
+
+  /* OUR OWN TEMPLATE, COMING BACK. Exact header match means no mapping step at
+     all — which is the entire reason for shipping a template. Asking somebody
+     to map columns they did not choose is the friction the template exists to
+     remove. */
+  var tpl=IN.mapFromTemplate(headers);
+  if(tpl){
+    var rows=IN.buildRows(sheet,tpl.map,{headerRow:0});
+    S.imp={ file:file.name, sheet:sheet, headers:headers, mapping:tpl.map, rows:rows,
+            fromTemplate:true };
+    showImportPreview();
+    return;
+  }
+
   var guess=IN.suggestMapping(headers);
   var colOpts=[{value:'',label:'\u2014 not mapped \u2014'}].concat(
     headers.map(function(hh,i){ return {value:String(i),label:(hh||('Column '+(i+1)))}; }));
@@ -2516,7 +2569,6 @@ function showImportPreview(){
   var m=S.imp; if(!m) return;
   var good=m.rows.filter(function(r){return r.ok;});
   var bad=m.rows.filter(function(r){return !r.ok;});
-  var clamped=m.rows.filter(function(r){return r.clampedFrom;}).length;
 
   if(!good.length){
     Forms.open({ title:'Nothing importable', intro:m.file,
@@ -2529,13 +2581,18 @@ function showImportPreview(){
     return;
   }
 
+  var warned=good.filter(function(r){ return (r.warnings||[]).length; });
   Forms.open({
-    title:'Import '+good.length+' project'+(good.length===1?'':'s'),
-    intro:m.file,
+    title:'Import '+good.length+' referral'+(good.length===1?'':'s'),
+    intro:m.file+(m.fromTemplate?' \u00b7 recognised as the template':''),
     fields:[
       {type:'static',html:'<b>'+good.length+' importable</b>'
         + (bad.length?' \u00b7 <b>'+bad.length+' refused</b>':'')
-        + (clamped?' \u00b7 '+clamped+' clamped to Screening':'')
+        + (m.rows.skippedExamples?' \u00b7 '+m.rows.skippedExamples
+            +' example row(s) skipped':'')
+        + (warned.length?'<br><br><b>'+warned.length+' with warnings:</b><br>'
+            + warned.slice(0,4).map(function(r){
+                return 'Row '+r.row+': '+Forms.esc(r.warnings.join(' ')); }).join('<br>'):'')
         + '<br><br>First rows: '
         + good.slice(0,4).map(function(r){
             return Forms.esc(r.values.name)+' ('+Forms.esc(r.values.partnerOrg)+')'; }).join(', ')
@@ -4585,6 +4642,27 @@ function doGridAtlas(silent){
     if(!silent){
       /* A geocoding failure has two fixes and the toast is too small for both,
          so it opens the dialog that offers them. */
+      /* A reply with no build field came from a version of the function older
+         than the one that started stamping them — which means api/ did not
+         deploy with the rest. Say that, because "correct the address" is
+         useless advice when the address was never the problem. */
+      if(e&&e.stale){
+        Forms.open({
+          title:'The Grid Atlas service is out of date',
+          intro:d.name,
+          fields:[{type:'static',html:'The console is on build <b>'
+            + esc(document.getElementById('tb-build').textContent)+'</b>, but '
+            + '<span class="mono">/api/grid-atlas</span> answered with an older version '
+            + 'of itself — so the message it returned describes a problem that no longer '
+            + 'exists.<br><br><b>The <span class="mono">api/</span> folder did not deploy '
+            + 'with the rest.</b> Redeploy it, then open '
+            + '<span class="mono">'+esc(location.origin)+'/api/grid-atlas</span> in a tab: '
+            + 'it should report a <b>build</b> and name the geocoders as '
+            + '<i>US Census, then OpenStreetMap</i>.'}],
+          submitLabel:'Close', cancelLabel:'Close'
+        });
+        return;
+      }
       if(/locate|geocod/i.test(msg)){
         Forms.confirm({ title:'Could not find that address', danger:false,
           intro:d.name,
