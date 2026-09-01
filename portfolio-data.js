@@ -453,6 +453,7 @@
         lat:         num((d.grid||{}).lat),
         lng:         num((d.grid||{}).lng),
         resolvedAddress: (d.grid||{}).resolvedAddress || '',
+        geocode:     (d.grid||{}).geocode || null,
         substations: Array.isArray((d.grid||{}).substations) ? (d.grid||{}).substations : [],
         lines:       Array.isArray((d.grid||{}).lines) ? (d.grid||{}).lines : [],
         plants:      Array.isArray((d.grid||{}).plants) ? (d.grid||{}).plants : [],

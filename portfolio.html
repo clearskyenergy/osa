@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0237</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0243</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -918,12 +918,12 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <script src="/config.js?v=12"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=18"></script>
+<script src="/portfolio-data.js?v=19"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=5"></script>
-<script src="/grid-atlas-adapter.js?v=3"></script>
+<script src="/grid-atlas-adapter.js?v=4"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -3444,6 +3444,9 @@ function tabOverview(d){
               + (d.prescreen.verdict==='pass'
                  ? ' Worth an OGI run.' : ' Not worth an OGI run as it stands.')
               + '</div>':'')
+          + (gr.resolvedAddress&&gr.resolvedAddress!==d.address
+            ? '<div class="t-sub" style="margin-top:10px">Matched to '
+              + esc(gr.resolvedAddress)+'</div>':'')
           + (gr.summary?'<div class="sec-note" style="margin-top:12px">'+esc(gr.summary)+'</div>':'')
           + (gr.findings.length
             ? '<div style="margin-top:12px">'+gr.findings.map(function(f){

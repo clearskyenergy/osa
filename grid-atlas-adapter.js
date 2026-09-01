@@ -173,6 +173,7 @@
       var g = normalise(out);
       g.lat = out.lat; g.lng = out.lng;
       g.resolvedAddress = out.resolvedAddress || deal.address;
+      g.geocode = out.geocode || null;
       g.ranAt = stamp(); g.ranBy = _me ? _me.email : '';
       g.source = out.model || 'grid-atlas-service';
       return g;
