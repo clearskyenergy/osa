@@ -30,11 +30,11 @@
    position: if Grid Atlas already scores, replace `score()` with that logic
    rather than keeping two.
 
-   ENVIRONMENT VARIABLES
-     GOOGLE_GEOCODING_KEY   turns an address into coordinates
-     GRID_ATLAS_KEY         optional: require callers to present this, so OGI
-                            can call it without the endpoint being open to
-                            the internet
+   ENVIRONMENT VARIABLES — both optional
+     GOOGLE_GEOCODING_KEY   fallback geocoder for addresses the free US Census
+                            geocoder cannot match. Not needed to start.
+     GRID_ATLAS_KEY         require callers to present this, so OGI can call
+                            the endpoint without it being open to the internet.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── The scoring model ────────────────────────────────────────────────────
@@ -44,6 +44,13 @@
    elsewhere with this as an input.
 
    Weights are here rather than buried so they can be argued with. */
+/* Stamped into every response, including errors. The last round of confusion
+   was entirely "which version of this function is actually running" — the
+   console showed a new build stamp while the serverless function was still the
+   previous one, and nothing in the reply said so. Bump this whenever the file
+   changes and the answer is visible from any response. */
+const BUILD = '2026-09-01.geocode-multi';
+
 const MODEL = {
   version: 'grid-atlas-svc-v1',
   weights: { substation: 4, voltage: 3, transmission: 2, congestion: 1 },
@@ -118,19 +125,136 @@ function weightedScore(parts) {
   };
 }
 
-/* ── Geocoding ───────────────────────────────────────────────────────────── */
-async function geocode(address) {
+/* ── Geocoding ─────────────────────────────────────────────────────────────
+   NOBODY SHOULD HAVE TO TYPE COORDINATES. A site has an address; turning that
+   into a point is this file's job, and asking a person to right-click a map
+   means the automation failed.
+
+   Three things make that work in practice.
+
+   1 · CLEAN THE ADDRESS FIRST. Real addresses on real deals carry building and
+       suite designators — "600 N Union Ave Blg 6B" — and street-level
+       geocoders reject the whole string rather than ignoring the part they do
+       not understand. Stripping the unit is not lossy for this purpose: Grid
+       Atlas cares which parcel the building sits on, not which door.
+
+   2 · TRY MORE THAN ONE PROVIDER, all free. Census is authoritative for US
+       street addresses; Nominatim covers what Census misses, including places
+       named rather than numbered. Google is used only if a key happens to be
+       set, and is not needed.
+
+   3 · DEGRADE, DO NOT FAIL. If the full address will not match, try it without
+       the unit, then without the street number, then the town. A point two
+       streets away still answers "how far to the nearest substation" usefully;
+       no point at all answers nothing. Whatever it settles for is reported, so
+       a rough match is visible rather than silently passed off as exact. */
+
+const UNIT_RE = /[,\s]+(?:apt|apartment|bldg|blg|bld|building|ste|suite|unit|fl|floor|rm|room|lot|trlr|space|spc|dept|hangar|slip|pier)\.?\s*[\w-]*/ig;
+const HASH_RE = /[,\s]*#\s*[\w-]+/g;
+
+function cleanAddress(a) {
+  return String(a || '')
+    .replace(/\s+/g, ' ')
+    .replace(UNIT_RE, '')
+    .replace(HASH_RE, '')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/[,\s]+$/, '')
+    .replace(/^\s*,\s*/, '')
+    .trim();
+}
+
+/* Progressively less specific attempts. Each is a real address somebody could
+   post a letter to, so a match against one is a real place — just less precise
+   than the last. */
+function addressVariants(a) {
+  const out = [];
+  const push = v => { v = (v || '').trim(); if (v && out.indexOf(v) < 0) out.push(v); };
+  push(a);
+  push(cleanAddress(a));
+
+  const cleaned = cleanAddress(a);
+  const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
+
+  /* Drop the street number: "600 N Union Ave" becomes "N Union Ave", which
+     still lands on the right street. */
+  if (parts.length) {
+    const noNumber = parts[0].replace(/^\s*\d+[A-Za-z]?\s+/, '');
+    if (noNumber !== parts[0]) push([noNumber].concat(parts.slice(1)).join(', '));
+  }
+  /* Town and state alone. Coarse, and reported as such in the response. */
+  if (parts.length > 1) push(parts.slice(1).join(', '));
+  return out;
+}
+
+async function tryCensus(q) {
+  const url = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress'
+            + '?address=' + encodeURIComponent(q)
+            + '&benchmark=Public_AR_Current&format=json';
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('census ' + r.status);
+  const j = await r.json();
+  const m = j && j.result && j.result.addressMatches && j.result.addressMatches[0];
+  if (!m) throw new Error('census: no match');
+  return { lat: m.coordinates.y, lng: m.coordinates.x,
+           resolved: m.matchedAddress, provider: 'census' };
+}
+
+/* OpenStreetMap. Free, no key. Their policy asks for an identifying
+   User-Agent, which is why one is set — sending a generic one would be
+   rude and gets you blocked. */
+async function tryNominatim(q) {
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1'
+            + '&countrycodes=us&q=' + encodeURIComponent(q);
+  const r = await fetch(url, {
+    headers: { 'User-Agent': 'ClearSky-OMEGA/1.0 (grid-atlas; ops@clearsky-usa.com)' }
+  });
+  if (!r.ok) throw new Error('nominatim ' + r.status);
+  const j = await r.json();
+  if (!j || !j.length) throw new Error('nominatim: no match');
+  return { lat: Number(j[0].lat), lng: Number(j[0].lon),
+           resolved: j[0].display_name, provider: 'nominatim' };
+}
+
+async function tryGoogle(q) {
   const key = process.env.GOOGLE_GEOCODING_KEY;
-  if (!key) throw new Error('GOOGLE_GEOCODING_KEY is not set on the server.');
+  if (!key) throw new Error('google: no key set');
   const url = 'https://maps.googleapis.com/maps/api/geocode/json?address='
-            + encodeURIComponent(address) + '&key=' + key;
+            + encodeURIComponent(q) + '&key=' + key;
   const r = await fetch(url);
   const j = await r.json();
   if (j.status !== 'OK' || !j.results || !j.results.length)
-    throw new Error('Could not locate "' + address + '" (' + j.status + ').');
+    throw new Error('google: ' + j.status);
   const g = j.results[0];
   return { lat: g.geometry.location.lat, lng: g.geometry.location.lng,
-           resolved: g.formatted_address };
+           resolved: g.formatted_address, provider: 'google' };
+}
+
+async function geocode(address) {
+  const variants = addressVariants(address);
+  const providers = [tryCensus, tryNominatim, tryGoogle];
+  const tried = [];
+
+  /* Variant-major: every provider gets a go at the most precise form before
+     anything falls back to a rougher one. A precise match from the second
+     provider beats a coarse match from the first. */
+  for (let vi = 0; vi < variants.length; vi++) {
+    for (const p of providers) {
+      try {
+        const hit = await p(variants[vi]);
+        hit.precision = vi === 0 ? 'exact'
+                      : vi === 1 ? 'street'
+                      : vi === 2 ? 'street-approx' : 'area';
+        hit.queried = variants[vi];
+        if (vi > 0) hit.note = 'Matched on "' + variants[vi]
+          + '" rather than the full address.';
+        return hit;
+      } catch (e) { tried.push(e.message || String(e)); }
+    }
+  }
+  throw new Error('Could not locate "' + address + '". Tried '
+    + variants.length + ' forms of the address against Census, OpenStreetMap'
+    + (process.env.GOOGLE_GEOCODING_KEY ? ' and Google' : '')
+    + '. Either the address is wrong, or this site has none — set coordinates by hand.');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -165,7 +289,30 @@ function distanceKm(aLat, aLng, bLat, bLng) {
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only.' });
+  /* GET is a health check. "Is it deployed and what is configured" should be
+     answerable from a browser address bar rather than by finding a deal with
+     an address on it and pressing a button. */
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ok: true,
+      build: BUILD,
+      model: MODEL.version,
+      geocoder: 'US Census, then OpenStreetMap \u2014 both free, no key'
+        + (process.env.GOOGLE_GEOCODING_KEY ? ', then Google' : ' (no Google key set, not needed)'),
+      addressHandling: 'Unit and building designators are stripped, then the address is '
+        + 'retried progressively less specific until something matches.',
+      authRequired: !!process.env.GRID_ATLAS_KEY,
+      dataSources: {
+        substations: 'not connected \u2014 see \u26a0 DATA SOURCE in this file',
+        lines:       'not connected',
+        plants:      'not connected'
+      },
+      note: 'Scores return with unscored layers until the three lookups are pointed '
+          + 'at real data. An unscored layer drops out of the calculation rather than '
+          + 'counting against the site.'
+    });
+  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'GET or POST.' });
 
   /* Optional shared secret. Set GRID_ATLAS_KEY once OGI is calling this, so
      the endpoint is not simply open. Skipped when unset so it works from the
@@ -187,8 +334,10 @@ module.exports = async function handler(req, res) {
       const g = await geocode(address);
       lat = g.lat; lng = g.lng;
       body.resolvedAddress = g.resolved;
+      body.geocode = { provider: g.provider, precision: g.precision,
+                       queried: g.queried, note: g.note || '' };
     } catch (e) {
-      return res.status(422).json({ error: String(e.message || e) });
+      return res.status(422).json({ build: BUILD, error: String(e.message || e) });
     }
   }
 
@@ -230,11 +379,22 @@ module.exports = async function handler(req, res) {
         + (nearestLine ? ', transmission ' + nearestLine.distanceKm + ' km' : '')
       : 'No substation found within ' + radiusKm + ' km';
 
+    /* A rough match must be visible. A score computed from a point two streets
+       away is still useful; a score computed from the middle of the town while
+       everyone assumes it was the parcel is not \u2014 the number looks identical
+       either way, so the only defence is saying so. */
+    if (body.geocode && body.geocode.precision && body.geocode.precision !== 'exact') {
+      findings.unshift({ severity: body.geocode.precision === 'area' ? 'risk' : 'note',
+        text: 'Location is approximate \u2014 ' + body.geocode.note });
+    }
+
     res.status(200).json({
+      build: BUILD,
       score: computed.score,
       model: MODEL.version,
       summary,
       lat, lng,
+      geocode: body.geocode || null,
       resolvedAddress: body.resolvedAddress || address || '',
       substations: substations || [],
       lines: lines || [],
@@ -244,7 +404,7 @@ module.exports = async function handler(req, res) {
       findings
     });
   } catch (err) {
-    res.status(502).json({ error: 'Grid Atlas failed.',
+    res.status(502).json({ build: BUILD, error: 'Grid Atlas failed.',
       detail: String((err && err.message) || err).slice(0, 300) });
   }
 };
