@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0222</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0229</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -915,15 +915,15 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="/config.js?v=11"></script>
+<script src="/config.js?v=12"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=17"></script>
+<script src="/portfolio-data.js?v=18"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=5"></script>
-<script src="/grid-atlas-adapter.js?v=1"></script>
+<script src="/grid-atlas-adapter.js?v=2"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -3421,7 +3421,8 @@ function tabOverview(d){
   var gr=d.grid, GA=window.GridAtlasAdapter;
   if(gr.ranAt || F.stageOf(d.stage).rank<=F.stageOf('qualified').rank){
     h+='<div class="sec"><div class="sec-h">Grid Atlas'
-      + '<span class="r">Interconnection and grid proximity</span></div><div class="sec-b">'
+      + '<span class="r">The prescreen \u00b7 interconnection and grid proximity</span></div>'
+      + '<div class="sec-b">'
       + (gr.ranAt
         ? '<div class="verdict" style="grid-template-columns:1fr 1fr">'
           + '<div class="ax"><div class="lbl">Grid score</div>'
@@ -3435,6 +3436,14 @@ function tabOverview(d){
           +   '<div class="sub">'+esc((gr.substations[0]||{}).name||'')
           +   ((gr.substations[0]||{}).voltageKv?' \u00b7 '+gr.substations[0].voltageKv+' kV':'')
           +   '</div></div></div>'
+          + (d.prescreen&&d.prescreen.source==='grid-atlas'
+            ? '<div class="banner '+(d.prescreen.verdict==='pass'?'info':'warn')
+              + '" style="margin-top:12px"><b>Prescreen: '
+              + esc(String(d.prescreen.verdict||'').toUpperCase())+'.</b> '
+              + esc(d.prescreen.reason||'')
+              + (d.prescreen.verdict==='pass'
+                 ? ' Worth an OGI run.' : ' Not worth an OGI run as it stands.')
+              + '</div>':'')
           + (gr.summary?'<div class="sec-note" style="margin-top:12px">'+esc(gr.summary)+'</div>':'')
           + (gr.findings.length
             ? '<div style="margin-top:12px">'+gr.findings.map(function(f){
@@ -3448,8 +3457,10 @@ function tabOverview(d){
           + 'knowing.</div>')
       + (A.can('write_deal')&&!d._demo
         ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
-          + '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
-          +   (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
+          + (d.address
+              ? '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
+                + (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
+              : '<button class="btn-o" onclick="doEditSite()">Add an address first</button>')
           + (gr.ranAt||!d.address?'':'')
           + '<button class="btn-o" onclick="doOpenGridAtlas()">Open Grid Atlas</button>'
           + '</div>':'')

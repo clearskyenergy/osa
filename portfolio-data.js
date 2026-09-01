@@ -568,6 +568,9 @@
          worth an hour of somebody's time", scoring asks "is this worth
          money". Collapsing them means either screening everything slowly or
          spending on things nobody looked at. */
+      /* `source` distinguishes a Grid Atlas prescreen from one a person did,
+         which is what lets the automatic one refresh itself without ever
+         overwriting a human judgement. */
       prescreen: d.prescreen || null,
       notes:     Array.isArray(d.notes) ? d.notes : [],
       activity:  Array.isArray(d.activity) ? d.activity : [],
@@ -1121,6 +1124,21 @@
     if (deal.stage === 'screening') {
       if (!deal.assignment.rep)
         return S('assign_rep','Assign a rep','Nobody is working this.','admin','doAssignRep','Assign a rep');
+      /* GRID ATLAS FIRST. It is the cheap measurement, and calling OGI on a
+         site with no grid connection anywhere near it wastes their run and our
+         money. */
+      if (!deal.grid.ranAt)
+        return S('grid','Run the address through Grid Atlas',
+          'Checks substations, transmission and plants near the site. It is the fast '
+          + 'filter \u2014 and it is what gets sent to OGI, so their answer is better for '
+          + 'having it.','rep','doGridAtlas','Run Grid Atlas');
+
+      if (deal.prescreen && deal.prescreen.verdict === 'fail')
+        return S('grid_fail','Grid Atlas says the site is not reachable',
+          (deal.prescreen.reason || '')
+          + '. Either the address is wrong, or this is not worth an OGI run.',
+          'rep','doPrescreen','Review it');
+
       if (deal.viability.score == null) {
         /* Names the partner rather than saying "the tool" \u2014 the person
            pressing it should know whose service they are spending. */
@@ -1474,6 +1492,44 @@
           return { kind:l.kind, label:l.label, url:l.url }; })
       }
     };
+  }
+
+  /* ── Grid Atlas onto the deal ────────────────────────────────────────────
+     Written here rather than by the adapter so it goes through patch() like
+     everything else: same rules, same activity line, same history.
+
+     GRID ATLAS IS THE PRESCREEN. Its score measures the thing that kills the
+     most sites earliest \u2014 whether the grid is reachable \u2014 so a verdict
+     derived from it replaces four questions somebody answered from memory with
+     a measurement anybody can check. */
+  function gridPrescreen(g) {
+    var GA = global.GridAtlasAdapter;
+    if (!GA || g.score == null) return null;
+    return {
+      verdict: GA.prescreenVerdict(g),
+      reason:  (g.summary || 'Grid Atlas') + ' \u2014 scored ' + g.score
+             + ' against a bar of ' + GA.prescreenThreshold(),
+      fit:'', size:'', offtake:'', timing:'',
+      source:  'grid-atlas',
+      by:      _me ? _me.email : '',
+      at:      stamp()
+    };
+  }
+
+  function saveGrid(deal, g) {
+    var fields = { grid: g };
+    /* Only writes a prescreen if nobody has done one BY HAND. Somebody who
+       looked at the site and formed a view outranks a distance measurement,
+       and silently overwriting them would be the console deciding it knows
+       better than the person who went there. */
+    var pre = gridPrescreen(g);
+    if (pre && (!deal.prescreen || deal.prescreen.source === 'grid-atlas'))
+      fields.prescreen = pre;
+    return patch(deal, fields, { type:'grid',
+      message:'Grid Atlas run' + (g.score != null ? ' \u2014 ' + g.score + '/100' : '')
+        + (pre ? ', prescreen ' + pre.verdict : '')
+        + (g.substations && g.substations.length && g.substations[0].distanceKm != null
+           ? ', nearest substation ' + g.substations[0].distanceKm + ' km' : '') });
   }
 
   function requestScore(deal, onState) {
@@ -2205,6 +2261,7 @@
     releaseStage:releaseStage,
     criteriaSet:criteriaSet, threshold:threshold, computeScore:computeScore,
     saveScore:saveScore, postScore:postScore, overrideViability:overrideViability,
+    saveGrid:saveGrid, gridPrescreen:gridPrescreen,
     scoringEnabled:scoringEnabled, skillFor:skillFor, skillLabel:skillLabel,
     skillAxis:skillAxis, skillProvider:skillProvider,
     scoringPayload:scoringPayload, requestScore:requestScore,

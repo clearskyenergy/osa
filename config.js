@@ -462,8 +462,23 @@ window.CLEARSKY_CONFIG = {
        the tool, opening it with the address prefilled, which is one click
        instead of a copy-paste. */
     gridAtlas: {
-      enabled: false,
+      /* On by default now that /api/grid-atlas exists. The endpoint returns a
+         partial answer with the gaps declared until the three data lookups in
+         it are pointed at real layers, which is more useful than nothing and
+         cannot silently mislead \u2014 an unscored measurement drops out of the
+         calculation rather than counting against the site. */
+      enabled: true,
+      serviceUrl: '/api/grid-atlas',
       url: '/grid-atlas.html',
+
+      /* THE PRESCREEN BAR. Grid reachability is what kills the most sites
+         earliest, so a threshold on it is a better fast filter than four
+         questions answered from memory.
+
+         Deliberately low: this is the gate before spending an OGI call, not
+         the decision. Everything plausible should pass; only a site genuinely
+         nowhere near a connection should stop here. */
+      prescreenThreshold: 35,
       /* Run it automatically the first time a deal reaches screening, rather
          than waiting to be asked. It costs nothing, it is the same lookup the
          rep would do by hand, and having it already there is the difference

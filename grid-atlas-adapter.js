@@ -130,22 +130,59 @@
      Geocode, call the core, normalise, hand back. The caller writes it to the
      deal — same reasoning as the OGI relay: whatever computes a number, the
      write goes through the normal path so the rules and the audit trail apply. */
-  function run(deal) {
-    var fn = core();
-    if (!fn) return Promise.reject(Object.assign(
-      new Error('Grid Atlas is not loaded as a module on this page, so it cannot be run '
-        + 'automatically yet. Opening it with the address filled in instead.'),
-      { needsExtraction: true }));
+  /* THE SERVICE FIRST. /api/grid-atlas geocodes and analyses server-side, so
+     this works without the Maps SDK on the page, without the analysis being
+     extracted into a module, and — the reason it is worth building — it can
+     be called by OGI too, so their score is informed by our grid data.
 
-    return geocode(deal.address).then(function (loc) {
-      return Promise.resolve(fn({ lat: loc.lat, lng: loc.lng, address: deal.address }))
-        .then(function (out) {
-          var g = normalise(out);
-          g.lat = loc.lat; g.lng = loc.lng; g.resolvedAddress = loc.resolved;
-          g.ranAt = stamp(); g.ranBy = _me ? _me.email : '';
-          g.source = 'grid-atlas';
-          return g;
-        });
+     Falls back to an in-page module if one exists, then to opening the page.
+     Three tiers, best available wins, and none of them is a dead end. */
+  function viaService(deal) {
+    var url = gcfg().serviceUrl || '/api/grid-atlas';
+    return fetch(url, {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        address: deal.address, sizeMw: deal.sizeMw, dealId: deal.id
+      })
+    }).then(function (r) {
+      return r.json()['catch'](function () { return null; }).then(function (j) {
+        if (!r.ok) {
+          var e = new Error((j && (j.error || j.detail)) || ('Grid Atlas returned ' + r.status));
+          /* 404 means the endpoint is not deployed — that is a "not wired in
+             yet" rather than a failure, and the caller offers the page. */
+          if (r.status === 404) e.needsExtraction = true;
+          throw e;
+        }
+        return j;
+      });
+    });
+  }
+
+  function run(deal) {
+    if (!deal.address)
+      return Promise.reject(new Error('This deal has no address to look up.'));
+
+    return viaService(deal).then(function (out) {
+      var g = normalise(out);
+      g.lat = out.lat; g.lng = out.lng;
+      g.resolvedAddress = out.resolvedAddress || deal.address;
+      g.ranAt = stamp(); g.ranBy = _me ? _me.email : '';
+      g.source = out.model || 'grid-atlas-service';
+      return g;
+    })['catch'](function (e) {
+      /* Service unavailable: try an in-page module before giving up. */
+      var fn = core();
+      if (!fn) throw e;
+      return geocode(deal.address).then(function (loc) {
+        return Promise.resolve(fn({ lat: loc.lat, lng: loc.lng, address: deal.address }))
+          .then(function (out) {
+            var g = normalise(out);
+            g.lat = loc.lat; g.lng = loc.lng; g.resolvedAddress = loc.resolved;
+            g.ranAt = stamp(); g.ranBy = _me ? _me.email : '';
+            g.source = 'grid-atlas-module';
+            return g;
+          });
+      });
     });
   }
 
@@ -182,8 +219,26 @@
     };
   }
 
+  /* Grid Atlas as the PRESCREEN. Its score is a measurement of the one thing
+     that kills the most sites earliest — whether the grid is reachable — so a
+     threshold on it is a far better fast filter than four questions somebody
+     answers from memory.
+
+     Deliberately a LOW bar. This is not the decision, it is the gate before
+     spending an OGI call: everything plausible should pass, and only sites
+     that are genuinely nowhere near a grid connection should stop here. */
+  function prescreenThreshold() {
+    var t = gcfg().prescreenThreshold;
+    return t == null ? 35 : t;
+  }
+  function prescreenVerdict(grid) {
+    if (!grid || grid.score == null) return null;
+    return grid.score >= prescreenThreshold() ? 'pass' : 'fail';
+  }
+
   global.GridAtlasAdapter = {
     init: init, enabled: enabled, pageUrl: pageUrl,
+    prescreenThreshold: prescreenThreshold, prescreenVerdict: prescreenVerdict,
     run: run, openWith: openWith, geocode: geocode,
     normalise: normalise, asCriterion: asCriterion, core: core
   };
