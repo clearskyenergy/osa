@@ -434,6 +434,33 @@
         applications: Array.isArray(pm.applications) ? pm.applications : []
       },
 
+      /* ── Grid Atlas ────────────────────────────────────────────────────
+         Interconnection and grid-proximity intel for the site: nearest
+         substations, transmission lines, generating plants, EIA data. Run
+         during screening, before anybody scores anything.
+
+         Kept as its own block rather than folded into `viability` because it
+         is a DIFFERENT KIND OF THING: viability is a judgement, this is a
+         measurement. The measurement feeds the judgement — it becomes the
+         interconnection criterion and travels in the payload sent to OGI —
+         but a substation 1.1 km away is a fact that does not change when
+         somebody re-scores the deal. */
+      grid: {
+        score:       num((d.grid||{}).score),
+        ranAt:       (d.grid||{}).ranAt || null,
+        ranBy:       (d.grid||{}).ranBy || '',
+        source:      (d.grid||{}).source || '',
+        lat:         num((d.grid||{}).lat),
+        lng:         num((d.grid||{}).lng),
+        resolvedAddress: (d.grid||{}).resolvedAddress || '',
+        substations: Array.isArray((d.grid||{}).substations) ? (d.grid||{}).substations : [],
+        lines:       Array.isArray((d.grid||{}).lines) ? (d.grid||{}).lines : [],
+        plants:      Array.isArray((d.grid||{}).plants) ? (d.grid||{}).plants : [],
+        findings:    Array.isArray((d.grid||{}).findings) ? (d.grid||{}).findings : [],
+        summary:     (d.grid||{}).summary || '',
+        raw:         (d.grid||{}).raw || null
+      },
+
       /* ── Design handoff ────────────────────────────────────────────────
          Pre-development is where the project actually gets built: the site map
          drawn, the equipment laid out, and the price falls out of it. That is a
@@ -1407,6 +1434,23 @@
       },
       /* The things we DO know at screening, which is the point: bills, meters
          and the site notes are often all anybody has before design. */
+      /* OUR OWN GRID MEASUREMENT, sent across. OGI is scoring a site they have
+         never visited; the substation distances and line voltages we already
+         looked up are among the most useful things we can hand them, and
+         withholding a measurement we already hold would make their answer
+         worse for no reason. Null when it has not been run \u2014 absent, not
+         zero, same rule as everything else in this payload. */
+      grid: deal.grid && deal.grid.ranAt ? {
+        score:       deal.grid.score,
+        lat:         deal.grid.lat,
+        lng:         deal.grid.lng,
+        substations: deal.grid.substations,
+        lines:       deal.grid.lines,
+        plants:      deal.grid.plants,
+        summary:     deal.grid.summary,
+        ranAt:       deal.grid.ranAt
+      } : null,
+
       site: {
         notes:         deal.siteNotes || '',
         monthlyBillUsd:deal.energy.monthlyBillUsd,
@@ -2128,7 +2172,7 @@
     'viability','viabilityHistory','permitting','assignment','finProjectId','adoptedFrom',
     'adoptedAt','importBatch','externalIds','projectType','prescreen',
     'discardReason','discardedAt','discardedBy','links','reevaluateReason',
-    'siteNotes','energy'];
+    'siteNotes','energy','design','grid'];
   function unmapped(deal) {
     var raw = deal._raw || {}, out = {}, n = 0;
     for (var k in raw) { if (!raw.hasOwnProperty(k) || KNOWN.indexOf(k) >= 0) continue; out[k] = raw[k]; n++; }

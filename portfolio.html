@@ -554,7 +554,7 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
   <div class="tb-sep"></div>
   <span class="tb-portal">Portfolio</span>
   <span class="tb-badge" id="tb-badge">—</span>
-  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0143</span>
+  <span class="tb-build" id="tb-build" title="Build stamp — if this is older than the deploy you just made, your browser is on a cached page. Hard refresh.">2026-09-01.0222</span>
   <div class="tb-spacer"></div>
   <div class="tb-user">
     <button class="btn-sm pri" id="btn-new" onclick="openNew()">+ New project</button>
@@ -915,14 +915,15 @@ pre.raw{background:#F5F7F9;border-radius:7px;padding:11px;font-size:11px;overflo
 <!-- Storage, for uploading final PDFs onto a deal. Loaded here because without
      it the upload button throws rather than failing gracefully. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="/config.js?v=10"></script>
+<script src="/config.js?v=11"></script>
 <script src="/forms.js?v=3"></script>
 <script src="/access-data.js?v=6"></script>
-<script src="/portfolio-data.js?v=16"></script>
+<script src="/portfolio-data.js?v=17"></script>
 <!-- SheetJS, for the Excel importer only. Loaded here rather than bundled so a
      CDN outage costs you the importer and nothing else. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/ingest-data.js?v=5"></script>
+<script src="/grid-atlas-adapter.js?v=1"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    OMEGA PORTFOLIO CONSOLE (v1)
@@ -961,6 +962,7 @@ function ready(){ var e=document.getElementById('boot');
       if (rec.status !== 'active'){ showGate(rec); return; }
       F.init(db, rec);
       IN.init(db, rec);
+      if(window.GridAtlasAdapter) GridAtlasAdapter.init(rec);
       showApp();
     })['catch'](function(err){
       ready();
@@ -3413,6 +3415,47 @@ function tabOverview(d){
                 + ' \u2014 '+esc(x.reason||'')+'</div></div>'; }).join('')+'</div>' : '')
     + '</div></div>';
 
+  /* ── GRID ATLAS ─────────────────────────────────────────────────────────
+     A measurement, shown next to the notes because they are the same kind of
+     thing: what is true about the site before anybody forms a view. */
+  var gr=d.grid, GA=window.GridAtlasAdapter;
+  if(gr.ranAt || F.stageOf(d.stage).rank<=F.stageOf('qualified').rank){
+    h+='<div class="sec"><div class="sec-h">Grid Atlas'
+      + '<span class="r">Interconnection and grid proximity</span></div><div class="sec-b">'
+      + (gr.ranAt
+        ? '<div class="verdict" style="grid-template-columns:1fr 1fr">'
+          + '<div class="ax"><div class="lbl">Grid score</div>'
+          +   '<div class="val">'+(gr.score!=null?gr.score+' / 100':'\u2014')+'</div>'
+          +   '<div class="sub">'+esc(F.fmtDate(gr.ranAt))
+          +   (gr.ranBy?' \u00b7 '+esc(gr.ranBy.split('@')[0]):'')+'</div></div>'
+          + '<div class="ax"><div class="lbl">Nearest substation</div>'
+          +   '<div class="val" style="font-size:16px">'
+          +   (gr.substations.length&&gr.substations[0].distanceKm!=null
+              ? gr.substations[0].distanceKm+' km' : '\u2014')+'</div>'
+          +   '<div class="sub">'+esc((gr.substations[0]||{}).name||'')
+          +   ((gr.substations[0]||{}).voltageKv?' \u00b7 '+gr.substations[0].voltageKv+' kV':'')
+          +   '</div></div></div>'
+          + (gr.summary?'<div class="sec-note" style="margin-top:12px">'+esc(gr.summary)+'</div>':'')
+          + (gr.findings.length
+            ? '<div style="margin-top:12px">'+gr.findings.map(function(f){
+                var c=f.severity==='blocker'?'var(--bad)':f.severity==='risk'?'var(--warn)':'var(--ink-3)';
+                return '<div class="drv"><span class="e" style="color:'+c+'">'
+                  + (f.severity==='blocker'?'\u2715':f.severity==='risk'?'!':'\u00b7')+'</span>'
+                  + '<span>'+esc(f.text||'')+'</span></div>'; }).join('')+'</div>':'')
+        : '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6">'
+          + 'Not run yet. Checks the address against substations, transmission lines and '
+          + 'generating plants \u2014 the measurement the screening score should be made '
+          + 'knowing.</div>')
+      + (A.can('write_deal')&&!d._demo
+        ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button class="'+(gr.ranAt?'btn-o':'btn-a')+'" onclick="doGridAtlas()">'
+          +   (gr.ranAt?'Run it again':'Run Grid Atlas')+'</button>'
+          + (gr.ranAt||!d.address?'':'')
+          + '<button class="btn-o" onclick="doOpenGridAtlas()">Open Grid Atlas</button>'
+          + '</div>':'')
+      + '</div></div>';
+  }
+
   h+='<div class="sec"><div class="sec-h">Site notes and energy'
     + '<span class="r">What screening runs on</span></div><div class="sec-b">'
     + (d.siteNotes
@@ -4489,6 +4532,49 @@ function doRemoveLink(id){
   }).then(function(ok){ if(ok) act(F.removeLink(d,l),'Removed'); });
 }
 
+/* ── Grid Atlas ───────────────────────────────────────────────────────── */
+function doGridAtlas(silent){
+  var d=guard(); if(!d) return Promise.resolve();
+  var GA=window.GridAtlasAdapter;
+  if(!GA){ toast('The Grid Atlas adapter did not load',true); return Promise.resolve(); }
+  if(!d.address){
+    if(!silent) toast('This deal has no address to look up \u2014 add one first',true);
+    return Promise.resolve();
+  }
+  if(!silent) toast('Running Grid Atlas\u2026');
+  return GA.run(d).then(function(g){
+    return F.saveGrid(d,g).then(function(){
+      toast('Grid Atlas: '+(g.score!=null?g.score+'/100':'done'));
+      return refresh();
+    });
+  })['catch'](function(e){
+    if(e&&e.needsExtraction){
+      /* Not an error the person caused. Grid Atlas has not been made callable
+         yet, so open it with the address filled in rather than doing nothing. */
+      if(!silent){
+        Forms.confirm({
+          title:'Grid Atlas is not wired in yet',
+          danger:false,
+          intro:d.name,
+          fields:[{type:'static',html:'Grid Atlas is a page rather than a service, so it '
+            + 'cannot be run automatically until its analysis is exposed as a module. '
+            + 'Opening it with the address already filled in \u2014 paste the result back '
+            + 'with <b>Run it again \u2192 enter by hand</b> when you have it.'}],
+          submitLabel:'Open Grid Atlas'
+        }).then(function(ok){ if(ok) GA.openWith(d); });
+      }
+      return;
+    }
+    if(!silent) toast((e&&e.message)||'Grid Atlas failed',true);
+    console.warn('[gridatlas]', e);
+  });
+}
+
+function doOpenGridAtlas(){
+  var d=guard(); if(!d) return;
+  if(window.GridAtlasAdapter) GridAtlasAdapter.openWith(d);
+}
+
 /* ── The flow actions ─────────────────────────────────────────────────── */
 
 function doAssignRep(){
@@ -4512,7 +4598,16 @@ function doAssignRep(){
         if(fresh.stage!=='referred') return;
         return F.advance(fresh,'screening','Assigned to '+v.rep);
       });
-    }),'Assigned to '+v.rep);
+    }),'Assigned to '+v.rep)
+    .then(function(){
+      /* Reaching screening is the moment to run Grid Atlas: it is the same
+         lookup the rep would do by hand, it costs nothing, and having it there
+         already is the difference between a screening that happens and one
+         that gets deferred. Silent — a failure here must not look like the
+         assignment failed. */
+      var g=(window.CLEARSKY_CONFIG.portfolio||{}).gridAtlas||{};
+      if(g.enabled && g.autoRunOnScreening){ S.openId=d.id; return doGridAtlas(true); }
+    });
   });
 }
 
@@ -4643,12 +4738,22 @@ function doScore(){
   if(!cs.length){ toast('No criteria configured \u2014 see portfolio.viability in config.js',true); return; }
   var prev={};
   (d.viability.criteria||[]).forEach(function(c){ prev[c.key]=c.unscored?null:c.value; });
+  /* Prefill interconnection from Grid Atlas when it has run and nobody has
+     scored that criterion by hand. A measurement should not have to be
+     retyped — but it is a starting point, not a verdict: a site can be next
+     to a substation with no capacity in it, and the person scoring can
+     overrule it. */
+  var gc=window.GridAtlasAdapter&&GridAtlasAdapter.asCriterion(d.grid);
+  var gridPrefill=null;
+  if(gc && prev[gc.key]==null){ prev[gc.key]=gc.value; gridPrefill=gc; }
   Forms.open({
     title:'Score viability',
     intro:d.name+' \u00b7 threshold '+F.threshold(),
     fields:[{type:'static',html:'<b>Blank is not zero.</b> Anything marked <i>cannot tell</i> '
       + 'drops out of both sides of the calculation rather than counting against the site \u2014 '
-      + 'scoring an unasked question as nil quietly turns a weighted model into a random one.'}]
+      + 'scoring an unasked question as nil quietly turns a weighted model into a random one.'
+      + (gridPrefill?'<br><br><b>Interconnection is prefilled from Grid Atlas</b> ('
+        + esc(gridPrefill.note)+'). Change it if you disagree \u2014 proximity is not capacity.':'')}]
       .concat(cs.map(function(c){
         return {key:c.key,type:'score',label:c.label+' (weight '+c.weight+')',
                 hint:c.hint,value:prev[c.key]}; })),

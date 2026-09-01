@@ -451,6 +451,26 @@ window.CLEARSKY_CONFIG = {
       { key:'other',       label:'Other',                 hint:'' }
     ],
 
+    /* ── Grid Atlas ────────────────────────────────────────────────────────
+       Our own interconnection and grid-proximity tool, run against the site
+       address during screening \u2014 before anybody scores anything, because
+       "how far to the nearest substation" is a measurement and the score is a
+       judgement that should be made knowing it.
+
+       `enabled` stays false until grid-atlas.html exposes its analysis as a
+       module (see grid-atlas-adapter.js). Until then the console still offers
+       the tool, opening it with the address prefilled, which is one click
+       instead of a copy-paste. */
+    gridAtlas: {
+      enabled: false,
+      url: '/grid-atlas.html',
+      /* Run it automatically the first time a deal reaches screening, rather
+         than waiting to be asked. It costs nothing, it is the same lookup the
+         rep would do by hand, and having it already there is the difference
+         between a screening that happens and one that gets deferred. */
+      autoRunOnScreening: true
+    },
+
     /* ── Partner screening tool ────────────────────────────────────────────
        Which skill runs for which project type. A type absent from this map is
        not an error \u2014 it falls through to manual scoring.
