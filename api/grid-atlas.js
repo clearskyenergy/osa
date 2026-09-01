@@ -49,7 +49,7 @@
    console showed a new build stamp while the serverless function was still the
    previous one, and nothing in the reply said so. Bump this whenever the file
    changes and the answer is visible from any response. */
-const BUILD = '2026-09-01.geocode-guarded';
+const BUILD = '2026-09-01.runtime-fixed';
 
 const MODEL = {
   version: 'grid-atlas-svc-v1',
@@ -438,6 +438,12 @@ module.exports = async function handler(req, res) {
       congestion:   plants ? MODEL.congestionScore(plants) : null
     });
 
+    /* Declared before the findings that read it. It was declared below them,
+       which is a ReferenceError at runtime rather than a syntax error тАФ so
+       `node --check` passed, the file looked fine, and every request died in
+       the catch-all as "Grid Atlas failed." with the real cause swallowed. */
+    const anyLayer = substations || lines || plants;
+
     const findings = [];
     if (!anyLayer) findings.push({ severity:'note',
       text:'No grid data sources are connected to this service yet, so nothing was '
@@ -455,7 +461,6 @@ module.exports = async function handler(req, res) {
 
     /* No score means no claim. Saying "no substation found" when we never
        looked is the same lie in words that the 21 was in numbers. */
-    const anyLayer = substations || lines || plants;
     const summary = !anyLayer
       ? 'No grid layers connected yet \u2014 nothing measured.'
       : nearestSub
@@ -490,8 +495,16 @@ module.exports = async function handler(req, res) {
       findings
     });
   } catch (err) {
-    res.status(502).json({ build: BUILD, error: 'Grid Atlas failed.',
-      detail: String((err && err.message) || err).slice(0, 300) });
+    /* Name the failure. "Grid Atlas failed." on its own sent somebody looking
+       at their address when the actual cause was a variable used before it was
+       declared тАФ the message has to carry the reason or it costs more time
+       than it saves. */
+    console.error('[grid-atlas]', err);
+    res.status(502).json({
+      build: BUILD,
+      error: 'Grid Atlas failed: ' + String((err && err.message) || err).slice(0, 200),
+      detail: (err && err.stack ? String(err.stack).split('\n').slice(0, 3).join(' | ') : '')
+    });
   }
 };
 
