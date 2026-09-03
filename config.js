@@ -451,6 +451,40 @@ window.CLEARSKY_CONFIG = {
       { key:'other',       label:'Other',                 hint:'' }
     ],
 
+    /* ── The matrix ────────────────────────────────────────────────────────
+       The landing view: every project as a square on a grid, positioned by the
+       two scores the pipeline already produces, coloured by how attractive it
+       is, clickable to open.
+
+       WHY THESE TWO AXES. They are the same pair the verification partners
+       sign and the two screening tools answer \u2014 see PROCESS.md \u00a7 1:
+
+         x  Grid Atlas    feasibility   can it be built here (about the SITE)
+         y  OGI viability bankability   would it be funded  (about the DEAL)
+
+       A site can be perfectly feasible and completely unbankable, which is why
+       the two must never collapse into one number. Plotting them against each
+       other is what makes that visible at a glance: the failures separate into
+       "grid is fine, money is not" and the reverse, and those want different
+       responses.
+
+       THE BUYER'S MARKET is the top-right box \u2014 high on both. Those are the
+       projects somebody would buy to develop, which is the whole point of
+       sorting them this way rather than by stage or by date.
+
+       Both axes are swappable. If a different pair turns out to matter more,
+       change them here rather than anywhere else. */
+    matrix: {
+      x: { key:'grid',      label:'Grid \u00b7 can it be built',  short:'Grid' },
+      y: { key:'viability', label:'Bankable \u00b7 would it fund', short:'Bankable' },
+      buckets: 10,          /* 10-point bands, so 0-100 becomes a 10 x 10 grid */
+      buyersMarket: 60,     /* both scores at or above this = the red box */
+      /* Deals with neither score still have to appear somewhere. Hiding them
+         would hide most of the portfolio on day one and make the view look
+         finished when it is empty. */
+      showUnscored: true
+    },
+
     /* ── Grid Atlas ────────────────────────────────────────────────────────
        Our own interconnection and grid-proximity tool, run against the site
        address during screening \u2014 before anybody scores anything, because

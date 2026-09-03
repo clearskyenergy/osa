@@ -1144,6 +1144,97 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
+     THE MATRIX
+     ═══════════════════════════════════════════════════════════════════════
+     Every project as a square on a two-axis grid, click to open. What makes
+     it more than a pretty tile wall is the choice of axes, and the sketch
+     answers that: the red zone is the TOP-RIGHT corner, which means high on
+     both. So the axes have to be things where "more is better" and where the
+     corner genuinely means something commercial.
+
+     Default: grid score across, bankability score up. Both 0-100, both
+     already measured, and the corner where they meet is the honest definition
+     of a site capital wants \u2014 reachable grid AND numbers that clear. That is
+     the buyer's market, and it is a claim the matrix can actually support
+     rather than a colour somebody chose.
+
+     THE UNSCORED PILE IS NOT THE BOTTOM-LEFT CORNER. A project with no scores
+     yet is not a bad project, and dropping it at (0,0) would put it in the
+     worst square on the board on the strength of nothing. They sit in their
+     own tray, counted separately \u2014 the same rule that governs blank criteria
+     and unreachable grid layers. */
+  var MATRIX_AXES = [
+    { key:'grid',      label:'Grid score',    hint:'Interconnection and proximity, from Grid Atlas.',
+      get:function (d) { return d.grid.score; } },
+    { key:'viability', label:'Bankability',   hint:'The screening score from the partner tool.',
+      get:function (d) { return d.viability.score; } },
+    { key:'sizeMw',    label:'Size (MW)',     hint:'Nameplate. Bigger is not always better \u2014 read it as scale, not quality.',
+      get:function (d) { return d.sizeMw; } },
+    { key:'capex',     label:'Capex',         hint:'What it costs to build.',
+      get:function (d) { return d.capexUsd; } },
+    { key:'stageRank', label:'How far it got',hint:'Position on the pipeline.',
+      get:function (d) { return stageOf(d.stage).rank; } }
+  ];
+  function matrixAxis(k) {
+    for (var i=0;i<MATRIX_AXES.length;i++) if (MATRIX_AXES[i].key === k) return MATRIX_AXES[i];
+    return MATRIX_AXES[0];
+  }
+
+  /* Places each deal on a `size` x `size` grid. Values are normalised against
+     the RANGE PRESENT IN THE PORTFOLIO rather than a fixed 0-100, because a
+     book where every grid score sits between 40 and 60 would otherwise render
+     as one column and tell you nothing about which of them is better. */
+  function matrix(list, opts) {
+    opts = opts || {};
+    var size = opts.size || 10;
+    var ax = matrixAxis(opts.x || 'grid');
+    var ay = matrixAxis(opts.y || 'viability');
+
+    var live = counted(list).filter(function (d) { return !isExit(d.stage); });
+    var placed = [], unscored = [];
+
+    live.forEach(function (d) {
+      var xv = ax.get(d), yv = ay.get(d);
+      /* Missing EITHER axis means it cannot be placed honestly. */
+      if (xv == null || yv == null) { unscored.push(d); return; }
+      placed.push({ deal:d, xv:num(xv), yv:num(yv) });
+    });
+
+    function range(vals) {
+      if (!vals.length) return { lo:0, hi:1 };
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+      if (hi === lo) { lo = lo - 1; hi = hi + 1; }   /* avoid a divide by zero */
+      return { lo:lo, hi:hi };
+    }
+    var rx = range(placed.map(function (p) { return p.xv; }));
+    var ry = range(placed.map(function (p) { return p.yv; }));
+
+    var cells = {};
+    placed.forEach(function (p) {
+      var cx = Math.min(size-1, Math.floor((p.xv - rx.lo) / (rx.hi - rx.lo) * size));
+      var cy = Math.min(size-1, Math.floor((p.yv - ry.lo) / (ry.hi - ry.lo) * size));
+      var k = cx + ':' + cy;
+      (cells[k] = cells[k] || { x:cx, y:cy, deals:[] }).deals.push(p.deal);
+      p.cx = cx; p.cy = cy;
+    });
+
+    /* The buyer's market: the top-right block. Its size is a setting because
+       "how much of the board counts as attractive" is a commercial judgement,
+       not a fact. */
+    var band = opts.band || 3;
+    var hot = Object.keys(cells).filter(function (k) {
+      return cells[k].x >= size - band && cells[k].y >= size - band;
+    }).reduce(function (n, k) { return n + cells[k].deals.length; }, 0);
+
+    return {
+      size:size, band:band, x:ax, y:ay,
+      cells:cells, placed:placed, unscored:unscored,
+      ranges:{ x:rx, y:ry },
+      hot:hot, total:placed.length + unscored.length
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
      ONE NEXT STEP
      ═══════════════════════════════════════════════════════════════════════
      The console shows everything a deal has at once, which is right for
@@ -1299,6 +1390,68 @@
       return S('none','Operating','Nothing outstanding.','—');
 
     return S('none','\u2014','','—');
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     THE MATRIX
+     ═══════════════════════════════════════════════════════════════════════
+     Every project placed on a grid by its two scores. Returns the cells, not
+     the markup \u2014 so the same shape can back a rendered grid, an export, or a
+     partner-facing summary without any of them re-deriving it. */
+  function matrixCfg() { return (cfg().portfolio || {}).matrix || {}; }
+
+  function scoreOn(deal, axisKey) {
+    if (axisKey === 'grid')      return deal.grid ? deal.grid.score : null;
+    if (axisKey === 'viability') return deal.viability ? deal.viability.score : null;
+    if (axisKey === 'size')      return deal.sizeMw;
+    if (axisKey === 'capex')     return deal.capexUsd;
+    return null;
+  }
+
+  function matrix(list) {
+    var m = matrixCfg();
+    var band = m.buckets || 10;
+    var n = Math.round(100 / band);          /* 10 bands of 10 */
+    var xKey = (m.x || {}).key || 'grid';
+    var yKey = (m.y || {}).key || 'viability';
+    var bar = m.buyersMarket != null ? m.buyersMarket : 60;
+
+    var cells = {}, unscored = [], placed = 0;
+    counted(list).forEach(function (d) {
+      if (isExit(d.stage)) return;
+      var x = scoreOn(d, xKey), y = scoreOn(d, yKey);
+      if (x == null || y == null) { unscored.push(d); return; }
+      /* Clamp to the last band so a 100 lands in the top cell rather than
+         falling off the edge into an index that does not exist. */
+      var xi = Math.min(n - 1, Math.floor(x / band));
+      var yi = Math.min(n - 1, Math.floor(y / band));
+      var k = xi + ':' + yi;
+      (cells[k] = cells[k] || { xi:xi, yi:yi, deals:[] }).deals.push(d);
+      placed++;
+    });
+
+    var out = [];
+    for (var yi = n - 1; yi >= 0; yi--) {        /* top row is the highest y */
+      var row = [];
+      for (var xi = 0; xi < n; xi++) {
+        var c = cells[xi + ':' + yi] || { xi:xi, yi:yi, deals:[] };
+        c.xLo = xi * band; c.xHi = xi * band + band - 1;
+        c.yLo = yi * band; c.yHi = yi * band + band - 1;
+        /* In the buyer's market when the whole band clears the bar, not just
+           its top edge \u2014 a cell spanning 55-64 is not "above 60". */
+        c.buyers = c.xLo >= bar && c.yLo >= bar;
+        c.heat = c.deals.length ? (c.xLo + c.yLo) / 2 : null;
+        row.push(c);
+      }
+      out.push(row);
+    }
+    return {
+      rows: out, unscored: unscored, placed: placed, band: band, bar: bar,
+      xLabel: (m.x || {}).label || 'Grid', yLabel: (m.y || {}).label || 'Bankable',
+      buyersCount: out.reduce(function (a, r) {
+        return a + r.reduce(function (b, c) {
+          return b + (c.buyers ? c.deals.length : 0); }, 0); }, 0)
+    };
   }
 
   /* ── Project type ────────────────────────────────────────────────────────
@@ -2336,6 +2489,8 @@
     addLink:addLink, updateLink:updateLink, removeLink:removeLink, rename:rename,
     uploadDoc:uploadDoc, fmtBytes:fmtBytes, maxUploadMb:maxUploadMb,
     projectTypes:projectTypes, typeOf:typeOf, setProjectType:setProjectType,
+    matrix:matrix, scoreOn:scoreOn,
+    MATRIX_AXES:MATRIX_AXES, matrixAxis:matrixAxis, matrix:matrix,
     nextStep:nextStep,
     savePrescreen:savePrescreen, financePartners:financePartners,
     financePartnerOf:financePartnerOf, applyFundingSchedule:applyFundingSchedule,
